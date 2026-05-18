@@ -12,7 +12,7 @@ dist/
 build/
 *.class
 *.jar
-!gradle/wrapper/gradle-wrapper.jar
+!**/gradle/wrapper/gradle-wrapper.jar
 
 # IDEs
 .idea/
