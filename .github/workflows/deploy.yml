@@ -1,0 +1,69 @@
+name: Deploy to production
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+jobs:
+  build-and-push:
+    name: Build & push images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./infra/docker/Dockerfile.backend
+          push: true
+          tags: ghcr.io/${{ github.repository }}/backend:${{ github.sha }},ghcr.io/${{ github.repository }}/backend:latest
+
+      - name: Build web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./infra/docker/Dockerfile.web
+          push: true
+          build-args: |
+            NEXT_PUBLIC_WS_URL=${{ vars.NEXT_PUBLIC_WS_URL || 'wss://api.zeyvo.app' }}
+            NEXT_PUBLIC_TG_BOT_USERNAME=${{ vars.NEXT_PUBLIC_TG_BOT_USERNAME || 'zeyvo_bot' }}
+          tags: ghcr.io/${{ github.repository }}/web:${{ github.sha }},ghcr.io/${{ github.repository }}/web:latest
+
+  deploy:
+    name: Deploy to droplet
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DROPLET_HOST }}
+          username: ${{ secrets.DROPLET_USER }}
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          script: |
+            cd /opt/zeyvo
+            if grep -q '^IMAGE_TAG=' .env; then
+              sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=${{ github.sha }}|" .env
+            else
+              echo "IMAGE_TAG=${{ github.sha }}" >> .env
+            fi
+            docker compose -f infra/docker/docker-compose.prod.yml pull backend web
+            docker compose -f infra/docker/docker-compose.prod.yml up -d backend web
+            until docker exec zeyvo-backend wget -qO- http://localhost:8080/api/actuator/health 2>/dev/null; do sleep 3; done
+            echo "Deploy complete: ${{ github.sha }}"

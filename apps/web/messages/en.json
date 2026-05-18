@@ -1,0 +1,41 @@
+{
+  "app": {
+    "name": "zeyvo",
+    "tagline": "A navigation system for real-world waiting."
+  },
+  "queue": {
+    "find": "Find a queue",
+    "near_you": "{count} branches near you",
+    "join": "Join queue",
+    "cancel": "Cancel ticket",
+    "ticket_number": "Ticket {number}",
+    "ahead": "{count, plural, =0 {You're next!} one {# ahead} other {# ahead}}",
+    "eta": "~{minutes} min",
+    "your_turn": "It's your turn",
+    "status": {
+      "waiting": "Waiting",
+      "called": "Being called",
+      "serving": "Now serving",
+      "served": "Visit complete",
+      "no_show": "Missed",
+      "cancelled": "Cancelled"
+    }
+  },
+  "auth": {
+    "sign_in": "Sign in",
+    "sign_up": "Sign up",
+    "phone": "Phone number",
+    "otp_sent": "Code sent to {phone}",
+    "enter_otp": "Enter 6-digit code",
+    "verify": "Verify",
+    "continue_telegram": "Continue with Telegram"
+  },
+  "notification": {
+    "near_turn": "Almost your turn · {number}",
+    "near_turn_body": "{ahead} ahead. Head to the branch now.",
+    "your_turn": "It's your turn — {number}",
+    "your_turn_body": "Window {window} is calling you.",
+    "served": "Visit complete · {number}",
+    "served_body": "Thanks for using zeyvo. Rate your visit?"
+  }
+}

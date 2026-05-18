@@ -1,0 +1,106 @@
+# Production — single DigitalOcean droplet
+# Usage: docker compose -f docker-compose.prod.yml up -d
+services:
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: zeyvo-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../nginx/zeyvo.conf:/etc/nginx/conf.d/default.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - nginx-cache:/var/cache/nginx
+    depends_on:
+      - backend
+      - web
+
+  backend:
+    image: ghcr.io/zeyvo/backend:${IMAGE_TAG:-latest}
+    container_name: zeyvo-backend
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET}
+      ESKIZ_EMAIL: ${ESKIZ_EMAIL}
+      ESKIZ_PASSWORD: ${ESKIZ_PASSWORD}
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/api/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    # NOTE: NEXT_PUBLIC_* values are inlined into the image at build time (see CI workflow).
+    # Runtime env only sets BACKEND_URL (used by Next.js rewrites at request time).
+    image: ghcr.io/zeyvo/web:${IMAGE_TAG:-latest}
+    container_name: zeyvo-web
+    restart: unless-stopped
+    environment:
+      BACKEND_URL: http://backend:8080
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    container_name: zeyvo-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: zeyvo-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pg-data:
+  redis-data:
+  nginx-cache:

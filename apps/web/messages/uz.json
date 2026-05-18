@@ -1,0 +1,41 @@
+{
+  "app": {
+    "name": "zeyvo",
+    "tagline": "Haqiqiy kutish uchun navigatsiya tizimi."
+  },
+  "queue": {
+    "find": "Navbat topish",
+    "near_you": "Yaqinida {count} ta filial",
+    "join": "Navbatga kirish",
+    "cancel": "Biletni bekor qilish",
+    "ticket_number": "{number} raqamli bilet",
+    "ahead": "{count, plural, =0 {Siz keyingisisiz!} one {# kishi oldinda} other {# kishi oldinda}}",
+    "eta": "~{minutes} daqiqa",
+    "your_turn": "Navbatingiz keldi",
+    "status": {
+      "waiting": "Kutmoqda",
+      "called": "Chaqirilmoqda",
+      "serving": "Xizmat ko'rsatilmoqda",
+      "served": "Xizmat yakunlandi",
+      "no_show": "Kelmadi",
+      "cancelled": "Bekor qilindi"
+    }
+  },
+  "auth": {
+    "sign_in": "Kirish",
+    "sign_up": "Ro'yxatdan o'tish",
+    "phone": "Telefon raqami",
+    "otp_sent": "{phone} ga kod yuborildi",
+    "enter_otp": "6 xonali kodni kiriting",
+    "verify": "Tasdiqlash",
+    "continue_telegram": "Telegram orqali davom etish"
+  },
+  "notification": {
+    "near_turn": "Tez orada navbatingiz · {number}",
+    "near_turn_body": "Oldinda {ahead} kishi. Filialni tomon yo'l oling.",
+    "your_turn": "Navbatingiz keldi — {number}",
+    "your_turn_body": "{window}-deraza sizni chaqirmoqda.",
+    "served": "Xizmat yakunlandi · {number}",
+    "served_body": "Zeyvodan foydalanganingiz uchun rahmat. Baholaysizmi?"
+  }
+}

@@ -1,0 +1,39 @@
+# ── Build stage ───────────────────────────────────────────────────────────────
+FROM eclipse-temurin:21-jdk-alpine AS build
+WORKDIR /workspace
+
+COPY gradlew gradlew
+COPY gradle gradle
+COPY settings.gradle.kts build.gradle.kts ./
+COPY app/build.gradle.kts app/build.gradle.kts
+COPY common-web/build.gradle.kts common-web/build.gradle.kts
+COPY module-auth/build.gradle.kts module-auth/build.gradle.kts
+COPY module-queue/build.gradle.kts module-queue/build.gradle.kts
+COPY module-tenant/build.gradle.kts module-tenant/build.gradle.kts
+COPY module-notification/build.gradle.kts module-notification/build.gradle.kts
+COPY module-analytics/build.gradle.kts module-analytics/build.gradle.kts
+COPY module-realtime/build.gradle.kts module-realtime/build.gradle.kts
+COPY module-adapter/build.gradle.kts module-adapter/build.gradle.kts
+
+# Download deps (cached layer)
+RUN ./gradlew dependencies --no-daemon 2>/dev/null || true
+
+COPY . .
+RUN ./gradlew :app:bootJar --no-daemon -x test
+
+# ── Runtime stage ─────────────────────────────────────────────────────────────
+FROM eclipse-temurin:21-jre-alpine AS runtime
+WORKDIR /app
+
+RUN addgroup -S zeyvo && adduser -S zeyvo -G zeyvo
+USER zeyvo
+
+COPY --from=build /workspace/app/build/libs/zeyvo.jar ./zeyvo.jar
+
+EXPOSE 8080
+
+ENTRYPOINT ["java", \
+  "-XX:+UseG1GC", \
+  "-XX:MaxRAMPercentage=70", \
+  "-Djava.security.egd=file:/dev/./urandom", \
+  "-jar", "zeyvo.jar"]

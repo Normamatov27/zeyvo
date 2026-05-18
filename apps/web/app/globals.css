@@ -1,0 +1,159 @@
+/* zeyvo design tokens — ported from tokens.css
+   Uses Tailwind 4 @theme directive to register design tokens as CSS variables.
+*/
+
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme inline {
+  /* Fonts */
+  --font-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', monospace;
+
+  /* Surfaces (light) */
+  --color-bg:        oklch(0.985 0.003 250);
+  --color-bg-2:      oklch(0.97 0.004 250);
+  --color-surface:   oklch(1 0 0);
+  --color-surface-2: oklch(0.985 0.003 250);
+  --color-surface-3: oklch(0.965 0.005 250);
+  --color-border:    oklch(0.92 0.006 250);
+  --color-border-2:  oklch(0.87 0.008 250);
+  --color-hairline:  oklch(0.94 0.005 250);
+
+  /* Text */
+  --color-fg:       oklch(0.18 0.02 260);
+  --color-fg-2:     oklch(0.36 0.015 260);
+  --color-fg-3:     oklch(0.55 0.012 260);
+  --color-fg-4:     oklch(0.72 0.01 260);
+  --color-fg-inv:   oklch(0.98 0.003 250);
+
+  /* Brand */
+  --color-primary:       oklch(0.5 0.18 262);
+  --color-primary-2:     oklch(0.44 0.19 262);
+  --color-primary-soft:  oklch(0.95 0.04 262);
+  --color-primary-fg:    oklch(0.98 0.003 250);
+  --color-accent:        oklch(0.72 0.14 220);
+  --color-accent-2:      oklch(0.78 0.14 220);
+  --color-accent-soft:   oklch(0.95 0.04 220);
+  --color-violet:        oklch(0.6 0.18 295);
+  --color-violet-soft:   oklch(0.95 0.04 295);
+
+  /* Status */
+  --color-success:       oklch(0.62 0.14 150);
+  --color-success-soft:  oklch(0.95 0.04 150);
+  --color-warning:       oklch(0.74 0.15 70);
+  --color-warning-soft:  oklch(0.96 0.04 80);
+  --color-danger:        oklch(0.58 0.2 25);
+  --color-danger-soft:   oklch(0.95 0.04 25);
+
+  /* Radius */
+  --radius-1: 4px;
+  --radius-2: 6px;
+  --radius-3: 10px;
+  --radius-4: 14px;
+  --radius-5: 20px;
+  --radius-pill: 999px;
+
+  /* Shadows */
+  --shadow-1: 0 1px 0 oklch(0.18 0.02 260 / 0.04);
+  --shadow-2: 0 1px 2px oklch(0.18 0.02 260 / 0.06), 0 1px 0 oklch(0.18 0.02 260 / 0.03);
+  --shadow-3: 0 4px 16px oklch(0.18 0.02 260 / 0.06), 0 1px 2px oklch(0.18 0.02 260 / 0.04);
+  --shadow-4: 0 12px 36px oklch(0.18 0.02 260 / 0.08), 0 2px 4px oklch(0.18 0.02 260 / 0.04);
+}
+
+/* Dark mode via .dark class (matches Telegram dark-first theming) */
+.dark {
+  --color-bg:        oklch(0.18 0.025 262);
+  --color-bg-2:      oklch(0.21 0.025 262);
+  --color-surface:   oklch(0.22 0.025 262);
+  --color-surface-2: oklch(0.25 0.025 262);
+  --color-surface-3: oklch(0.28 0.025 262);
+  --color-border:    oklch(0.32 0.02 262);
+  --color-border-2:  oklch(0.38 0.02 262);
+  --color-hairline:  oklch(0.27 0.02 262);
+
+  --color-fg:     oklch(0.97 0.005 250);
+  --color-fg-2:   oklch(0.82 0.01 250);
+  --color-fg-3:   oklch(0.65 0.012 250);
+  --color-fg-4:   oklch(0.5 0.012 250);
+  --color-fg-inv: oklch(0.18 0.025 262);
+
+  --color-primary:      oklch(0.7 0.16 262);
+  --color-primary-2:    oklch(0.75 0.16 262);
+  --color-primary-soft: oklch(0.32 0.08 262);
+  --color-primary-fg:   oklch(0.12 0.04 262);
+  --color-accent:       oklch(0.78 0.14 220);
+  --color-accent-2:     oklch(0.84 0.14 220);
+  --color-accent-soft:  oklch(0.32 0.07 220);
+  --color-violet:       oklch(0.72 0.16 295);
+  --color-violet-soft:  oklch(0.32 0.08 295);
+
+  --color-success-soft: oklch(0.3 0.06 150);
+  --color-warning-soft: oklch(0.3 0.06 70);
+  --color-danger-soft:  oklch(0.3 0.08 25);
+}
+
+html, body {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'cv11', 'ss01', 'ss03';
+}
+
+* { box-sizing: border-box; }
+::selection { background: var(--color-primary); color: var(--color-primary-fg); }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border-2); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-fg-4); }
+
+/* Live pulse animation (for active ticket indicator) */
+@keyframes z-pulse {
+  0%   { transform: scale(0.85); opacity: 0.65; }
+  100% { transform: scale(2.2);  opacity: 0; }
+}
+.z-live::after {
+  content: ''; position: absolute; inset: 0;
+  border-radius: inherit; border: 1.5px solid currentColor;
+  animation: z-pulse 1.8s cubic-bezier(0.2,0.6,0.4,1) infinite;
+}
+
+/* Generic fade pulse (skeleton loading) */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Skeleton shimmer */
+@keyframes z-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.z-skel {
+  background: linear-gradient(90deg,
+    var(--color-surface-2) 0%,
+    var(--color-surface-3) 50%,
+    var(--color-surface-2) 100%);
+  background-size: 200% 100%;
+  animation: z-shimmer 1.6s linear infinite;
+  border-radius: 6px;
+}
+
+/* Tick-in animation */
+@keyframes z-tick {
+  0% { transform: translateY(8px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+.z-tick { animation: z-tick .4s cubic-bezier(.2,.7,.3,1) both; }
+
+/* Spinner for loading states */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .z-live::after, .z-skel { animation: none; }
+}

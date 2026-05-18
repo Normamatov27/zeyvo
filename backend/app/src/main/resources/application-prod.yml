@@ -1,0 +1,39 @@
+spring:
+  jpa:
+    properties:
+      hibernate:
+        format_sql: false
+  flyway:
+    baseline-on-migrate: false
+    out-of-order: false
+
+  hikari:
+    maximum-pool-size: 30
+    minimum-idle: 10
+    connection-timeout: 20000
+    idle-timeout: 300000
+    max-lifetime: 1200000
+
+logging:
+  level:
+    root: WARN
+    com.zeyvo: INFO
+    org.springframework.web: WARN
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN
+  pattern:
+    console: '{"ts":"%d{yyyy-MM-dd HH:mm:ss.SSS}","level":"%p","logger":"%logger{36}","msg":"%msg"}%n'
+
+server:
+  error:
+    include-stacktrace: never
+    include-message: never
+
+management:
+  endpoint:
+    health:
+      show-details: never
+
+zeyvo:
+  rate-limit:
+    enabled: true

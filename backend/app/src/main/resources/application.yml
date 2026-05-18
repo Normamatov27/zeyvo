@@ -1,0 +1,101 @@
+spring:
+  application:
+    name: zeyvo
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:127.0.0.1}:5432/${POSTGRES_DB:zeyvo}
+    username: ${POSTGRES_USER:zeyvo}
+    password: ${POSTGRES_PASSWORD:changeme}
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 20000
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+        default_schema: app
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+    out-of-order: false
+
+  data:
+    redis:
+      url: ${REDIS_URL:redis://127.0.0.1:6379}
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+
+  threads:
+    virtual:
+      enabled: true
+
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+    default-property-inclusion: NON_NULL
+
+  cache:
+    type: redis
+    redis:
+      time-to-live: 60s
+
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+  forward-headers-strategy: framework
+  compression:
+    enabled: true
+    mime-types: application/json,text/html
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+springdoc:
+  api-docs:
+    path: /v1/openapi.json
+  swagger-ui:
+    path: /v1/docs
+    operationsSorter: alpha
+
+zeyvo:
+  jwt:
+    secret: ${JWT_SECRET:}
+    expiry-minutes: ${JWT_EXPIRY_MINUTES:15}
+    refresh-days: ${JWT_REFRESH_DAYS:30}
+  telegram:
+    bot-token: ${TELEGRAM_BOT_TOKEN:}
+    bot-username: ${TELEGRAM_BOT_USERNAME:zeyvo_bot}
+    webhook-secret: ${TELEGRAM_WEBHOOK_SECRET:}
+  eskiz:
+    email: ${ESKIZ_EMAIL:}
+    password: ${ESKIZ_PASSWORD:}
+  rate-limit:
+    tickets-per-minute: 5
+    global-per-minute: 60
+  queue:
+    no-show-timeout-minutes: ${NO_SHOW_TIMEOUT_MINUTES:3}
+    no-show-check-interval-ms: ${NO_SHOW_CHECK_INTERVAL_MS:60000}

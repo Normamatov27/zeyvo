@@ -1,0 +1,84 @@
+[versions]
+spring-boot       = "3.4.1"
+spring-ai         = "1.0.0"
+spring-dep-mgmt   = "1.1.7"
+java              = "21"
+mapstruct         = "1.6.3"
+lombok            = "1.18.36"
+testcontainers    = "1.20.4"
+springdoc         = "2.7.0"
+archunit          = "1.3.0"
+jooq              = "3.19.15"
+flyway            = "10.21.0"
+bucket4j          = "8.10.1"
+shedlock          = "6.0.2"
+pengrad-telegram  = "7.10.0"
+rest-assured      = "5.5.0"
+
+[libraries]
+# Spring Boot starters
+spring-boot-starter-web        = { module = "org.springframework.boot:spring-boot-starter-web" }
+spring-boot-starter-websocket  = { module = "org.springframework.boot:spring-boot-starter-websocket" }
+spring-boot-starter-security   = { module = "org.springframework.boot:spring-boot-starter-security" }
+spring-boot-starter-data-jpa   = { module = "org.springframework.boot:spring-boot-starter-data-jpa" }
+spring-boot-starter-amqp       = { module = "org.springframework.boot:spring-boot-starter-amqp" }
+spring-boot-starter-cache      = { module = "org.springframework.boot:spring-boot-starter-cache" }
+spring-boot-starter-validation = { module = "org.springframework.boot:spring-boot-starter-validation" }
+spring-boot-starter-actuator   = { module = "org.springframework.boot:spring-boot-starter-actuator" }
+spring-boot-starter-test       = { module = "org.springframework.boot:spring-boot-starter-test" }
+
+# Spring Boot BOM (for native platform() import in non-app modules)
+spring-boot-bom                = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "spring-boot" }
+
+# Spring AI
+spring-ai-bom                  = { module = "org.springframework.ai:spring-ai-bom", version.ref = "spring-ai" }
+spring-ai-openai-starter       = { module = "org.springframework.ai:spring-ai-openai-spring-boot-starter" }
+
+# Database
+postgresql                     = { module = "org.postgresql:postgresql" }
+flyway-core                    = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
+flyway-postgres                = { module = "org.flywaydb:flyway-database-postgresql", version.ref = "flyway" }
+jooq                           = { module = "org.jooq:jooq", version.ref = "jooq" }
+
+# Redis
+spring-data-redis              = { module = "org.springframework.boot:spring-boot-starter-data-redis" }
+
+# JWT
+jjwt-api                       = { module = "io.jsonwebtoken:jjwt-api", version = "0.12.6" }
+jjwt-impl                      = { module = "io.jsonwebtoken:jjwt-impl", version = "0.12.6" }
+jjwt-jackson                   = { module = "io.jsonwebtoken:jjwt-jackson", version = "0.12.6" }
+
+# Code gen
+lombok                         = { module = "org.projectlombok:lombok", version.ref = "lombok" }
+mapstruct                      = { module = "org.mapstruct:mapstruct", version.ref = "mapstruct" }
+mapstruct-processor            = { module = "org.mapstruct:mapstruct-processor", version.ref = "mapstruct" }
+
+# Rate limiting
+bucket4j-core                  = { module = "com.bucket4j:bucket4j-core", version.ref = "bucket4j" }
+bucket4j-redis                 = { module = "com.bucket4j:bucket4j-redis", version.ref = "bucket4j" }
+
+# ShedLock
+shedlock-spring                = { module = "net.javacrumbs.shedlock:shedlock-spring", version.ref = "shedlock" }
+shedlock-jdbc                  = { module = "net.javacrumbs.shedlock:shedlock-provider-jdbc-template", version.ref = "shedlock" }
+
+# API docs
+springdoc-openapi              = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
+
+# Observability
+micrometer-prometheus          = { module = "io.micrometer:micrometer-registry-prometheus" }
+
+# Telegram
+pengrad-telegram               = { module = "com.github.pengrad:java-telegram-bot-api", version.ref = "pengrad-telegram" }
+
+# Test
+testcontainers-bom             = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
+testcontainers-junit           = { module = "org.testcontainers:junit-jupiter" }
+testcontainers-postgres        = { module = "org.testcontainers:postgresql" }
+testcontainers-rabbitmq        = { module = "org.testcontainers:rabbitmq" }
+archunit                       = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
+rest-assured                   = { module = "io.rest-assured:rest-assured", version.ref = "rest-assured" }
+rest-assured-json              = { module = "io.rest-assured:json-path", version.ref = "rest-assured" }
+
+[plugins]
+spring-boot          = { id = "org.springframework.boot", version.ref = "spring-boot" }
+spring-dep-mgmt      = { id = "io.spring.dependency-management", version.ref = "spring-dep-mgmt" }

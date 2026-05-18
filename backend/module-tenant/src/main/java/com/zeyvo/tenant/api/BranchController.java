@@ -1,0 +1,164 @@
+package com.zeyvo.tenant.api;
+
+import com.zeyvo.common.web.DomainException;
+import com.zeyvo.tenant.api.dto.*;
+import com.zeyvo.tenant.service.TenantService;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.UUID;
+
+@RestController
+@Tag(name = "Branches")
+@RequiredArgsConstructor
+public class BranchController {
+
+    private final TenantService tenantService;
+
+    @GetMapping("/v1/branches")
+    @Operation(summary = "List all active branches")
+    public List<BranchDto> list() {
+        return tenantService.listBranches();
+    }
+
+    @GetMapping("/v1/branches/{id}")
+    @Operation(summary = "Get branch details with services and windows")
+    public BranchDetailDto get(@PathVariable UUID id) {
+        return tenantService.getBranchDetail(id);
+    }
+
+    @GetMapping("/v1/branches/{id}/services")
+    @Operation(summary = "List active services for a branch")
+    public List<ServiceDto> services(@PathVariable UUID id) {
+        return tenantService.listServices(id);
+    }
+
+    @GetMapping("/v1/branches/{id}/windows")
+    @Operation(summary = "List windows for a branch")
+    public List<WindowDeskDto> windows(@PathVariable UUID id) {
+        return tenantService.listWindows(id);
+    }
+
+    @PostMapping("/v1/branches")
+    @ResponseStatus(HttpStatus.CREATED)
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'SUPER_ADMIN')")
+    @Operation(summary = "Create a new branch")
+    public BranchDetailDto createBranch(@Valid @RequestBody CreateBranchRequest req,
+                                        Authentication auth) {
+        UUID orgId = resolveOrgId(auth);
+        return tenantService.createBranch(orgId, req);
+    }
+
+    @PostMapping("/v1/branches/{id}/windows")
+    @ResponseStatus(HttpStatus.CREATED)
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'MANAGER', 'SUPER_ADMIN')")
+    @Operation(summary = "Add a window to a branch")
+    public WindowDeskDto createWindow(@PathVariable UUID id,
+                                      @Valid @RequestBody CreateWindowRequest req) {
+        return tenantService.createWindow(id, req);
+    }
+
+    @PostMapping("/v1/branches/{id}/services")
+    @ResponseStatus(HttpStatus.CREATED)
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'MANAGER', 'SUPER_ADMIN')")
+    @Operation(summary = "Add a service to a branch")
+    public ServiceDto createService(@PathVariable UUID id,
+                                    @Valid @RequestBody CreateServiceRequest req) {
+        return tenantService.createService(id, req);
+    }
+
+    @PatchMapping("/v1/services/{serviceId}/active")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'MANAGER', 'SUPER_ADMIN')")
+    @Operation(summary = "Toggle service active state")
+    public ServiceDto toggleService(@PathVariable UUID serviceId,
+                                    @RequestParam boolean active) {
+        return tenantService.toggleService(serviceId, active);
+    }
+
+    @PatchMapping("/v1/services/{serviceId}")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'MANAGER', 'SUPER_ADMIN')")
+    @Operation(summary = "Update service details")
+    public ServiceDto updateService(@PathVariable UUID serviceId,
+                                    @RequestBody UpdateServiceRequest req) {
+        return tenantService.updateService(serviceId, req);
+    }
+
+    @DeleteMapping("/v1/services/{serviceId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'SUPER_ADMIN')")
+    @Operation(summary = "Delete a service")
+    public void deleteService(@PathVariable UUID serviceId) {
+        tenantService.deleteService(serviceId);
+    }
+
+    @PatchMapping("/v1/branches/{id}")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'SUPER_ADMIN')")
+    @Operation(summary = "Update branch settings")
+    public BranchDetailDto updateBranch(@PathVariable UUID id,
+                                        @RequestBody UpdateBranchRequest req) {
+        return tenantService.updateBranch(id, req);
+    }
+
+    @PatchMapping("/v1/windows/{windowId}")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'MANAGER', 'SUPER_ADMIN')")
+    @Operation(summary = "Update window label and service filter")
+    public WindowDeskDto updateWindow(@PathVariable UUID windowId,
+                                      @RequestBody UpdateWindowRequest req) {
+        return tenantService.updateWindow(windowId, req);
+    }
+
+    @DeleteMapping("/v1/windows/{windowId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'SUPER_ADMIN')")
+    @Operation(summary = "Delete a window (must not be serving a ticket)")
+    public void deleteWindow(@PathVariable UUID windowId) {
+        tenantService.deleteWindow(windowId);
+    }
+
+    @GetMapping("/v1/branches/{id}/operating-hours")
+    @Operation(summary = "Get operating hours for a branch")
+    public List<OperatingHoursDto> getHours(@PathVariable UUID id) {
+        return tenantService.getOperatingHours(id);
+    }
+
+    @PutMapping("/v1/branches/{id}/operating-hours")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'MANAGER', 'SUPER_ADMIN')")
+    @Operation(summary = "Replace operating hours for a branch (full replace)")
+    public List<OperatingHoursDto> setHours(@PathVariable UUID id,
+                                             @RequestBody List<OperatingHoursDto> hours) {
+        return tenantService.setOperatingHours(id, hours);
+    }
+
+    private UUID resolveOrgId(Authentication auth) {
+        // auth.getDetails() is io.jsonwebtoken.Claims which implements Map<String,Object>
+        if (auth != null && auth.getDetails() instanceof java.util.Map<?, ?> claims) {
+            Object orgId = claims.get("org_id");
+            if (orgId instanceof String s && !s.isBlank()) return UUID.fromString(s);
+        }
+        // No org_id in JWT — user exists but has no organization. Deny rather than silently
+        // assigning to the wrong tenant.
+        throw new DomainException("auth.no_organization",
+                "Your account is not linked to any organization. Contact support.",
+                HttpStatus.FORBIDDEN);
+    }
+}

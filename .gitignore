@@ -1,0 +1,38 @@
+# Node
+node_modules/
+.pnpm-store/
+.turbo/
+.next/
+out/
+dist/
+.cache/
+
+# Java / Gradle
+.gradle/
+build/
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# Env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+infra/docker/data/
+
+# Logs
+*.log
+logs/

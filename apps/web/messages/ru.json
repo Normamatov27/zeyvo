@@ -1,0 +1,41 @@
+{
+  "app": {
+    "name": "zeyvo",
+    "tagline": "Навигационная система для реального ожидания."
+  },
+  "queue": {
+    "find": "Найти очередь",
+    "near_you": "{count} филиалов рядом",
+    "join": "Встать в очередь",
+    "cancel": "Отменить талон",
+    "ticket_number": "Талон {number}",
+    "ahead": "{count, plural, =0 {Вы следующий!} one {# впереди} few {# впереди} other {# впереди}}",
+    "eta": "~{minutes} мин",
+    "your_turn": "Ваша очередь",
+    "status": {
+      "waiting": "Ожидание",
+      "called": "Вызывают",
+      "serving": "Обслуживают",
+      "served": "Готово",
+      "no_show": "Не явился",
+      "cancelled": "Отменён"
+    }
+  },
+  "auth": {
+    "sign_in": "Войти",
+    "sign_up": "Регистрация",
+    "phone": "Номер телефона",
+    "otp_sent": "Код отправлен на {phone}",
+    "enter_otp": "Введите 6-значный код",
+    "verify": "Подтвердить",
+    "continue_telegram": "Продолжить через Telegram"
+  },
+  "notification": {
+    "near_turn": "Скоро ваша очередь · {number}",
+    "near_turn_body": "Впереди {ahead}. Выезжайте в филиал.",
+    "your_turn": "Ваша очередь — {number}",
+    "your_turn_body": "Окно {window} вызывает вас.",
+    "served": "Визит завершён · {number}",
+    "served_body": "Спасибо за использование zeyvo. Оцените визит?"
+  }
+}

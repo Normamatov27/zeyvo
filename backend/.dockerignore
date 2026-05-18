@@ -1,0 +1,15 @@
+build/
+*/build/
+*/*/build/
+.gradle/
+*/.gradle/
+*.log
+logs/
+.idea/
+.vscode/
+*.iml
+**/.DS_Store
+backend-err.log
+backend.log
+zeyvo-err.log
+zeyvo-out.log
