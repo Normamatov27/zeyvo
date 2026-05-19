@@ -62,18 +62,24 @@ export default function SignagePage() {
   useEffect(() => {
     async function loadTickets() {
       try {
-        const t = await apiFetchAnon<Ticket[]>(`/api/v1/signage/${branchId}`).then(r => (r as any).tickets ?? r);
-        updateTickets(t);
+        const snap = await apiFetchAnon<{ tickets: Ticket[] }>(`/api/v1/signage/${branchId}`);
+        updateTickets(snap?.tickets ?? []);
       } catch {}
     }
 
     async function load() {
       try {
         // /v1/signage/{branchId} is public and has everything needed
-        const snap = await apiFetchAnon<{ name: string; shortName?: string; tickets: Ticket[] }>(
-          `/api/v1/signage/${branchId}`
-        );
-        setBranch({ id: branchId, name: snap.name } as unknown as BranchDetail);
+        const snap = await apiFetchAnon<{
+          name: string; shortName?: string;
+          tickets: Ticket[]; windows: { id: string; number: number; label: string | null; status: string }[];
+          address?: string;
+        }>(`/api/v1/signage/${branchId}`);
+        setBranch({
+          id: branchId,
+          name: snap.name,
+          windows: (snap.windows ?? []) as any,
+        } as unknown as BranchDetail);
         const t = snap.tickets ?? [];
         // Initial load: don't flash existing serving tickets
         const serving = t.filter((tk) => tk.status === "serving" || tk.status === "called");
@@ -161,7 +167,7 @@ export default function SignagePage() {
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               {serving.slice(0, 6).map((t) => {
-                const win = branch?.windows.find((w) => w.id === t.windowId);
+                const win = branch?.windows?.find((w) => w.id === t.windowId);
                 const isFlashing = flashIds.has(t.id);
                 const isCalled = t.status === "called";
                 return (
@@ -279,7 +285,7 @@ export default function SignagePage() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
           <div style={{ fontSize: 12, opacity: 0.4, fontFamily: "var(--font-mono)" }}>
-            {branch?.windows.filter((w) => w.status === "open").length ?? 0} windows open
+            {branch?.windows?.filter((w) => w.status === "open").length ?? 0} windows open
           </div>
           <div style={{
             display: "flex", alignItems: "center", gap: 5,

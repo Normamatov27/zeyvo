@@ -45,7 +45,8 @@ public class SignageController {
 
         // Active tickets — only called/serving (what the wall display shows prominently)
         List<Object[]> ticketRows = em.createNativeQuery("""
-                SELECT t.number, t.status, w.number AS window_num, w.label AS window_label,
+                SELECT t.id, t.number, t.status, t.window_id,
+                       w.number AS window_num, w.label AS window_label,
                        s.name AS service_name, t.joined_at
                 FROM app.ticket t
                 LEFT JOIN app.window_desk w ON w.id = t.window_id
@@ -62,18 +63,20 @@ public class SignageController {
 
         List<Map<String, Object>> tickets = ticketRows.stream().map(r -> {
             var m = new LinkedHashMap<String, Object>();
-            m.put("number",      r[0]);
-            m.put("status",      r[1]);
-            m.put("windowNum",   r[2] != null ? ((Number) r[2]).intValue() : null);
-            m.put("windowLabel", r[3]);
-            m.put("serviceName", r[4]);
-            m.put("joinedAt",    r[5] == null ? null : r[5].toString());
+            m.put("id",          r[0] == null ? null : r[0].toString());
+            m.put("number",      r[1]);
+            m.put("status",      r[2]);
+            m.put("windowId",    r[3] == null ? null : r[3].toString());
+            m.put("windowNum",   r[4] != null ? ((Number) r[4]).intValue() : null);
+            m.put("windowLabel", r[5]);
+            m.put("serviceName", r[6]);
+            m.put("joinedAt",    r[7] == null ? null : r[7].toString());
             return (Map<String, Object>) m;
         }).toList();
 
         // Open windows
         List<Object[]> windowRows = em.createNativeQuery("""
-                SELECT number, label, status FROM app.window_desk
+                SELECT id, number, label, status FROM app.window_desk
                 WHERE branch_id = :bid AND status IN ('open', 'idle')
                 ORDER BY number
                 """)
@@ -82,9 +85,10 @@ public class SignageController {
 
         List<Map<String, Object>> windows = windowRows.stream().map(r -> {
             var m = new LinkedHashMap<String, Object>();
-            m.put("number", ((Number) r[0]).intValue());
-            m.put("label",  r[1]);
-            m.put("status", r[2]);
+            m.put("id",     r[0] == null ? null : r[0].toString());
+            m.put("number", ((Number) r[1]).intValue());
+            m.put("label",  r[2]);
+            m.put("status", r[3]);
             return (Map<String, Object>) m;
         }).toList();
 

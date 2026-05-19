@@ -2,7 +2,9 @@ import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 
 // WS must connect directly to backend (Next.js rewrites don't proxy WebSocket upgrades)
-const WS_URL = `${process.env.NEXT_PUBLIC_WS_URL ?? "http://localhost:8080"}/api/ws`;
+// SockJS requires http:// or https:// (not ws://wss://) — it handles the upgrade itself.
+const RAW_WS = process.env.NEXT_PUBLIC_WS_URL ?? "http://localhost:8080";
+const WS_URL = `${RAW_WS.replace(/^wss:\/\//, "https://").replace(/^ws:\/\//, "http://")}/api/ws`;
 
 let client: Client | null = null;
 
