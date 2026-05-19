@@ -1,5 +1,6 @@
 package com.zeyvo.notification;
 
+import com.zeyvo.auth.service.TelegramBotService;
 import com.zeyvo.queue.service.TicketService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.NoResultException;
@@ -27,6 +28,7 @@ public class TelegramWebhookController {
 
     private final TelegramNotificationService telegram;
     private final TicketService ticketService;
+    private final TelegramBotService telegramBotService;
 
     @PersistenceContext
     private EntityManager em;
@@ -103,7 +105,11 @@ public class TelegramWebhookController {
         Long telegramUserId = ((Number) from.get("id")).longValue();
 
         if (text.startsWith("/start")) {
-            handleStart(chatId, telegramUserId, from);
+            String param = text.length() > 7 ? text.substring(7).trim() : "";
+            handleStart(chatId, telegramUserId, from, param);
+        } else if (text.matches("[A-Z2-9]{8}")) {
+            // User typed the 8-char code directly
+            handleStart(chatId, telegramUserId, from, "weblogin_" + text);
         } else if (text.startsWith("/status")) {
             handleStatus(chatId, telegramUserId);
         } else if (text.startsWith("/cancel")) {
@@ -113,7 +119,20 @@ public class TelegramWebhookController {
         }
     }
 
-    private void handleStart(long chatId, long telegramUserId, Map<String, Object> from) {
+    private void handleStart(long chatId, long telegramUserId, Map<String, Object> from, String param) {
+        // Web login flow: /start weblogin_<code>
+        if (param.startsWith("weblogin_")) {
+            String code = param.substring("weblogin_".length());
+            boolean ok = telegramBotService.confirmWebLoginCode(code, telegramUserId);
+            if (ok) {
+                telegram.sendRaw(chatId, "✅ Tasdiqlandi! Brauzeringizga qayting — tizimga kirishingiz tayyor.");
+                log.info("Web login code {} confirmed via webhook by telegram_id={}", code, telegramUserId);
+            } else {
+                telegram.sendRaw(chatId, "⚠️ Kirish kodi topilmadi yoki muddati tugagan. Qaytadan urinib ko'ring.");
+            }
+            return;
+        }
+
         String firstName = (String) from.getOrDefault("first_name", "there");
         String welcomeText = "👋 Hi *" + firstName + "*! I'm your zeyvo queue assistant.\n\n" +
                 "• Open the app to join a queue\n" +
