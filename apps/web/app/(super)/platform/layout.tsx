@@ -16,17 +16,18 @@ const NAV = [
 export default function PlatformLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { roles, clear } = useAuthStore();
+  const { roles, clear, _hydrated } = useAuthStore();
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    if (!_hydrated) return; // wait for localStorage rehydration before deciding
     const isSuperAdmin = roles.some((r) => r === "super_admin");
     if (!isSuperAdmin) {
       router.replace("/sign-in");
     } else {
       setReady(true);
     }
-  }, [roles, router]);
+  }, [_hydrated, roles, router]);
 
   if (!ready) return null;
 

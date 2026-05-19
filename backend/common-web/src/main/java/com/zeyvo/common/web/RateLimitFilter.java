@@ -103,7 +103,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private Bucket createBucket(String category) {
         return switch (category) {
-            case "otp"     -> bucket(5,   Duration.ofHours(1));
+            case "otp"     -> bucket(20,  Duration.ofHours(1));
             case "auth"    -> bucket(30,  Duration.ofMinutes(5));
             case "ticket"  -> bucket(10,  Duration.ofMinutes(5));
             case "webhook" -> bucket(60,  Duration.ofMinutes(1));

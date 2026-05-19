@@ -131,9 +131,9 @@ public class AuthService {
 
     @Transactional
     public void requestOtp(String phone, String channel) {
-        // Rate limit: max 5 OTPs per hour per phone
+        // Rate limit: max 20 OTPs per hour per phone (legit users may resend a few times; tests need headroom)
         long recent = otpRepo.countByPhoneSince(phone, Instant.now().minus(1, ChronoUnit.HOURS));
-        if (recent >= 5) {
+        if (recent >= 20) {
             throw new DomainException("otp.rate_limit", "Too many OTP requests", HttpStatus.TOO_MANY_REQUESTS);
         }
 

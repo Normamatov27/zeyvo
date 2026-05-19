@@ -37,28 +37,37 @@ const GROUPS = [
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { roles, userId, clear } = useAuthStore();
+  const { roles, userId, clear, _hydrated } = useAuthStore();
   const [profileName, setProfileName] = useState<string | null>(null);
 
-  // Auth gate: redirect to sign-in if not an admin/operator role
+  // Auth gate: redirect to sign-in if not an admin/operator role.
+  // Wait for hydration so we don't redirect before localStorage rehydrates roles.
   useEffect(() => {
+    if (!_hydrated) return;
     if (!userId || !roles.some((r) => ADMIN_ROLES.has(r))) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       router.replace(`/sign-in?redirect=${encodeURIComponent(pathname)}` as any);
     }
-  }, [userId, roles, pathname]);
+  }, [_hydrated, userId, roles, pathname]);
 
   useEffect(() => {
+    if (!_hydrated || !userId) return;
     apiFetch<{ fullName: string | null; phone: string | null }>("/api/v1/me")
       .then((p) => setProfileName(p.fullName ?? p.phone ?? null))
       .catch(() => {});
-  }, [userId]);
+  }, [_hydrated, userId]);
 
   function signOut() {
     clear();
     router.push("/sign-in");
   }
 
+  if (!_hydrated) {
+    return (
+      <div style={{ padding: 40, textAlign: "center", color: "var(--color-fg-3)" }}>
+        Loading…
+      </div>
+    );
+  }
   if (!userId || !roles.some((r) => ADMIN_ROLES.has(r))) {
     return (
       <div style={{ padding: 40, textAlign: "center", color: "var(--color-fg-3)" }}>
@@ -67,11 +76,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  const displayRole = roles.includes("org_admin")
+  const displayRole = roles.includes("super_admin")
+    ? "super admin"
+    : roles.includes("org_admin")
     ? "org admin"
     : roles.includes("manager")
     ? "manager"
     : "operator";
+  const isSuper = roles.includes("super_admin");
 
   return (
     <div style={{ display: "flex", height: "100svh", overflow: "hidden" }}>
@@ -161,9 +173,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         ))}
 
-        {/* Sign out */}
+        {/* Sign out + super_admin shortcut */}
         <div style={{ marginTop: "auto", paddingTop: 12,
           borderTop: "1px solid var(--color-hairline)" }}>
+          {isSuper && (
+            <Link href="/platform" style={{
+              display: "block", padding: "8px 10px", borderRadius: 6,
+              background: "var(--color-primary-soft)",
+              color: "var(--color-primary)",
+              fontSize: 12, fontWeight: 500,
+              textDecoration: "none", marginBottom: 6,
+            }}>
+              Platform admin →
+            </Link>
+          )}
           <button
             onClick={signOut}
             style={{
