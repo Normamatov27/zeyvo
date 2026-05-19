@@ -51,6 +51,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/v1/tickets").permitAll()
                         // Device webhook secured by API token at adapter layer, not JWT
                         .requestMatchers(new AntPathRequestMatcher("/v1/devices/*/webhook")).permitAll()
+                        // SockJS handshake (/ws/info, /ws/xhr_streaming, /ws/websocket etc.)
+                        // — the JWT is checked at STOMP CONNECT by StompAuthInterceptor.
+                        .requestMatchers("/ws/**").permitAll()
                         // Everything else requires authentication
                         .anyRequest().authenticated()
                 )

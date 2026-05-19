@@ -72,7 +72,7 @@ export default function PlatformOverviewPage() {
             { name: "Backend API", status: "operational" },
             { name: "PostgreSQL", status: "operational" },
             { name: "Redis", status: "operational" },
-            { name: "RabbitMQ", status: "operational" },
+            { name: "Nginx (TLS)", status: "operational" },
             { name: "Telegram Bot", status: "operational" },
           ].map((svc) => (
             <div key={svc.name} style={{
