@@ -131,7 +131,7 @@ public class AuthController {
         Cookie cookie = new Cookie(REFRESH_COOKIE, token);
         cookie.setHttpOnly(true);
         cookie.setSecure(true);
-        cookie.setPath("/v1/auth");
+        cookie.setPath("/");
         cookie.setMaxAge(REFRESH_COOKIE_MAX_AGE);
         cookie.setAttribute("SameSite", "Lax");
         res.addCookie(cookie);
@@ -141,7 +141,7 @@ public class AuthController {
         Cookie cookie = new Cookie(REFRESH_COOKIE, "");
         cookie.setHttpOnly(true);
         cookie.setSecure(true);
-        cookie.setPath("/v1/auth");
+        cookie.setPath("/");
         cookie.setMaxAge(0);
         res.addCookie(cookie);
     }

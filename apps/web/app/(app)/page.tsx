@@ -86,6 +86,13 @@ const Wordmark = () => (
 
 // ─── TopNav ─────────────────────────────────────────────────────────────────
 
+const NAV_LINKS: { label: string; href: string }[] = [
+  { label: "Product", href: "#features" },
+  { label: "Analytics", href: "#analytics" },
+  { label: "Integrations", href: "#integrations" },
+  { label: "Early access", href: "#early-access" },
+];
+
 const TopNav = ({ authed }: { authed: boolean }) => (
   <div style={{
     height: 64, padding: "0 48px",
@@ -93,10 +100,12 @@ const TopNav = ({ authed }: { authed: boolean }) => (
     borderBottom: "1px solid var(--color-hairline)",
     position: "sticky", top: 0, background: "var(--color-bg)", zIndex: 10,
   }}>
-    <Wordmark />
+    <a href="#top" style={{ textDecoration: "none" }}><Wordmark /></a>
     <nav style={{ display: "flex", gap: 28, fontSize: 13.5, color: "var(--color-fg-2)" }}>
-      {["Product", "Analytics", "Integrations", "Pricing"].map((l) => (
-        <span key={l} style={{ cursor: "pointer" }}>{l}</span>
+      {NAV_LINKS.map((l) => (
+        <a key={l.label} href={l.href} style={{
+          color: "inherit", textDecoration: "none", cursor: "pointer",
+        }}>{l.label}</a>
       ))}
     </nav>
     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -278,7 +287,7 @@ const Hero = () => (
 // ─── Features ────────────────────────────────────────────────────────────────
 
 const Features = () => (
-  <div style={{ padding: "88px 48px", borderTop: "1px solid var(--color-hairline)" }}>
+  <div id="features" style={{ padding: "88px 48px", borderTop: "1px solid var(--color-hairline)", scrollMarginTop: 64 }}>
     <div style={{ maxWidth: 1184, margin: "0 auto" }}>
       <SectionLabel>Built for live operations</SectionLabel>
       <h2 style={{ fontSize: 48, fontWeight: 500, letterSpacing: -1.5, margin: "14px 0 16px", lineHeight: 1.05 }}>
@@ -467,7 +476,7 @@ const HEATMAP_GRID: string[][] = Array.from({ length: 7 }, (_, d) =>
 );
 
 const AnalyticsShowcase = () => (
-  <div style={{ padding: "88px 48px", borderTop: "1px solid var(--color-hairline)" }}>
+  <div id="analytics" style={{ padding: "88px 48px", borderTop: "1px solid var(--color-hairline)", scrollMarginTop: 64 }}>
     <div style={{ maxWidth: 1184, margin: "0 auto" }}>
       <SectionLabel>Analytics</SectionLabel>
       <h2 style={{ fontSize: 48, fontWeight: 500, letterSpacing: -1.5, margin: "14px 0 16px", lineHeight: 1.05 }}>Read your operations like a chart.</h2>
@@ -546,7 +555,7 @@ const AnalyticsShowcase = () => (
 // ─── Early access ─────────────────────────────────────────────────────────────
 
 const Testimonials = () => (
-  <div style={{ padding: "88px 48px", borderTop: "1px solid var(--color-hairline)" }}>
+  <div id="early-access" style={{ padding: "88px 48px", borderTop: "1px solid var(--color-hairline)", scrollMarginTop: 64 }}>
     <div style={{ maxWidth: 1184, margin: "0 auto" }}>
       <SectionLabel>Early access</SectionLabel>
       <h2 style={{ fontSize: 48, fontWeight: 500, letterSpacing: -1.5, margin: "14px 0 16px", lineHeight: 1.05 }}>
@@ -579,7 +588,7 @@ const Testimonials = () => (
 // ─── Integrations ─────────────────────────────────────────────────────────────
 
 const Integrations = () => (
-  <div style={{ padding: "88px 48px", borderTop: "1px solid var(--color-hairline)" }}>
+  <div id="integrations" style={{ padding: "88px 48px", borderTop: "1px solid var(--color-hairline)", scrollMarginTop: 64 }}>
     <div style={{ maxWidth: 1184, margin: "0 auto" }}>
       <SectionLabel>Integrations</SectionLabel>
       <h2 style={{ fontSize: 48, fontWeight: 500, letterSpacing: -1.5, margin: "14px 0 16px", lineHeight: 1.05 }}>
@@ -624,12 +633,12 @@ const Enterprise = () => (
             Self-host on your infrastructure or run in the zeyvo cloud. Data residency in UZ, KZ, EU and US.
           </p>
           <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
-            <button style={{
+            <a href="mailto:uzgamer.uz27@gmail.com?subject=zeyvo%20%E2%80%94%20Enterprise%20sales%20enquiry" style={{
               padding: "12px 22px", borderRadius: 10,
               background: "var(--color-bg)", color: "var(--color-fg)",
               fontSize: 14, fontWeight: 600, border: "none", cursor: "pointer",
-              display: "flex", alignItems: "center", gap: 6,
-            }}>Talk to sales <Icon name="arrow" size={13}/></button>
+              display: "flex", alignItems: "center", gap: 6, textDecoration: "none",
+            }}>Talk to sales <Icon name="arrow" size={13}/></a>
           </div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
@@ -669,7 +678,7 @@ const FAQ_ITEMS = [
 const Faq = () => {
   const [open, setOpen] = useState<number | null>(0);
   return (
-    <div style={{ padding: "88px 48px", borderTop: "1px solid var(--color-hairline)" }}>
+    <div id="faq" style={{ padding: "88px 48px", borderTop: "1px solid var(--color-hairline)", scrollMarginTop: 64 }}>
       <div style={{ maxWidth: 1184, margin: "0 auto" }}>
         <SectionLabel>FAQ</SectionLabel>
         <h2 style={{ fontSize: 48, fontWeight: 500, letterSpacing: -1.5, margin: "14px 0 48px", lineHeight: 1.05 }}>
@@ -722,12 +731,12 @@ const CtaSection = () => (
           }}>
             Start free trial <Icon name="arrow" size={14}/>
           </Link>
-          <button style={{
+          <a href="mailto:uzgamer.uz27@gmail.com?subject=zeyvo%20%E2%80%94%20Book%20a%20demo" style={{
             padding: "14px 28px", borderRadius: 12,
             background: "transparent", color: "var(--color-fg)",
             fontSize: 15, fontWeight: 600, border: "1px solid var(--color-border)",
-            cursor: "pointer",
-          }}>Book a demo</button>
+            cursor: "pointer", textDecoration: "none",
+          }}>Book a demo</a>
         </div>
       </div>
     </div>
@@ -736,6 +745,39 @@ const CtaSection = () => (
 
 // ─── Footer ──────────────────────────────────────────────────────────────────
 
+type FooterLink = { label: string; href: string; external?: boolean };
+
+const FOOTER_COLUMNS: { title: string; links: FooterLink[] }[] = [
+  {
+    title: "Product",
+    links: [
+      { label: "Remote queue", href: "#features" },
+      { label: "Live monitor", href: "#features" },
+      { label: "Analytics", href: "#analytics" },
+      { label: "Integrations", href: "#integrations" },
+      { label: "FAQ", href: "#faq" },
+    ],
+  },
+  {
+    title: "For",
+    links: [
+      { label: "Banks", href: "#early-access" },
+      { label: "Clinics", href: "#early-access" },
+      { label: "Government", href: "#early-access" },
+      { label: "All industries", href: "#early-access" },
+    ],
+  },
+  {
+    title: "Contact",
+    links: [
+      { label: "Email sales", href: "mailto:uzgamer.uz27@gmail.com?subject=zeyvo%20%E2%80%94%20Sales", external: true },
+      { label: "Book a demo", href: "mailto:uzgamer.uz27@gmail.com?subject=zeyvo%20%E2%80%94%20Book%20a%20demo", external: true },
+      { label: "Telegram bot", href: "https://t.me/zeyvo_bot", external: true },
+      { label: "GitHub", href: "https://github.com/Normamatov27/zeyvo", external: true },
+    ],
+  },
+];
+
 const Footer = () => (
   <div style={{
     padding: "48px 48px 36px",
@@ -743,23 +785,29 @@ const Footer = () => (
     background: "var(--color-surface)",
   }}>
     <div style={{ maxWidth: 1184, margin: "0 auto" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr", gap: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 24 }}>
         <div>
           <Wordmark/>
           <p style={{ fontSize: 12.5, color: "var(--color-fg-3)", maxWidth: 280, lineHeight: 1.5, marginTop: 14 }}>
             A modern operating system for real-world queues and customer flow. Built in Tashkent · used everywhere.
           </p>
         </div>
-        {[
-          { t: "Product", l: ["Remote queue", "Live monitor", "Analytics", "Kiosks", "Signage"] },
-          { t: "For", l: ["Banks", "Clinics", "Government", "Retail", "Telecom"] },
-          { t: "Company", l: ["About", "Customers", "Careers", "Blog", "Press"] },
-          { t: "Help", l: ["Docs", "API", "Status", "Security", "Contact"] },
-        ].map((col) => (
-          <div key={col.t}>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--color-fg-3)", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 12 }}>{col.t}</div>
-            {col.l.map((l) => (
-              <div key={l} style={{ fontSize: 13, color: "var(--color-fg-2)", padding: "4px 0", cursor: "pointer" }}>{l}</div>
+        {FOOTER_COLUMNS.map((col) => (
+          <div key={col.title}>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--color-fg-3)", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 12 }}>{col.title}</div>
+            {col.links.map((l) => (
+              <a
+                key={l.label}
+                href={l.href}
+                {...(l.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                style={{
+                  fontSize: 13, color: "var(--color-fg-2)",
+                  padding: "4px 0", display: "block",
+                  textDecoration: "none", cursor: "pointer",
+                }}
+              >
+                {l.label}
+              </a>
             ))}
           </div>
         ))}
@@ -783,7 +831,7 @@ export default function HomePage() {
   const authed = _hydrated && userId !== null;
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--color-bg)" }}>
+    <div id="top" style={{ minHeight: "100vh", background: "var(--color-bg)" }}>
       <TopNav authed={authed}/>
       <Hero/>
       <Features/>

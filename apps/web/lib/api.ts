@@ -27,7 +27,18 @@ export async function apiFetch<T = unknown>(
     ? await import("@/stores/auth")
     : { useAuthStore: null as any };
 
-  const resolvedToken = token ?? useAuthStore?.getState().accessToken ?? undefined;
+  let resolvedToken = token ?? useAuthStore?.getState().accessToken ?? undefined;
+
+  // Proactive refresh: accessToken lives in memory only, so it disappears on
+  // hard nav. If we have a refreshToken in localStorage but no accessToken,
+  // refresh before the call to avoid an unnecessary 401/403 round trip.
+  if (!resolvedToken && !_retried && useAuthStore) {
+    const state = useAuthStore.getState();
+    if (state.refreshToken) {
+      const ok = await state.refresh();
+      if (ok) resolvedToken = useAuthStore.getState().accessToken ?? undefined;
+    }
+  }
 
   const headers = new Headers(init.headers);
   headers.set("Content-Type", "application/json");
@@ -35,11 +46,11 @@ export async function apiFetch<T = unknown>(
 
   const res = await fetch(`${BASE}${path}`, { ...init, headers });
 
-  // Auto-refresh on 401 — try once with a fresh token
-  if (res.status === 401 && !_retried && useAuthStore) {
+  // Auto-refresh on 401/403 (Spring Security returns 403 for anonymous
+  // access to protected endpoints) — try once with a fresh token
+  if ((res.status === 401 || res.status === 403) && !_retried && useAuthStore) {
     const refreshed = await useAuthStore.getState().refresh();
     if (refreshed) return apiFetch<T>(path, { token, ...init }, true);
-    // Refresh failed — stay logged out, let callers handle it
   }
 
   if (!res.ok) {

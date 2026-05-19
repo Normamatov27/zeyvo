@@ -93,6 +93,10 @@
   --color-danger-soft:  oklch(0.3 0.08 25);
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 html, body {
   background: var(--color-bg);
   color: var(--color-fg);
