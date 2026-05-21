@@ -1,0 +1,7 @@
+- generic [ref=e3]:
+  - img "Zeyvo" [ref=e5]
+  - generic [ref=e6]:
+    - generic [ref=e7]: ZEYVO
+    - generic [ref=e8]: Building the future of waiting.
+  - button "Watch Film" [ref=e9] [cursor=pointer]
+  - generic [ref=e10]: 52 seconds · sound on recommended
