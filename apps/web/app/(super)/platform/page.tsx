@@ -260,7 +260,8 @@ export default function PlatformOverviewPage() {
               { label: "Feature flags", href: "/platform/flags",   desc: "Toggle rollouts" },
               { label: "Audit log",     href: "/platform/audit",   desc: "Every action recorded" },
             ].map((a) => (
-              <Link key={a.label} href={a.href} style={{
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              <Link key={a.label} href={a.href as any} style={{
                 padding: "12px 14px", borderRadius: 10,
                 border: "1px solid var(--color-border)",
                 background: "var(--color-surface-2)",
