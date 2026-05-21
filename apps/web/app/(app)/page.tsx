@@ -426,7 +426,7 @@ const Hero = () => (
         </p>
 
         <div style={{ display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
-          <Link href="/sign-in" style={{
+          <Link href="/onboarding" style={{
             padding: "14px 22px", borderRadius: 10,
             background: "#fff", color: "#0a0e15",
             fontSize: 14, fontWeight: 600, textDecoration: "none",
