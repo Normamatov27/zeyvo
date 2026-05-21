@@ -232,6 +232,7 @@ export default function AdminUsersPage() {
         <div style={{
           background: "var(--color-surface)", border: "1px solid var(--color-border)",
           borderRadius: 14, overflow: "hidden",
+          flexShrink: 0,
         }}>
           {/* Header */}
           <div style={{

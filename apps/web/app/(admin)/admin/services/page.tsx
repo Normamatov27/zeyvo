@@ -311,6 +311,7 @@ export default function ServicesPage() {
             <div key={b.id} style={{
               background: "var(--color-surface)", border: "1px solid var(--color-border)",
               borderRadius: 14, overflow: "hidden",
+              flexShrink: 0,
             }}>
               <div style={{
                 padding: "14px 18px",
