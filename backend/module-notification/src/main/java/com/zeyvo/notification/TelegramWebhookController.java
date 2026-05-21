@@ -13,6 +13,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -63,6 +64,19 @@ public class TelegramWebhookController {
                     ))
                     .retrieve()
                     .toBodilessEntity();
+
+            // Also register the slash-command menu so the Telegram UI shows them
+            client.post()
+                    .uri("/bot{token}/setMyCommands", token)
+                    .body(java.util.Map.of("commands", new Object[] {
+                            java.util.Map.of("command", "status", "description", "Check your queue position"),
+                            java.util.Map.of("command", "cancel", "description", "Cancel your active ticket"),
+                            java.util.Map.of("command", "app",    "description", "Open the zeyvo mini app"),
+                            java.util.Map.of("command", "help",   "description", "Show all commands")
+                    }))
+                    .retrieve()
+                    .toBodilessEntity();
+
             return ResponseEntity.ok("Webhook registered: " + webhookUrl);
         } catch (Exception e) {
             return ResponseEntity.status(500).body("Failed: " + e.getMessage());
@@ -114,9 +128,31 @@ public class TelegramWebhookController {
             handleStatus(chatId, telegramUserId);
         } else if (text.startsWith("/cancel")) {
             handleCancelCmd(chatId, telegramUserId);
+        } else if (text.startsWith("/help")) {
+            handleHelp(chatId);
+        } else if (text.startsWith("/app") || text.startsWith("/open")) {
+            handleOpenApp(chatId);
         } else {
-            sendText(chatId, "Use /status to check your queue position or open the app below.");
+            handleHelp(chatId);
         }
+    }
+
+    private void handleHelp(long chatId) {
+        String helpText =
+                "*zeyvo commands*\n\n" +
+                "/status — your current ticket and position\n" +
+                "/cancel — cancel your active ticket\n" +
+                "/app — open the zeyvo mini app\n" +
+                "/help — show this menu\n\n" +
+                "Tap the button below to join a queue.";
+        telegram.sendWithInlineKeyboard(chatId, helpText,
+                "📱 Open zeyvo", "https://t.me/" + botUsername + "/app");
+    }
+
+    private void handleOpenApp(long chatId) {
+        telegram.sendWithInlineKeyboard(chatId,
+                "Tap below to open the zeyvo mini app:",
+                "📱 Open zeyvo", "https://t.me/" + botUsername + "/app");
     }
 
     private void handleStart(long chatId, long telegramUserId, Map<String, Object> from, String param) {
@@ -134,13 +170,19 @@ public class TelegramWebhookController {
         }
 
         String firstName = (String) from.getOrDefault("first_name", "there");
-        String welcomeText = "👋 Hi *" + firstName + "*! I'm your zeyvo queue assistant.\n\n" +
-                "• Open the app to join a queue\n" +
-                "• Send /status to check your current position\n" +
-                "• Send /cancel to cancel your active ticket";
+        String welcomeText =
+                "👋 Hi *" + firstName + "*! I'm the *zeyvo* queue assistant.\n\n" +
+                "• Tap *Open zeyvo* below to join a queue\n" +
+                "• /status — check your current position\n" +
+                "• /cancel — cancel your active ticket\n" +
+                "• /help — show all commands";
 
-        telegram.sendWithInlineKeyboard(chatId, welcomeText,
-                "Open zeyvo", "https://t.me/" + botUsername + "/app");
+        telegram.sendWithInlineRows(chatId, welcomeText, List.of(
+                List.of(Map.of("text", "📱 Open zeyvo",
+                              "url",  "https://t.me/" + botUsername + "/app")),
+                List.of(Map.of("text", "🌐 zeyvo.tech",
+                              "url",  "https://zeyvo.tech"))
+        ));
     }
 
     private void handleStatus(long chatId, long telegramUserId) {
@@ -184,13 +226,28 @@ public class TelegramWebhookController {
                 default -> "ℹ Status: " + status;
             };
 
-            sendText(chatId,
-                    "🎫 *" + number + "* — " + branchName + "\n" +
-                    "_" + serviceName + "_\n\n" +
-                    statusLine);
+            String body = "🎫 *" + number + "* — " + branchName + "\n" +
+                          "_" + serviceName + "_\n\n" +
+                          statusLine;
+
+            // Add action buttons depending on status: cancel if still cancellable, otherwise just open app
+            boolean cancellable = "waiting".equals(status) || "called".equals(status);
+            if (cancellable) {
+                telegram.sendWithInlineRows(chatId, body, List.of(
+                        List.of(Map.of("text", "📱 Open in app",
+                                       "url",  "https://t.me/" + botUsername + "/app")),
+                        List.of(Map.of("text", "❌ Cancel ticket — send /cancel",
+                                       "url",  "https://t.me/" + botUsername + "?start=help"))
+                ));
+            } else {
+                telegram.sendWithInlineKeyboard(chatId, body,
+                        "📱 Open in app", "https://t.me/" + botUsername + "/app");
+            }
 
         } catch (NoResultException e) {
-            sendText(chatId, "You don't have an active ticket. Open zeyvo to join a queue.");
+            telegram.sendWithInlineKeyboard(chatId,
+                    "You don't have an active ticket. Tap below to join a queue.",
+                    "📱 Open zeyvo", "https://t.me/" + botUsername + "/app");
         }
     }
 
@@ -208,9 +265,13 @@ public class TelegramWebhookController {
             UUID ticketId  = (UUID) row[0];
             UUID customerId = (UUID) row[1];
             ticketService.cancel(ticketId, customerId);
-            sendText(chatId, "✅ Your ticket has been cancelled.");
+            telegram.sendWithInlineKeyboard(chatId,
+                    "✅ Your ticket has been cancelled.",
+                    "📱 Join another queue", "https://t.me/" + botUsername + "/app");
         } catch (NoResultException e) {
-            sendText(chatId, "No active ticket to cancel.");
+            telegram.sendWithInlineKeyboard(chatId,
+                    "No active ticket to cancel.",
+                    "📱 Open zeyvo", "https://t.me/" + botUsername + "/app");
         } catch (Exception e) {
             log.warn("Bot cancel failed for telegramId={}: {}", telegramUserId, e.getMessage());
             sendText(chatId, "Failed to cancel. Please try again.");

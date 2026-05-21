@@ -99,6 +99,32 @@ public class TelegramNotificationService {
         }
     }
 
+    /** Send a message with multiple inline button rows. Each button is {text, url}. */
+    public void sendWithInlineRows(long chatId, String text, java.util.List<java.util.List<Map<String, String>>> rows) {
+        if (!enabled) return;
+        try {
+            Object[][] kb = new Object[rows.size()][];
+            for (int i = 0; i < rows.size(); i++) {
+                java.util.List<Map<String, String>> row = rows.get(i);
+                Object[] r = new Object[row.size()];
+                for (int j = 0; j < row.size(); j++) r[j] = row.get(j);
+                kb[i] = r;
+            }
+            restClient.post()
+                    .uri("/bot{token}/sendMessage", botToken)
+                    .body(Map.of(
+                            "chat_id", chatId,
+                            "text", text,
+                            "parse_mode", "Markdown",
+                            "reply_markup", Map.of("inline_keyboard", kb)
+                    ))
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (Exception e) {
+            log.error("Telegram send error for chatId {}: {}", chatId, e.getMessage());
+        }
+    }
+
     private void send(long chatId, String text) {
         if (!enabled) return;
         try {
