@@ -228,25 +228,27 @@ const Section = ({ id, eyebrow, title, sub, children, scrollMarginTop = 64 }: {
     borderTop: "1px solid rgba(255,255,255,0.04)",
     scrollMarginTop,
   }}>
-    <div style={{ maxWidth: 720 }}>
-      {eyebrow && <div style={{
-        fontFamily: "var(--font-mono)", fontSize: 11, color: "oklch(0.78 0.14 220)",
-        textTransform: "uppercase", letterSpacing: 1, fontWeight: 500,
-      }}>{eyebrow}</div>}
-      {title && (
-        <h2 style={{
-          fontSize: 44, fontWeight: 500, letterSpacing: -1.5,
-          margin: "14px 0 0", lineHeight: 1.05,
-          background: "linear-gradient(180deg, #fff 0%, rgba(255,255,255,0.75) 100%)",
-          WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent",
-        }}>{title}</h2>
-      )}
-      {sub && <p style={{
-        fontSize: 16, color: "rgba(255,255,255,0.55)", maxWidth: 560,
-        lineHeight: 1.55, marginTop: 16, letterSpacing: -0.1,
-      }}>{sub}</p>}
+    <div style={{ maxWidth: 1280, margin: "0 auto" }}>
+      <div style={{ maxWidth: 720 }}>
+        {eyebrow && <div style={{
+          fontFamily: "var(--font-mono)", fontSize: 11, color: "oklch(0.78 0.14 220)",
+          textTransform: "uppercase", letterSpacing: 1, fontWeight: 500,
+        }}>{eyebrow}</div>}
+        {title && (
+          <h2 style={{
+            fontSize: 44, fontWeight: 500, letterSpacing: -1.5,
+            margin: "14px 0 0", lineHeight: 1.05,
+            background: "linear-gradient(180deg, #fff 0%, rgba(255,255,255,0.75) 100%)",
+            WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent",
+          }}>{title}</h2>
+        )}
+        {sub && <p style={{
+          fontSize: 16, color: "rgba(255,255,255,0.55)", maxWidth: 560,
+          lineHeight: 1.55, marginTop: 16, letterSpacing: -0.1,
+        }}>{sub}</p>}
+      </div>
+      {children}
     </div>
-    {children}
   </div>
 );
 
@@ -326,56 +328,60 @@ const NAV_LINKS: { label: string; href: string }[] = [
 const TopNav = ({ authed }: { authed: boolean }) => (
   <div className="lp-topnav" style={{
     height: 64, padding: "0 40px",
-    display: "flex", alignItems: "center", justifyContent: "space-between",
     borderBottom: "1px solid rgba(255,255,255,0.06)",
     position: "sticky", top: 0, zIndex: 30,
     background: "rgba(10, 14, 21, 0.6)", backdropFilter: "blur(20px)",
     WebkitBackdropFilter: "blur(20px)",
   }}>
-    <div style={{ display: "flex", alignItems: "center", gap: 36 }}>
-      <a href="#top" style={{
-        display: "inline-flex", alignItems: "center", gap: 8,
-        fontWeight: 600, fontSize: 17, letterSpacing: -0.4,
-        color: "#fff", textDecoration: "none",
-      }}>
-        <Logo size={20} color="#fff" stroke={1.8}/>
-        <span style={{ marginLeft: -2 }}>zeyvo</span>
-      </a>
-      <nav className="lp-nav" style={{ display: "flex", gap: 28, fontSize: 13.5 }}>
-        {NAV_LINKS.map((n) => (
-          <a key={n.label} href={n.href} style={{
-            color: "rgba(255,255,255,0.65)", textDecoration: "none",
-            transition: "color 0.15s",
-          }}>{n.label}</a>
-        ))}
-      </nav>
-    </div>
-    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-      <span className="lp-lang-hint" style={{ fontSize: 11.5, color: "rgba(255,255,255,0.5)", fontFamily: "var(--font-mono)" }}>EN · RU · UZ</span>
-      {authed ? (
-        <Link href="/branches" style={{
-          padding: "8px 14px", borderRadius: 8,
-          background: "#fff", color: "#0a0e15",
-          fontSize: 13, fontWeight: 600, textDecoration: "none",
-          display: "inline-flex", alignItems: "center", gap: 6,
+    <div style={{
+      maxWidth: 1280, margin: "0 auto", height: "100%",
+      display: "flex", alignItems: "center", justifyContent: "space-between",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 36 }}>
+        <a href="#top" style={{
+          display: "inline-flex", alignItems: "center", gap: 8,
+          fontWeight: 600, fontSize: 17, letterSpacing: -0.4,
+          color: "#fff", textDecoration: "none",
         }}>
-          Open app <Icon name="arrow" size={13}/>
-        </Link>
-      ) : (
-        <>
-          <Link href="/sign-in" style={{
-            padding: "8px 14px", borderRadius: 8,
-            background: "transparent", border: "1px solid rgba(255,255,255,0.18)",
-            color: "#fff", fontSize: 13, fontWeight: 500, textDecoration: "none",
-          }}>Sign in</Link>
-          <a href="mailto:uzgamer.uz27@gmail.com?subject=zeyvo%20%E2%80%94%20Request%20demo" style={{
+          <Logo size={20} color="#fff" stroke={1.8}/>
+          <span style={{ marginLeft: -2 }}>zeyvo</span>
+        </a>
+        <nav className="lp-nav" style={{ display: "flex", gap: 28, fontSize: 13.5 }}>
+          {NAV_LINKS.map((n) => (
+            <a key={n.label} href={n.href} style={{
+              color: "rgba(255,255,255,0.65)", textDecoration: "none",
+              transition: "color 0.15s",
+            }}>{n.label}</a>
+          ))}
+        </nav>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span className="lp-lang-hint" style={{ fontSize: 11.5, color: "rgba(255,255,255,0.5)", fontFamily: "var(--font-mono)" }}>EN · RU · UZ</span>
+        {authed ? (
+          <Link href="/branches" style={{
             padding: "8px 14px", borderRadius: 8,
             background: "#fff", color: "#0a0e15",
             fontSize: 13, fontWeight: 600, textDecoration: "none",
             display: "inline-flex", alignItems: "center", gap: 6,
-          }}>Request demo <Icon name="arrow" size={13}/></a>
-        </>
-      )}
+          }}>
+            Open app <Icon name="arrow" size={13}/>
+          </Link>
+        ) : (
+          <>
+            <Link href="/sign-in" style={{
+              padding: "8px 14px", borderRadius: 8,
+              background: "transparent", border: "1px solid rgba(255,255,255,0.18)",
+              color: "#fff", fontSize: 13, fontWeight: 500, textDecoration: "none",
+            }}>Sign in</Link>
+            <a href="mailto:uzgamer.uz27@gmail.com?subject=zeyvo%20%E2%80%94%20Request%20demo" style={{
+              padding: "8px 14px", borderRadius: 8,
+              background: "#fff", color: "#0a0e15",
+              fontSize: 13, fontWeight: 600, textDecoration: "none",
+              display: "inline-flex", alignItems: "center", gap: 6,
+            }}>Request demo <Icon name="arrow" size={13}/></a>
+          </>
+        )}
+      </div>
     </div>
   </div>
 );
