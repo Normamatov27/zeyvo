@@ -14,13 +14,15 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
 
   if (compact) {
     // Cycles light → dark → system → light
-    const idx = THEMES.findIndex((t) => t.value === theme);
-    const next = THEMES[(idx + 1) % THEMES.length];
+    const rawIdx = THEMES.findIndex((t) => t.value === theme);
+    const idx = rawIdx >= 0 ? rawIdx : 0;
+    const current = THEMES[idx]!;
+    const next = THEMES[(idx + 1) % THEMES.length]!;
     return (
       <button
         onClick={() => setTheme(next.value)}
-        aria-label={`Switch theme (current: ${THEMES[idx].label})`}
-        title={`Theme: ${THEMES[idx].label} → ${next.label}`}
+        aria-label={`Switch theme (current: ${current.label})`}
+        title={`Theme: ${current.label} → ${next.label}`}
         style={{
           width: 32, height: 32, borderRadius: 8,
           border: "1px solid var(--color-border)",
@@ -30,7 +32,7 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
           display: "grid", placeItems: "center",
         }}
       >
-        {THEMES[idx].icon}
+        {current.icon}
       </button>
     );
   }
