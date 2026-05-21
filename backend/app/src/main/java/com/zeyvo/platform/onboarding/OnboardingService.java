@@ -46,12 +46,17 @@ public class OnboardingService {
         String locale = (req.locale() != null && !req.locale().isBlank())
                 ? req.locale() : "uz";
 
-        // Create org
+        // Create org. NOTE: Organization's @Builder ignores field init expressions
+        // (country="UZ", locale="uz", plan="trial", active=true) because they're
+        // not annotated @Builder.Default — must set them explicitly here, otherwise
+        // NOT NULL columns would fail at flush.
         Organization org = Organization.builder()
                 .slug(slug)
                 .name(req.orgName())
                 .country(country)
                 .locale(locale)
+                .plan("trial")
+                .active(true)
                 .build();
         org = orgRepo.save(org);
         log.info("Onboarded org id={} slug={} name={}", org.getId(), org.getSlug(), org.getName());
