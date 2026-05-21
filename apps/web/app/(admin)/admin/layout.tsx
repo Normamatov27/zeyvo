@@ -3,42 +3,46 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useAuthStore } from "@/stores/auth";
 import { apiFetch } from "@/lib/api";
+import { LocaleSwitcher } from "@/components/LocaleSwitcher";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const ADMIN_ROLES = new Set(["operator", "manager", "org_admin", "super_admin"]);
 
-const GROUPS = [
+const GROUPS: { group: string; items: { href: string; label: string; live?: boolean }[] }[] = [
   {
-    label: "Live",
+    group: "live",
     items: [
-      { href: "/admin/overview", label: "Overview", live: true },
-      { href: "/admin/queue", label: "Queue panel" },
+      { href: "/admin/overview", label: "overview", live: true },
+      { href: "/admin/queue",    label: "queue" },
     ],
   },
   {
-    label: "Operations",
+    group: "operations",
     items: [
-      { href: "/admin/branches", label: "Branches" },
-      { href: "/admin/staff", label: "Staff" },
-      { href: "/admin/services", label: "Services" },
-      { href: "/admin/users", label: "Users" },
+      { href: "/admin/branches", label: "branches" },
+      { href: "/admin/staff",    label: "staff" },
+      { href: "/admin/services", label: "services" },
+      { href: "/admin/users",    label: "users" },
     ],
   },
   {
-    label: "Intelligence",
+    group: "intelligence",
     items: [
-      { href: "/admin/analytics", label: "Analytics" },
-      { href: "/admin/predict", label: "Predictions" },
+      { href: "/admin/analytics", label: "analytics" },
+      { href: "/admin/predict",   label: "predictions" },
     ],
   },
-] as const;
+];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { roles, userId, clear, _hydrated } = useAuthStore();
   const [profileName, setProfileName] = useState<string | null>(null);
+  const t = useTranslations("admin");
 
   // Auth gate: redirect to sign-in if not an admin/operator role.
   // Wait for hydration so we don't redirect before localStorage rehydrates roles.
@@ -76,13 +80,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  const displayRole = roles.includes("super_admin")
-    ? "super admin"
-    : roles.includes("org_admin")
-    ? "org admin"
-    : roles.includes("manager")
-    ? "manager"
+  const roleKey: "super_admin" | "org_admin" | "manager" | "operator" =
+    roles.includes("super_admin") ? "super_admin"
+    : roles.includes("org_admin") ? "org_admin"
+    : roles.includes("manager") ? "manager"
     : "operator";
+  const displayRole = t(`roles.${roleKey}`);
   const isSuper = roles.includes("super_admin");
 
   return (
@@ -134,17 +137,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         {/* Nav groups */}
         {GROUPS.map((group) => (
-          <div key={group.label} style={{ marginBottom: 14 }}>
+          <div key={group.group} style={{ marginBottom: 14 }}>
             <div style={{
               padding: "4px 10px 6px",
               fontSize: 10, fontFamily: "var(--font-mono)",
               textTransform: "uppercase", letterSpacing: 0.6,
               color: "var(--color-fg-4)", fontWeight: 500,
-            }}>{group.label}</div>
+            }}>{t(`groups.${group.group}`)}</div>
             {group.items.map((item) => {
               const active = pathname === item.href || pathname.startsWith(item.href + "/");
               return (
-                <Link key={item.href} href={item.href} style={{
+                <Link key={item.href} href={item.href as any} style={{
                   display: "flex", alignItems: "center", gap: 8,
                   padding: "7px 10px", borderRadius: 6,
                   fontSize: 13, textDecoration: "none",
@@ -153,8 +156,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   fontWeight: active ? 500 : 400,
                   marginBottom: 1,
                 }}>
-                  <span style={{ flex: 1 }}>{item.label}</span>
-                  {"live" in item && item.live && (
+                  <span style={{ flex: 1 }}>{t(`items.${item.label}`)}</span>
+                  {item.live && (
                     <span style={{
                       display: "flex", alignItems: "center", gap: 3,
                       fontSize: 10, fontWeight: 600,
@@ -173,8 +176,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         ))}
 
+        {/* Theme + Locale (push to bottom) */}
+        <div style={{ marginTop: "auto", padding: "10px 4px 12px", borderTop: "1px solid var(--color-hairline)", display: "flex", flexDirection: "column", gap: 8 }}>
+          <ThemeToggle/>
+          <LocaleSwitcher/>
+        </div>
+
         {/* Sign out + super_admin shortcut */}
-        <div style={{ marginTop: "auto", paddingTop: 12,
+        <div style={{ paddingTop: 12,
           borderTop: "1px solid var(--color-hairline)" }}>
           {isSuper && (
             <Link href="/platform" style={{
@@ -184,7 +193,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               fontSize: 12, fontWeight: 500,
               textDecoration: "none", marginBottom: 6,
             }}>
-              Platform admin →
+              {t("platformAdmin")} →
             </Link>
           )}
           <button
@@ -196,7 +205,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               cursor: "pointer", textAlign: "left",
             }}
           >
-            Sign out
+            {t("signOut")}
           </button>
         </div>
       </aside>

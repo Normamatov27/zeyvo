@@ -1,3 +1,6 @@
+import { LocaleSwitcher } from "@/components/LocaleSwitcher";
+import { ThemeToggle } from "@/components/ThemeToggle";
+
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
@@ -111,7 +114,14 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         </div>
 
         {/* Right form panel */}
-        <div className="auth-right">
+        <div className="auth-right" style={{ position: "relative" }}>
+          {/* Theme + locale floating top-right */}
+          <div style={{
+            position: "absolute", top: 16, right: 16, display: "flex", gap: 8, zIndex: 1,
+          }}>
+            <ThemeToggle compact/>
+            <LocaleSwitcher compact/>
+          </div>
           <div className="auth-right-inner">
             {/* Logo shown on mobile only */}
             <div className="auth-mobile-logo" style={{ textAlign: "center", marginBottom: 36 }}>

@@ -3,21 +3,61 @@
     "name": "zeyvo",
     "tagline": "Haqiqiy kutish uchun navigatsiya tizimi."
   },
+  "nav": {
+    "home": "Bosh sahifa",
+    "tickets": "Navbatlar",
+    "history": "Tarix",
+    "settings": "Sozlamalar"
+  },
+  "admin": {
+    "groups": {
+      "live": "Live",
+      "operations": "Operatsiyalar",
+      "intelligence": "Analitika"
+    },
+    "items": {
+      "overview": "Umumiy ko'rinish",
+      "queue": "Navbat paneli",
+      "branches": "Filiallar",
+      "staff": "Xodimlar",
+      "services": "Xizmatlar",
+      "users": "Foydalanuvchilar",
+      "analytics": "Analitika",
+      "predictions": "Prognozlar"
+    },
+    "platformAdmin": "Platforma",
+    "signOut": "Chiqish",
+    "roles": {
+      "operator": "operator",
+      "manager": "menejer",
+      "org_admin": "tashkilot admini",
+      "super_admin": "super admin"
+    }
+  },
+  "platform": {
+    "nav": {
+      "overview": "Ko'rib chiqish",
+      "tenants": "Tashkilotlar",
+      "flags": "Funksiya bayroqlari",
+      "audit": "Audit jurnali"
+    },
+    "backToAdmin": "Admin paneli"
+  },
   "queue": {
     "find": "Navbat topish",
-    "near_you": "Yaqinida {count} ta filial",
-    "join": "Navbatga kirish",
-    "cancel": "Biletni bekor qilish",
-    "ticket_number": "{number} raqamli bilet",
-    "ahead": "{count, plural, =0 {Siz keyingisisiz!} one {# kishi oldinda} other {# kishi oldinda}}",
+    "near_you": "Yaqin atrofda {count} ta filial",
+    "join": "Navbatga turish",
+    "cancel": "Navbatdan chiqish",
+    "ticket_number": "Talon {number}",
+    "ahead": "{count, plural, =0 {Siz keyingisiz!} one {# kishi oldida} other {# kishi oldida}}",
     "eta": "~{minutes} daqiqa",
-    "your_turn": "Navbatingiz keldi",
+    "your_turn": "Sizning navbatingiz",
     "status": {
-      "waiting": "Kutmoqda",
-      "called": "Chaqirilmoqda",
+      "waiting": "Kutilmoqda",
+      "called": "Chaqirildi",
       "serving": "Xizmat ko'rsatilmoqda",
-      "served": "Xizmat yakunlandi",
-      "no_show": "Kelmadi",
+      "served": "Tugatildi",
+      "no_show": "O'tkazib yuborildi",
       "cancelled": "Bekor qilindi"
     }
   },
@@ -25,17 +65,34 @@
     "sign_in": "Kirish",
     "sign_up": "Ro'yxatdan o'tish",
     "phone": "Telefon raqami",
-    "otp_sent": "{phone} ga kod yuborildi",
+    "otp_sent": "{phone} raqamiga kod yuborildi",
     "enter_otp": "6 xonali kodni kiriting",
     "verify": "Tasdiqlash",
-    "continue_telegram": "Telegram orqali davom etish"
+    "continue_telegram": "Telegram orqali kirish"
+  },
+  "settings": {
+    "title": "Sozlamalar",
+    "account": "Akkaunt",
+    "name": "Ism",
+    "addName": "Ism qo'shish",
+    "linkTelegram": "Telegram'ni ulash",
+    "linkForNotifs": "Xabarnomalar uchun",
+    "role": "Rol",
+    "adminPanel": "Admin paneli",
+    "open": "Ochish",
+    "signOut": "Chiqish",
+    "appearance": "Tashqi ko'rinish",
+    "theme": "Mavzu",
+    "language": "Til",
+    "about": "Dastur haqida",
+    "version": "Versiya"
   },
   "notification": {
-    "near_turn": "Tez orada navbatingiz · {number}",
-    "near_turn_body": "Oldinda {ahead} kishi. Filialni tomon yo'l oling.",
-    "your_turn": "Navbatingiz keldi — {number}",
-    "your_turn_body": "{window}-deraza sizni chaqirmoqda.",
-    "served": "Xizmat yakunlandi · {number}",
-    "served_body": "Zeyvodan foydalanganingiz uchun rahmat. Baholaysizmi?"
+    "near_turn": "Navbatingiz yaqin · {number}",
+    "near_turn_body": "Oldindagilar: {ahead}. Filialga yo'l oling.",
+    "your_turn": "Sizning navbatingiz — {number}",
+    "your_turn_body": "{window}-oyna sizni chaqirmoqda.",
+    "served": "Tugatildi · {number}",
+    "served_body": "zeyvo'dan foydalanganingiz uchun rahmat. Baholaysizmi?"
   }
 }

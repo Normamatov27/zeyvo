@@ -1,7 +1,47 @@
 {
   "app": {
     "name": "zeyvo",
-    "tagline": "Навигационная система для реального ожидания."
+    "tagline": "Навигатор для реальных очередей."
+  },
+  "nav": {
+    "home": "Главная",
+    "tickets": "Талоны",
+    "history": "История",
+    "settings": "Настройки"
+  },
+  "admin": {
+    "groups": {
+      "live": "Live",
+      "operations": "Операции",
+      "intelligence": "Аналитика"
+    },
+    "items": {
+      "overview": "Обзор",
+      "queue": "Очередь",
+      "branches": "Филиалы",
+      "staff": "Окна и персонал",
+      "services": "Услуги",
+      "users": "Пользователи",
+      "analytics": "Аналитика",
+      "predictions": "Прогнозы"
+    },
+    "platformAdmin": "Платформа",
+    "signOut": "Выйти",
+    "roles": {
+      "operator": "оператор",
+      "manager": "менеджер",
+      "org_admin": "админ организации",
+      "super_admin": "супер-админ"
+    }
+  },
+  "platform": {
+    "nav": {
+      "overview": "Обзор",
+      "tenants": "Арендаторы",
+      "flags": "Флаги функций",
+      "audit": "Журнал аудита"
+    },
+    "backToAdmin": "Админ-панель"
   },
   "queue": {
     "find": "Найти очередь",
@@ -13,12 +53,12 @@
     "eta": "~{minutes} мин",
     "your_turn": "Ваша очередь",
     "status": {
-      "waiting": "Ожидание",
-      "called": "Вызывают",
-      "serving": "Обслуживают",
-      "served": "Готово",
-      "no_show": "Не явился",
-      "cancelled": "Отменён"
+      "waiting": "Ожидает",
+      "called": "Вызван",
+      "serving": "Обслуживается",
+      "served": "Завершено",
+      "no_show": "Пропущено",
+      "cancelled": "Отменено"
     }
   },
   "auth": {
@@ -28,14 +68,31 @@
     "otp_sent": "Код отправлен на {phone}",
     "enter_otp": "Введите 6-значный код",
     "verify": "Подтвердить",
-    "continue_telegram": "Продолжить через Telegram"
+    "continue_telegram": "Войти через Telegram"
+  },
+  "settings": {
+    "title": "Настройки",
+    "account": "Аккаунт",
+    "name": "Имя",
+    "addName": "Добавить имя",
+    "linkTelegram": "Привязать Telegram",
+    "linkForNotifs": "Для уведомлений",
+    "role": "Роль",
+    "adminPanel": "Админ-панель",
+    "open": "Открыть",
+    "signOut": "Выйти",
+    "appearance": "Внешний вид",
+    "theme": "Тема",
+    "language": "Язык",
+    "about": "О сервисе",
+    "version": "Версия"
   },
   "notification": {
     "near_turn": "Скоро ваша очередь · {number}",
-    "near_turn_body": "Впереди {ahead}. Выезжайте в филиал.",
+    "near_turn_body": "Впереди {ahead}. Выезжайте сейчас.",
     "your_turn": "Ваша очередь — {number}",
     "your_turn_body": "Окно {window} вызывает вас.",
-    "served": "Визит завершён · {number}",
-    "served_body": "Спасибо за использование zeyvo. Оцените визит?"
+    "served": "Завершено · {number}",
+    "served_body": "Спасибо за визит. Оценить?"
   }
 }

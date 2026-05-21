@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Recurse \"D:\\\\Claude\\\\zeyvo\\\\apps\\\\web\\\\app\\\\\\(marketing\\)\")",
+      "Bash(Select-Object FullName)"
+    ]
+  }
+}

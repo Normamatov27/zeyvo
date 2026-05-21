@@ -3,8 +3,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useAuthStore } from "@/stores/auth";
 import { apiFetch } from "@/lib/api";
+import { LocaleSwitcher } from "@/components/LocaleSwitcher";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const NAV = [
   { href: "/platform", label: "Overview", icon: "⬡" },
@@ -79,6 +82,12 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
             );
           })}
         </nav>
+
+        {/* Theme + Locale */}
+        <div style={{ padding: "10px 8px", borderTop: "1px solid var(--color-hairline)", display: "flex", flexDirection: "column", gap: 8 }}>
+          <ThemeToggle/>
+          <LocaleSwitcher/>
+        </div>
 
         {/* Bottom: back to admin + sign out */}
         <div style={{ padding: "12px 8px", borderTop: "1px solid var(--color-hairline)", display: "flex", flexDirection: "column", gap: 2 }}>

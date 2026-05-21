@@ -4,9 +4,28 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { usePathname, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth";
 import { Ticket } from "@/lib/types";
+import { LocaleSwitcher } from "@/components/LocaleSwitcher";
+import { ThemeToggle } from "@/components/ThemeToggle";
+
+function CustomerTopBar() {
+  return (
+    <div style={{
+      position: "sticky", top: 0, zIndex: 11,
+      height: 44, padding: "0 12px",
+      display: "flex", alignItems: "center", justifyContent: "flex-end",
+      gap: 8,
+      background: "var(--color-bg)",
+      borderBottom: "1px solid var(--color-hairline)",
+    }}>
+      <ThemeToggle compact/>
+      <LocaleSwitcher compact/>
+    </div>
+  );
+}
 
 const ACTIVE_STATUSES = new Set(["waiting", "called", "serving"]);
 
@@ -43,6 +62,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { userId, _hydrated } = useAuthStore();
   const [activeTicket, setActiveTicket] = useState<Ticket | null>(null);
+  const tNav = useTranslations("nav");
+  const navTranslations = {
+    home: tNav("home"),
+    tickets: tNav("tickets"),
+    history: tNav("history"),
+    settings: tNav("settings"),
+  };
 
   // Poll for active ticket to drive the Tickets tab badge
   useEffect(() => {
@@ -127,6 +153,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100svh", maxWidth: 680, margin: "0 auto" }}>
+      <CustomerTopBar/>
       <main style={{ flex: 1, overflowY: "auto" }}>{children}</main>
       <nav style={{
         position: "sticky", bottom: 0, height: 64,
@@ -135,10 +162,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         display: "grid", gridTemplateColumns: "repeat(4, 1fr)",
         zIndex: 10,
       }}>
-        {navItem(onHome, <HomeIcon/>, "Home", "/branches")}
-        {navItem(onTickets, <TicketIcon/>, "Tickets", undefined, handleTicketsTab, !!activeTicket)}
-        {navItem(onHistory, <HistoryIcon/>, "History", "/history")}
-        {navItem(onSettings, <SettingsIcon/>, "Settings", "/settings")}
+        {navItem(onHome, <HomeIcon/>, navTranslations.home, "/branches")}
+        {navItem(onTickets, <TicketIcon/>, navTranslations.tickets, undefined, handleTicketsTab, !!activeTicket)}
+        {navItem(onHistory, <HistoryIcon/>, navTranslations.history, "/history")}
+        {navItem(onSettings, <SettingsIcon/>, navTranslations.settings, "/settings")}
       </nav>
     </div>
   );

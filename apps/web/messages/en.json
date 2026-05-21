@@ -3,6 +3,46 @@
     "name": "zeyvo",
     "tagline": "A navigation system for real-world waiting."
   },
+  "nav": {
+    "home": "Home",
+    "tickets": "Tickets",
+    "history": "History",
+    "settings": "Settings"
+  },
+  "admin": {
+    "groups": {
+      "live": "Live",
+      "operations": "Operations",
+      "intelligence": "Intelligence"
+    },
+    "items": {
+      "overview": "Overview",
+      "queue": "Queue panel",
+      "branches": "Branches",
+      "staff": "Staff",
+      "services": "Services",
+      "users": "Users",
+      "analytics": "Analytics",
+      "predictions": "Predictions"
+    },
+    "platformAdmin": "Platform admin",
+    "signOut": "Sign out",
+    "roles": {
+      "operator": "operator",
+      "manager": "manager",
+      "org_admin": "org admin",
+      "super_admin": "super admin"
+    }
+  },
+  "platform": {
+    "nav": {
+      "overview": "Overview",
+      "tenants": "Tenants",
+      "flags": "Feature flags",
+      "audit": "Audit log"
+    },
+    "backToAdmin": "Admin panel"
+  },
   "queue": {
     "find": "Find a queue",
     "near_you": "{count} branches near you",
@@ -29,6 +69,23 @@
     "enter_otp": "Enter 6-digit code",
     "verify": "Verify",
     "continue_telegram": "Continue with Telegram"
+  },
+  "settings": {
+    "title": "Settings",
+    "account": "Account",
+    "name": "Name",
+    "addName": "Add name",
+    "linkTelegram": "Link Telegram",
+    "linkForNotifs": "Link for notifications",
+    "role": "Role",
+    "adminPanel": "Admin panel",
+    "open": "Open",
+    "signOut": "Sign out",
+    "appearance": "Appearance",
+    "theme": "Theme",
+    "language": "Language",
+    "about": "About",
+    "version": "Version"
   },
   "notification": {
     "near_turn": "Almost your turn · {number}",

@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import ThemeBootstrap from "./ThemeBootstrap";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages } from "next-intl/server";
 
 export const metadata: Metadata = {
   title: { default: "zeyvo", template: "%s · zeyvo" },
@@ -24,12 +26,16 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const locale = await getLocale();
+  const messages = await getMessages();
   return (
-    <html lang="uz" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <body>
-        <ThemeBootstrap />
-        {children}
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <ThemeBootstrap />
+          {children}
+        </NextIntlClientProvider>
       </body>
     </html>
   );
