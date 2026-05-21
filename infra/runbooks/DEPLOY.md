@@ -60,8 +60,10 @@ Required values to set (everything else has a working default):
 | `TELEGRAM_BOT_TOKEN` | from @BotFather |
 | `TELEGRAM_WEBHOOK_SECRET` | any random string — must match what you set in Telegram |
 | `TELEGRAM_BOT_USERNAME` | e.g. `zeyvo_bot` |
-| `ESKIZ_EMAIL` | Eskiz.uz account email |
-| `ESKIZ_PASSWORD` | Eskiz.uz account password |
+| `DEVSMS_BASE_URL` | `https://devsms.uz/api` |
+| `DEVSMS_API_KEY` | DevSMS bearer token |
+| `DEVSMS_SERVICE_NAME` | Service name used in DevSMS universal OTP templates, defaults to `Zeyvo` |
+| `DEVSMS_TEMPLATE_TYPE` | Universal OTP template type, defaults to `4` for login |
 | `SPRING_PROFILES_ACTIVE` | `prod` |
 | `IMAGE_TAG` | `latest` |
 | `SPACE_BUCKET` | your DO Spaces bucket name |

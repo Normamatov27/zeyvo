@@ -1,135 +1,379 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuthStore } from "@/stores/auth";
 
-// ─── Shared primitives ──────────────────────────────────────────────────────
+// ─── Inline SVG icons ────────────────────────────────────────────────────────
+type IconName =
+  | "arrow" | "phone" | "calendar" | "activity" | "bell" | "chart" | "flow"
+  | "heart" | "eye" | "sparkles" | "user" | "settings" | "building" | "users"
+  | "shield" | "lock" | "globe";
 
-const LiveDot = () => (
-  <span style={{ position: "relative", display: "inline-flex", width: 8, height: 8 }}>
-    <span style={{
-      position: "absolute", inset: 0, borderRadius: "50%",
-      background: "var(--color-success)", opacity: 0.5,
-      animation: "ping 1.4s cubic-bezier(0,0,0.2,1) infinite",
-    }}/>
-    <span style={{ borderRadius: "50%", width: 8, height: 8, background: "var(--color-success)" }}/>
-    <style>{`@keyframes ping{75%,100%{transform:scale(2);opacity:0}}`}</style>
-  </span>
-);
-
-const Sparkline = ({ data, w = 80, h = 28, color = "var(--color-primary)" }: { data: number[]; w?: number; h?: number; color?: string }) => {
-  const max = Math.max(...data), min = Math.min(...data);
-  const pts = data.map((v, i) => {
-    const x = (i / (data.length - 1)) * w;
-    const y = h - ((v - min) / (max - min || 1)) * (h - 4) - 2;
-    return `${x},${y}`;
-  }).join(" ");
-  return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: "block" }}>
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round"/>
-    </svg>
-  );
-};
-
-// Simple inline icon set — just the shapes we actually use
-const Icon = ({ name, size = 18, style: s }: { name: string; size?: number; style?: React.CSSProperties }) => {
-  const icons: Record<string, React.ReactNode> = {
-    phone: <><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18" strokeWidth="2"/></>,
-    activity: <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>,
-    sparkles: <><path d="M12 3l1.88 5.76L20 10l-5.76 1.88L12 18l-1.88-5.76L4 10l5.76-1.88z"/><path d="M5 3l.88 2.76L9 7l-2.76.88L5 11l-.88-2.76L1 7l2.76-.88z" opacity=".5"/></>,
-    chart: <><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></>,
-    users: <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>,
-    flow: <><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></>,
-    shield: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>,
-    lock: <><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>,
-    server: <><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></>,
-    globe: <><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></>,
-    eye: <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>,
-    bell: <><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></>,
+const Icon = ({ name, size = 18, stroke = 1.7, style }: { name: IconName; size?: number; stroke?: number; style?: React.CSSProperties }) => {
+  const paths: Record<IconName, React.ReactNode> = {
     arrow: <><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></>,
-    check: <polyline points="20 6 9 17 4 12"/>,
-    plus: <><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>,
-    minus: <line x1="5" y1="12" x2="19" y2="12"/>,
+    phone: <><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18" strokeWidth="2"/></>,
+    calendar: <><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>,
+    activity: <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>,
+    bell: <><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></>,
+    chart: <><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></>,
+    flow: <><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></>,
+    heart: <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>,
+    eye: <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>,
+    sparkles: <><path d="M12 3l1.88 5.76L20 10l-5.76 1.88L12 18l-1.88-5.76L4 10l5.76-1.88z"/><path d="M5 3l.88 2.76L9 7l-2.76.88L5 11l-.88-2.76L1 7l2.76-.88z" opacity=".5"/></>,
+    user: <><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>,
+    settings: <><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></>,
+    building: <><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></>,
+    users: <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>,
+    shield: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>,
+    lock: <><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>,
+    globe: <><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></>,
   };
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={s}>
-      {icons[name]}
+    <svg
+      width={size} height={size} viewBox="0 0 24 24"
+      fill="none" stroke="currentColor" strokeWidth={stroke}
+      strokeLinecap="round" strokeLinejoin="round"
+      style={{ display: "inline-block", verticalAlign: "middle", ...style }}
+    >
+      {paths[name]}
     </svg>
   );
 };
 
-const Tag = ({ children, dot }: { children: React.ReactNode; dot?: boolean }) => (
-  <span style={{
-    display: "inline-flex", alignItems: "center", gap: 6,
-    fontSize: 12, fontWeight: 600, padding: "4px 10px", borderRadius: 999,
-    background: "var(--color-primary-soft)", color: "var(--color-primary)",
-    fontFamily: "var(--font-mono)",
+const Logo = ({ size = 20, stroke = 1.8, color = "currentColor" }: { size?: number; stroke?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="9"/>
+    <path d="M8 9h8l-8 6h8"/>
+  </svg>
+);
+
+// ─── Cinematic animated background ───────────────────────────────────────────
+const HeroBackdrop = () => {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const dpr = window.devicePixelRatio || 1;
+    const resize = () => {
+      const w = canvas.offsetWidth, h = canvas.offsetHeight;
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    resize();
+    const handleResize = () => resize();
+    window.addEventListener("resize", handleResize);
+
+    const lanes = 6;
+    type Dot = { lane: number; x: number; speed: number; size: number; opacity: number; hue: number };
+    const dots: Dot[] = [];
+    for (let i = 0; i < 36; i++) {
+      dots.push({
+        lane: Math.floor(Math.random() * lanes),
+        x: Math.random() * canvas.offsetWidth,
+        speed: 0.3 + Math.random() * 0.5,
+        size: 1.5 + Math.random() * 1.8,
+        opacity: 0.25 + Math.random() * 0.5,
+        hue: 220 + Math.random() * 20,
+      });
+    }
+
+    let raf = 0;
+    const draw = () => {
+      const w = canvas.offsetWidth, h = canvas.offsetHeight;
+      ctx.clearRect(0, 0, w, h);
+
+      ctx.strokeStyle = "rgba(160, 200, 255, 0.04)";
+      ctx.lineWidth = 1;
+      for (let i = 1; i < lanes; i++) {
+        const y = (h / lanes) * i;
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+      }
+
+      dots.forEach((d) => {
+        d.x += d.speed;
+        if (d.x > w + 20) d.x = -20;
+        const y = (h / lanes) * d.lane + (h / lanes) / 2;
+        const grad = ctx.createRadialGradient(d.x, y, 0, d.x, y, 16);
+        grad.addColorStop(0, `oklch(0.78 0.14 ${d.hue} / ${d.opacity * 0.4})`);
+        grad.addColorStop(1, `oklch(0.78 0.14 ${d.hue} / 0)`);
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(d.x, y, 16, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = `oklch(0.85 0.14 ${d.hue} / ${d.opacity})`;
+        ctx.beginPath(); ctx.arc(d.x, y, d.size, 0, Math.PI * 2); ctx.fill();
+      });
+
+      raf = requestAnimationFrame(draw);
+    };
+    draw();
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{
+        position: "absolute", inset: 0, width: "100%", height: "100%",
+        pointerEvents: "none", opacity: 0.85,
+      }}
+    />
+  );
+};
+
+// ─── Live mini queue widget for hero ─────────────────────────────────────────
+const HeroLiveWidget = () => {
+  const [serving, setServing] = useState(124);
+  const [clock, setClock] = useState("");
+  useEffect(() => {
+    setClock(new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }));
+    const id = setInterval(() => setServing((s) => s + 1), 2400);
+    const tid = setInterval(() => setClock(new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })), 30_000);
+    return () => { clearInterval(id); clearInterval(tid); };
+  }, []);
+  const services = ["Open account", "Currency exchange", "Card replacement", "Consultation"];
+  return (
+    <div style={{
+      width: 360, position: "relative",
+      borderRadius: 20, padding: 4,
+      background: "linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04))",
+      backdropFilter: "blur(20px)",
+    }}>
+      <div style={{
+        background: "linear-gradient(180deg, rgba(20, 28, 42, 0.92), rgba(10, 14, 21, 0.92))",
+        borderRadius: 18, padding: 20, color: "#fff",
+        border: "1px solid rgba(255,255,255,0.05)",
+        display: "flex", flexDirection: "column", gap: 14,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span className="z-live" style={{
+              width: 6, height: 6, borderRadius: "50%",
+              background: "oklch(0.78 0.14 220)", color: "oklch(0.78 0.14 220)",
+              position: "relative",
+            }}/>
+            <span style={{ fontSize: 11, fontFamily: "var(--font-mono)", letterSpacing: 0.4, textTransform: "uppercase", opacity: 0.7 }}>
+              Live · Mirzo Ulugbek
+            </span>
+          </div>
+          <span style={{ fontSize: 11, fontFamily: "var(--font-mono)", opacity: 0.5, fontVariantNumeric: "tabular-nums" }}>{clock}</span>
+        </div>
+
+        <div>
+          <div style={{ fontSize: 10, opacity: 0.5, fontFamily: "var(--font-mono)", textTransform: "uppercase", letterSpacing: 0.6 }}>now serving</div>
+          <div style={{
+            fontSize: 56, fontWeight: 500, letterSpacing: -2.4, lineHeight: 1, marginTop: 4,
+            fontVariantNumeric: "tabular-nums",
+            background: "linear-gradient(135deg, #fff 0%, oklch(0.78 0.14 220) 100%)",
+            WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent",
+          }}>A-{serving}</div>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {[1, 2, 3, 4].map((d, i) => (
+            <div key={i} style={{
+              display: "flex", alignItems: "center", gap: 10,
+              fontSize: 11.5, color: i === 0 ? "#fff" : "rgba(255,255,255,0.5)",
+              fontFamily: "var(--font-mono)",
+              opacity: 1 - i * 0.18,
+            }}>
+              <span style={{
+                width: 5, height: 5, borderRadius: "50%",
+                background: i === 0 ? "oklch(0.78 0.14 220)" : "rgba(255,255,255,0.3)",
+              }}/>
+              <span style={{ fontVariantNumeric: "tabular-nums" }}>A-{serving + d}</span>
+              <span style={{ flex: 1, color: "rgba(255,255,255,0.4)" }}>{services[i]}</span>
+              <span style={{ opacity: 0.5 }}>~{(i + 1) * 3}m</span>
+            </div>
+          ))}
+        </div>
+
+        <div style={{
+          paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.06)",
+          display: "flex", justifyContent: "space-between",
+          fontSize: 11, fontFamily: "var(--font-mono)",
+        }}>
+          <div>
+            <div style={{ opacity: 0.45, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.6 }}>wait</div>
+            <div style={{ marginTop: 2, fontVariantNumeric: "tabular-nums" }}>4:12</div>
+          </div>
+          <div>
+            <div style={{ opacity: 0.45, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.6 }}>load</div>
+            <div style={{ marginTop: 2, color: "oklch(0.78 0.14 220)" }}>medium</div>
+          </div>
+          <div>
+            <div style={{ opacity: 0.45, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.6 }}>remote</div>
+            <div style={{ marginTop: 2, fontVariantNumeric: "tabular-nums" }}>42%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Section wrapper ─────────────────────────────────────────────────────────
+const Section = ({ id, eyebrow, title, sub, children, scrollMarginTop = 64 }: {
+  id?: string; eyebrow?: string; title?: string; sub?: string;
+  children: React.ReactNode; scrollMarginTop?: number;
+}) => (
+  <div id={id} style={{
+    padding: "88px 48px",
+    borderTop: "1px solid rgba(255,255,255,0.04)",
+    scrollMarginTop,
   }}>
-    {dot && <LiveDot />}
+    <div style={{ maxWidth: 720 }}>
+      {eyebrow && <div style={{
+        fontFamily: "var(--font-mono)", fontSize: 11, color: "oklch(0.78 0.14 220)",
+        textTransform: "uppercase", letterSpacing: 1, fontWeight: 500,
+      }}>{eyebrow}</div>}
+      {title && (
+        <h2 style={{
+          fontSize: 44, fontWeight: 500, letterSpacing: -1.5,
+          margin: "14px 0 0", lineHeight: 1.05,
+          background: "linear-gradient(180deg, #fff 0%, rgba(255,255,255,0.75) 100%)",
+          WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent",
+        }}>{title}</h2>
+      )}
+      {sub && <p style={{
+        fontSize: 16, color: "rgba(255,255,255,0.55)", maxWidth: 560,
+        lineHeight: 1.55, marginTop: 16, letterSpacing: -0.1,
+      }}>{sub}</p>}
+    </div>
     {children}
-  </span>
+  </div>
 );
 
-const SectionLabel = ({ children }: { children: React.ReactNode }) => (
-  <div style={{
-    fontSize: 11, fontWeight: 600, color: "var(--color-fg-3)",
-    textTransform: "uppercase", letterSpacing: 0.8, fontFamily: "var(--font-mono)",
-  }}>{children}</div>
+// ─── Embedded dashboard preview ──────────────────────────────────────────────
+const DashboardPreview = () => (
+  <div style={{ height: 480, display: "flex", color: "#0e1320" }}>
+    <div style={{
+      width: 200, padding: "14px 10px",
+      background: "oklch(0.97 0.004 250)", borderRight: "1px solid oklch(0.92 0.006 250)",
+      display: "flex", flexDirection: "column", gap: 4,
+    }}>
+      <div style={{ padding: "8px 10px", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+        <Logo size={16} stroke={1.8}/>
+        <span style={{ fontWeight: 600, fontSize: 14 }}>zeyvo</span>
+      </div>
+      {[
+        { l: "Overview", i: "activity" as const, active: true },
+        { l: "Queues", i: "flow" as const },
+        { l: "Appointments", i: "calendar" as const },
+        { l: "Analytics", i: "chart" as const },
+        { l: "Branches", i: "building" as const },
+        { l: "Staff", i: "users" as const },
+      ].map((n) => (
+        <div key={n.l} style={{
+          padding: "7px 10px", borderRadius: 6, fontSize: 12.5,
+          background: n.active ? "oklch(0.96 0.04 262)" : "transparent",
+          color: n.active ? "oklch(0.5 0.18 262)" : "oklch(0.36 0.015 260)",
+          display: "flex", alignItems: "center", gap: 8, fontWeight: n.active ? 500 : 400,
+        }}>
+          <Icon name={n.i} size={14}/> {n.l}
+        </div>
+      ))}
+    </div>
+    <div style={{ flex: 1, padding: 18, display: "flex", flexDirection: "column", gap: 14, background: "oklch(0.985 0.003 250)" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+        {[
+          { l: "Waiting now", v: "318", d: "+24" },
+          { l: "Avg wait", v: "6:42", d: "−58s" },
+          { l: "Served", v: "2,184", d: "+12%" },
+          { l: "CSAT", v: "4.7", d: "+0.1" },
+        ].map((stat) => (
+          <div key={stat.l} style={{
+            padding: 12, background: "#fff",
+            border: "1px solid oklch(0.92 0.006 250)", borderRadius: 10,
+          }}>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 9.5, color: "oklch(0.55 0.012 260)", textTransform: "uppercase", letterSpacing: 0.6 }}>{stat.l}</div>
+            <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: -0.5, marginTop: 6, fontVariantNumeric: "tabular-nums" }}>{stat.v}</div>
+            <div style={{ fontSize: 10, color: "oklch(0.62 0.14 150)", marginTop: 4, fontFamily: "var(--font-mono)" }}>{stat.d}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ flex: 1, background: "#fff", border: "1px solid oklch(0.92 0.006 250)", borderRadius: 12, padding: 14 }}>
+        <div style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "oklch(0.55 0.012 260)", textTransform: "uppercase", letterSpacing: 0.5 }}>Live customer flow</div>
+        <svg viewBox="0 0 600 180" style={{ width: "100%", height: 180, marginTop: 6 }}>
+          <defs>
+            <linearGradient id="dpg" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor="oklch(0.5 0.18 262)" stopOpacity="0.2"/>
+              <stop offset="100%" stopColor="oklch(0.5 0.18 262)" stopOpacity="0"/>
+            </linearGradient>
+          </defs>
+          <path d="M0 130 C 80 110, 140 90, 200 80 S 320 60, 380 50 S 480 75, 540 60 L 600 65 L 600 180 L 0 180 Z" fill="url(#dpg)"/>
+          <path d="M0 130 C 80 110, 140 90, 200 80 S 320 60, 380 50 S 480 75, 540 60 L 600 65" fill="none" stroke="oklch(0.5 0.18 262)" strokeWidth="2"/>
+        </svg>
+      </div>
+    </div>
+  </div>
 );
 
-const Wordmark = () => (
-  <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: -0.5, color: "var(--color-fg)" }}>
-    zeyvo
-  </span>
-);
-
-// ─── TopNav ─────────────────────────────────────────────────────────────────
-
+// ─── Top nav (auth-aware) ────────────────────────────────────────────────────
 const NAV_LINKS: { label: string; href: string }[] = [
   { label: "Product", href: "#features" },
-  { label: "Analytics", href: "#analytics" },
-  { label: "Integrations", href: "#integrations" },
+  { label: "Industries", href: "#industries" },
+  { label: "Console", href: "#console" },
   { label: "Early access", href: "#early-access" },
 ];
 
 const TopNav = ({ authed }: { authed: boolean }) => (
   <div style={{
-    height: 64, padding: "0 48px",
+    height: 64, padding: "0 40px",
     display: "flex", alignItems: "center", justifyContent: "space-between",
-    borderBottom: "1px solid var(--color-hairline)",
-    position: "sticky", top: 0, background: "var(--color-bg)", zIndex: 10,
+    borderBottom: "1px solid rgba(255,255,255,0.06)",
+    position: "sticky", top: 0, zIndex: 30,
+    background: "rgba(10, 14, 21, 0.6)", backdropFilter: "blur(20px)",
+    WebkitBackdropFilter: "blur(20px)",
   }}>
-    <a href="#top" style={{ textDecoration: "none" }}><Wordmark /></a>
-    <nav style={{ display: "flex", gap: 28, fontSize: 13.5, color: "var(--color-fg-2)" }}>
-      {NAV_LINKS.map((l) => (
-        <a key={l.label} href={l.href} style={{
-          color: "inherit", textDecoration: "none", cursor: "pointer",
-        }}>{l.label}</a>
-      ))}
-    </nav>
-    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 36 }}>
+      <a href="#top" style={{
+        display: "inline-flex", alignItems: "center", gap: 8,
+        fontWeight: 600, fontSize: 17, letterSpacing: -0.4,
+        color: "#fff", textDecoration: "none",
+      }}>
+        <Logo size={20} color="#fff" stroke={1.8}/>
+        <span style={{ marginLeft: -2 }}>zeyvo</span>
+      </a>
+      <nav style={{ display: "flex", gap: 28, fontSize: 13.5 }}>
+        {NAV_LINKS.map((n) => (
+          <a key={n.label} href={n.href} style={{
+            color: "rgba(255,255,255,0.65)", textDecoration: "none",
+            transition: "color 0.15s",
+          }}>{n.label}</a>
+        ))}
+      </nav>
+    </div>
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <span style={{ fontSize: 11.5, color: "rgba(255,255,255,0.5)", fontFamily: "var(--font-mono)" }}>EN · RU · UZ</span>
       {authed ? (
         <Link href="/branches" style={{
-          padding: "8px 18px", borderRadius: 10,
-          background: "var(--color-primary)", color: "#fff",
+          padding: "8px 14px", borderRadius: 8,
+          background: "#fff", color: "#0a0e15",
           fontSize: 13, fontWeight: 600, textDecoration: "none",
-          display: "flex", alignItems: "center", gap: 6,
-        }}>Open app <Icon name="arrow" size={12}/></Link>
+          display: "inline-flex", alignItems: "center", gap: 6,
+        }}>
+          Open app <Icon name="arrow" size={13}/>
+        </Link>
       ) : (
         <>
           <Link href="/sign-in" style={{
-            padding: "8px 16px", borderRadius: 10,
-            background: "transparent", color: "var(--color-fg-2)",
-            fontSize: 13, fontWeight: 500, textDecoration: "none",
-            border: "1px solid var(--color-border)",
+            padding: "8px 14px", borderRadius: 8,
+            background: "transparent", border: "1px solid rgba(255,255,255,0.18)",
+            color: "#fff", fontSize: 13, fontWeight: 500, textDecoration: "none",
           }}>Sign in</Link>
-          <Link href="/sign-in" style={{
-            padding: "8px 18px", borderRadius: 10,
-            background: "var(--color-fg)", color: "var(--color-bg)",
+          <a href="mailto:uzgamer.uz27@gmail.com?subject=zeyvo%20%E2%80%94%20Request%20demo" style={{
+            padding: "8px 14px", borderRadius: 8,
+            background: "#fff", color: "#0a0e15",
             fontSize: 13, fontWeight: 600, textDecoration: "none",
-            display: "flex", alignItems: "center", gap: 6,
-          }}>Get a demo <Icon name="arrow" size={12}/></Link>
+            display: "inline-flex", alignItems: "center", gap: 6,
+          }}>Request demo <Icon name="arrow" size={13}/></a>
         </>
       )}
     </div>
@@ -137,673 +381,342 @@ const TopNav = ({ authed }: { authed: boolean }) => (
 );
 
 // ─── Hero ────────────────────────────────────────────────────────────────────
-
 const Hero = () => (
-  <div style={{ padding: "72px 48px 48px" }}>
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 480px", gap: 64, alignItems: "center", maxWidth: 1184, margin: "0 auto" }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-        <Tag dot>New · AI wait-time predictions, live in Tashkent</Tag>
+  <div style={{ position: "relative", overflow: "hidden" }}>
+    <HeroBackdrop/>
+    <div style={{
+      position: "relative", padding: "96px 48px 80px", maxWidth: 1280, margin: "0 auto",
+      display: "grid", gridTemplateColumns: "1fr 400px", gap: 64, alignItems: "center",
+    }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+        <span style={{
+          display: "inline-flex", alignItems: "center", gap: 8,
+          padding: "6px 12px", borderRadius: 999,
+          background: "rgba(160, 200, 255, 0.08)",
+          border: "1px solid rgba(160, 200, 255, 0.15)",
+          fontSize: 11.5, color: "oklch(0.78 0.14 220)",
+          fontFamily: "var(--font-mono)", letterSpacing: 0.4, alignSelf: "flex-start",
+        }}>
+          <span className="z-live" style={{
+            width: 5, height: 5, borderRadius: "50%",
+            background: "oklch(0.78 0.14 220)", color: "oklch(0.78 0.14 220)",
+            position: "relative",
+          }}/>
+          AI-POWERED QUEUE INFRASTRUCTURE
+        </span>
+
         <h1 style={{
-          fontSize: 76, fontWeight: 500, letterSpacing: -3,
-          margin: 0, lineHeight: 0.98, color: "var(--color-fg)",
+          fontSize: 80, fontWeight: 500, letterSpacing: -3.2, margin: 0, lineHeight: 0.98,
+          background: "linear-gradient(180deg, #fff 0%, rgba(255,255,255,0.7) 100%)",
+          WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent",
         }}>
-          The operating system<br/>
-          for{" "}
-          <span style={{
-            background: "linear-gradient(90deg, var(--color-primary), var(--color-accent))",
+          Building the future<br/>
+          of <span style={{
+            background: "linear-gradient(90deg, oklch(0.78 0.14 220), oklch(0.65 0.18 262))",
             WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent",
-          }}>real-world queues.</span>
+          }}>waiting.</span>
         </h1>
+
         <p style={{
-          fontSize: 18, lineHeight: 1.45, color: "var(--color-fg-2)",
-          margin: 0, maxWidth: 520, letterSpacing: -0.2,
+          fontSize: 18, lineHeight: 1.5, color: "rgba(255,255,255,0.65)",
+          margin: 0, maxWidth: 540, letterSpacing: -0.2,
         }}>
-          Customers join from anywhere — phone, Telegram, web, kiosk —
-          and zeyvo predicts when to call them. Staff get the live picture.
-          Managers get the data. Lines disappear.
+          AI-powered queue & appointment infrastructure for modern service businesses.
+          Customers join remotely. Operators serve smarter. Lines disappear.
         </p>
-        <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+
+        <div style={{ display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
           <Link href="/sign-in" style={{
-            padding: "14px 24px", borderRadius: 12,
-            background: "var(--color-primary)", color: "#fff",
-            fontSize: 15, fontWeight: 600, textDecoration: "none",
-            display: "flex", alignItems: "center", gap: 8,
+            padding: "14px 22px", borderRadius: 10,
+            background: "#fff", color: "#0a0e15",
+            fontSize: 14, fontWeight: 600, textDecoration: "none",
+            display: "inline-flex", alignItems: "center", gap: 8,
           }}>
-            Start free trial <Icon name="arrow" size={14}/>
+            Start free trial <Icon name="arrow" size={15}/>
           </Link>
-          <a href="https://t.me/zeyvo_bot" target="_blank" rel="noopener noreferrer" style={{
-            padding: "14px 24px", borderRadius: 12,
-            background: "transparent", color: "var(--color-fg)",
-            fontSize: 15, fontWeight: 600, textDecoration: "none",
-            border: "1px solid var(--color-border)",
-            display: "flex", alignItems: "center", gap: 8,
-          }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.088 13.81l-2.96-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.834.836z"/></svg>
+          <a
+            href="https://t.me/zeyvo_bot"
+            target="_blank" rel="noopener noreferrer"
+            style={{
+              padding: "14px 22px", borderRadius: 10,
+              background: "transparent", border: "1px solid rgba(255,255,255,0.18)",
+              color: "#fff", fontSize: 14, fontWeight: 500, textDecoration: "none",
+              display: "inline-flex", alignItems: "center", gap: 8,
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}>
+              <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.088 13.81l-2.96-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.834.836z"/>
+            </svg>
             Open in Telegram
           </a>
         </div>
-        <div style={{ display: "flex", gap: 28, marginTop: 28, paddingTop: 24, borderTop: "1px solid var(--color-hairline)" }}>
+
+        <div style={{
+          display: "flex", gap: 36, marginTop: 36, paddingTop: 28,
+          borderTop: "1px solid rgba(255,255,255,0.06)",
+          flexWrap: "wrap",
+        }}>
           {[
             { v: "Web + TG", l: "channels supported" },
             { v: "< 200ms", l: "p95 API latency" },
-            { v: "UZ-first", l: "Telegram-native" },
+            { v: "UZ-first", l: "telegram-native" },
           ].map((s) => (
             <div key={s.l}>
-              <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: -0.6, fontVariantNumeric: "tabular-nums" }}>{s.v}</div>
-              <div style={{ fontSize: 11, color: "var(--color-fg-3)", marginTop: 2, fontFamily: "var(--font-mono)" }}>{s.l}</div>
+              <div style={{ fontSize: 26, fontWeight: 500, letterSpacing: -0.8, fontVariantNumeric: "tabular-nums", color: "#fff" }}>{s.v}</div>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", marginTop: 4, fontFamily: "var(--font-mono)", letterSpacing: 0.4, textTransform: "uppercase" }}>{s.l}</div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Phone mockup + floating widgets */}
-      <div style={{ position: "relative", height: 540, display: "grid", placeItems: "center" }}>
-        <div style={{
-          position: "absolute", inset: 0,
-          background: "radial-gradient(circle at 50% 40%, var(--color-primary-soft), transparent 65%)",
-          opacity: 0.7, filter: "blur(20px)",
-        }}/>
+      <div style={{ display: "flex", justifyContent: "center" }}>
+        <HeroLiveWidget/>
+      </div>
+    </div>
+  </div>
+);
 
-        {/* Phone frame */}
-        <div style={{
-          position: "relative", width: 260, height: 520,
-          background: "var(--color-surface)", border: "1px solid var(--color-border)",
-          borderRadius: 36, padding: 8, boxShadow: "0 32px 80px rgba(0,0,0,0.12)",
+// ─── Problem section ─────────────────────────────────────────────────────────
+const Problem = () => (
+  <Section
+    eyebrow="The problem"
+    title="Waiting is a tax on the modern day."
+    sub="Receptionists overload. Customers leave. Operators guess. Most service businesses still run their queues on Excel and a clipboard."
+  >
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginTop: 40, maxWidth: 1280 }}>
+      {[
+        { v: "47m", l: "avg wait at a typical clinic on Friday" },
+        { v: "23%", l: "customers who leave the line" },
+        { v: "$1.4k/d", l: "lost revenue from churn per branch" },
+        { v: "3.8 hr", l: "staff time wasted on queue admin" },
+      ].map((p) => (
+        <div key={p.l} style={{
+          padding: 22, borderRadius: 14,
+          background: "rgba(255,255,255,0.025)",
+          border: "1px solid rgba(255,255,255,0.06)",
         }}>
           <div style={{
-            width: "100%", height: "100%", borderRadius: 28,
-            background: "var(--color-surface-2)",
-            padding: 18, display: "flex", flexDirection: "column", gap: 14, overflow: "hidden",
-          }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 10, color: "var(--color-fg-3)", fontFamily: "var(--font-mono)" }}>
-              <span>9:41</span><span>●●●●</span>
-            </div>
-            <div style={{
-              background: "linear-gradient(135deg, var(--color-primary), var(--color-accent))",
-              borderRadius: 14, padding: 14, color: "#fff",
-            }}>
-              <div style={{ fontSize: 9, opacity: 0.7, fontFamily: "var(--font-mono)", textTransform: "uppercase" }}>your ticket</div>
-              <div style={{ fontSize: 56, fontWeight: 500, letterSpacing: -2, lineHeight: 1, marginTop: 6, fontVariantNumeric: "tabular-nums" }}>A-128</div>
-              <div style={{ fontSize: 10, opacity: 0.85, marginTop: 6 }}>3 ahead · ETA 12:48</div>
-              <div style={{ marginTop: 12, height: 4, background: "rgba(255,255,255,0.2)", borderRadius: 2, overflow: "hidden" }}>
-                <div style={{ width: "62%", height: "100%", background: "#fff" }}/>
-              </div>
-            </div>
-            {["A-124 · now serving", "A-125 · next", "A-126", "A-127", "A-128 · you"].map((t, i) => (
-              <div key={i} style={{
-                display: "flex", alignItems: "center", gap: 8, fontSize: 11,
-                color: i === 0 || i === 4 ? "var(--color-fg)" : "var(--color-fg-3)",
-                fontWeight: i === 4 ? 600 : 400,
-              }}>
-                <span style={{
-                  width: 5, height: 5, borderRadius: "50%", flex: "none",
-                  background: i === 0 ? "var(--color-success)" : i === 4 ? "var(--color-primary)" : "var(--color-border-2)",
-                }}/>
-                <span style={{ fontFamily: "var(--font-mono)" }}>{t}</span>
-              </div>
-            ))}
-          </div>
+            fontSize: 36, fontWeight: 500, letterSpacing: -1, lineHeight: 1,
+            fontVariantNumeric: "tabular-nums",
+            color: "oklch(0.78 0.14 220)",
+          }}>{p.v}</div>
+          <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.55)", marginTop: 10, lineHeight: 1.4 }}>{p.l}</div>
         </div>
+      ))}
+    </div>
+  </Section>
+);
 
-        {/* Floating live widget */}
-        <div style={{
-          position: "absolute", right: -10, top: 60,
-          background: "var(--color-surface)", border: "1px solid var(--color-border)",
-          borderRadius: 12, padding: 12, boxShadow: "0 8px 24px rgba(0,0,0,0.10)",
-          width: 200, display: "flex", flexDirection: "column", gap: 8,
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <LiveDot/>
-            <span style={{ fontSize: 11, fontWeight: 500, color: "var(--color-fg-2)" }}>Live customer flow</span>
-          </div>
-          <Sparkline data={[8, 12, 9, 14, 18, 22, 28, 34, 30, 28, 32]} w={176} h={36}/>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--color-fg-3)", fontFamily: "var(--font-mono)" }}>
-            <span>10:00</span><span>14:00</span><span>18:00</span>
-          </div>
-        </div>
-
-        {/* Floating notification */}
-        <div style={{
-          position: "absolute", left: -20, bottom: 80,
-          background: "var(--color-surface)", border: "1px solid var(--color-border)",
-          borderRadius: 12, padding: "10px 12px", boxShadow: "0 8px 24px rgba(0,0,0,0.10)",
-          width: 230, display: "flex", alignItems: "flex-start", gap: 10,
+// ─── Solution / features ─────────────────────────────────────────────────────
+const Solution = () => (
+  <Section id="features" eyebrow="The solution" title="A live operating system for customer flow.">
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginTop: 36, maxWidth: 1280 }}>
+      {[
+        { i: "phone" as const,    t: "Remote queue",     d: "Take a number from home. Join via web, app or Telegram. Walk in only when called." },
+        { i: "calendar" as const, t: "Appointments",     d: "Book any time. We pin your slot, send reminders, hold it against walk-ins." },
+        { i: "activity" as const, t: "Live ETA",         d: "Smart predictions from queue speed, service duration and staffing. Updated every second." },
+        { i: "bell" as const,     t: "Notifications",    d: "Push, Telegram, SMS. The customer knows exactly when to leave." },
+        { i: "chart" as const,    t: "Analytics",        d: "Peak hours, no-show rate, wait time per service. Real data, instant." },
+        { i: "flow" as const,     t: "Operator console", d: "Call next, transfer, mark served. One screen, no friction." },
+      ].map((f) => (
+        <div key={f.t} style={{
+          padding: 24, borderRadius: 16,
+          background: "rgba(255,255,255,0.025)",
+          border: "1px solid rgba(255,255,255,0.06)",
+          display: "flex", flexDirection: "column", gap: 12,
         }}>
           <div style={{
-            width: 28, height: 28, borderRadius: 8,
-            background: "var(--color-warning-soft)", color: "var(--color-warning)",
-            display: "grid", placeItems: "center", flex: "none",
-          }}><Icon name="bell" size={14}/></div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 11.5, fontWeight: 500 }}>Your turn in 5 minutes</div>
-            <div style={{ fontSize: 10.5, color: "var(--color-fg-3)", marginTop: 1 }}>Head to Asaka Bank · Window 3</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
-// ─── Features ────────────────────────────────────────────────────────────────
-
-const Features = () => (
-  <div id="features" style={{ padding: "88px 48px", borderTop: "1px solid var(--color-hairline)", scrollMarginTop: 64 }}>
-    <div style={{ maxWidth: 1184, margin: "0 auto" }}>
-      <SectionLabel>Built for live operations</SectionLabel>
-      <h2 style={{ fontSize: 48, fontWeight: 500, letterSpacing: -1.5, margin: "14px 0 16px", lineHeight: 1.05 }}>
-        Everything you need to run a queue, in one product.
-      </h2>
-      <p style={{ fontSize: 16, color: "var(--color-fg-2)", maxWidth: 540, lineHeight: 1.5, marginBottom: 48, letterSpacing: -0.2 }}>
-        Remote join, smart predictions, branch dashboards, kiosks and signage — designed as one system.
-      </p>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
-        {[
-          { i: "phone", t: "Remote queue", d: "Take a number from home. We ping when you should leave." },
-          { i: "activity", t: "Live monitoring", d: "Real-time view of every branch, window and ticket." },
-          { i: "sparkles", t: "AI predictions", d: "ETA models trained on the last 90 days of your traffic." },
-          { i: "chart", t: "Customer analytics", d: "Peak hours, abandonment, satisfaction — by branch and service." },
-          { i: "users", t: "Staff performance", d: "Handling time, queue efficiency, fair workload." },
-          { i: "flow", t: "Physical + remote", d: "Walk-ins, kiosks and remote tickets share one queue." },
-        ].map((f) => (
-          <div key={f.t} style={{
-            background: "var(--color-surface)", border: "1px solid var(--color-border)",
-            borderRadius: 16, padding: 28, display: "flex", flexDirection: "column", gap: 14,
+            width: 40, height: 40, borderRadius: 10,
+            background: "linear-gradient(135deg, oklch(0.4 0.12 220), oklch(0.3 0.12 262))",
+            color: "#fff", display: "grid", placeItems: "center",
           }}>
-            <div style={{
-              width: 40, height: 40, borderRadius: 10,
-              background: "var(--color-primary-soft)", color: "var(--color-primary)",
-              display: "grid", placeItems: "center",
-            }}><Icon name={f.i} size={20}/></div>
-            <div style={{ fontSize: 19, fontWeight: 600, letterSpacing: -0.4 }}>{f.t}</div>
-            <div style={{ fontSize: 14, color: "var(--color-fg-2)", lineHeight: 1.5 }}>{f.d}</div>
+            <Icon name={f.i} size={20} stroke={1.6}/>
           </div>
-        ))}
-      </div>
-    </div>
-  </div>
-);
-
-// ─── Stat card ───────────────────────────────────────────────────────────────
-
-const Stat = ({ label, value, delta, deltaTone, sub, sparkline, valueSize = 28 }: {
-  label: string; value: string; delta?: string; deltaTone?: "success"|"warning"|"danger";
-  sub?: string; sparkline?: React.ReactNode; valueSize?: number;
-}) => (
-  <div style={{
-    background: "var(--color-surface)", border: "1px solid var(--color-border)",
-    borderRadius: 12, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 4,
-  }}>
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-      <div style={{ fontSize: 11, color: "var(--color-fg-3)", fontFamily: "var(--font-mono)" }}>{label}</div>
-      {sparkline}
-    </div>
-    <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-      <div style={{ fontSize: valueSize, fontWeight: 600, letterSpacing: -0.8, fontVariantNumeric: "tabular-nums" }}>{value}</div>
-      {delta && (
-        <div style={{
-          fontSize: 11.5, fontWeight: 500,
-          color: deltaTone === "success" ? "var(--color-success)" : deltaTone === "danger" ? "var(--color-danger)" : "var(--color-warning)",
-        }}>{delta}</div>
-      )}
-    </div>
-    {sub && <div style={{ fontSize: 11.5, color: "var(--color-fg-3)" }}>{sub}</div>}
-  </div>
-);
-
-// ─── Live demo ────────────────────────────────────────────────────────────────
-
-const LiveDemo = () => (
-  <div style={{ padding: "88px 48px", borderTop: "1px solid var(--color-hairline)" }}>
-    <div style={{ maxWidth: 1184, margin: "0 auto" }}>
-      <SectionLabel>Live demo</SectionLabel>
-      <h2 style={{ fontSize: 48, fontWeight: 500, letterSpacing: -1.5, margin: "14px 0 16px", lineHeight: 1.05 }}>A real customer flow, mid-day.</h2>
-      <p style={{ fontSize: 16, color: "var(--color-fg-2)", maxWidth: 540, lineHeight: 1.5, marginBottom: 48, letterSpacing: -0.2 }}>
-        This is what your operations team sees in the admin dashboard.
-      </p>
-      <div style={{
-        background: "var(--color-surface)", border: "1px solid var(--color-border)",
-        borderRadius: 18, padding: 24, display: "grid", gridTemplateColumns: "1fr 320px", gap: 24,
-      }}>
-        <div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <LiveDot/>
-              <span style={{ fontSize: 13, fontWeight: 500 }}>Asaka Bank — Mirzo Ulugbek branch</span>
-            </div>
-            <div style={{ display: "flex", gap: 4 }}>
-              {["1d", "7d", "30d", "90d"].map((p, i) => (
-                <span key={p} style={{
-                  padding: "4px 10px", borderRadius: 6, fontSize: 11,
-                  background: i === 1 ? "var(--color-fg)" : "transparent",
-                  color: i === 1 ? "var(--color-bg)" : "var(--color-fg-3)",
-                  fontFamily: "var(--font-mono)", fontWeight: 500,
-                }}>{p}</span>
-              ))}
-            </div>
-          </div>
-          <div style={{ position: "relative", height: 240 }}>
-            <svg viewBox="0 0 600 240" style={{ width: "100%", height: "100%" }}>
-              <defs>
-                <linearGradient id="demoGrad" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stopColor="var(--color-primary)" stopOpacity="0.25"/>
-                  <stop offset="100%" stopColor="var(--color-primary)" stopOpacity="0"/>
-                </linearGradient>
-              </defs>
-              {[40, 80, 120, 160, 200].map((y) => (
-                <line key={y} x1="0" x2="600" y1={y} y2={y} stroke="var(--color-hairline)"/>
-              ))}
-              <path d="M0 200 C 60 180, 100 160, 140 150 S 220 130, 260 110 S 360 70, 420 60 S 520 100, 600 80 L 600 240 L 0 240 Z" fill="url(#demoGrad)"/>
-              <path d="M0 200 C 60 180, 100 160, 140 150 S 220 130, 260 110 S 360 70, 420 60 S 520 100, 600 80" fill="none" stroke="var(--color-primary)" strokeWidth="2"/>
-              <path d="M600 80 C 640 65, 680 75, 720 90" fill="none" stroke="var(--color-accent)" strokeWidth="2" strokeDasharray="4 4"/>
-              <circle cx="420" cy="60" r="4" fill="var(--color-primary)" stroke="var(--color-surface)" strokeWidth="2"/>
-              <text x="430" y="48" fontFamily="var(--font-mono)" fontSize="11" fill="var(--color-fg-2)">peak · 13:40</text>
-            </svg>
-            <div style={{ position: "absolute", top: 20, left: 0, fontSize: 11, color: "var(--color-fg-3)", fontFamily: "var(--font-mono)" }}>
-              arrivals/min
-            </div>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--color-fg-3)", fontFamily: "var(--font-mono)", marginTop: 8 }}>
-            {["9:00", "11:00", "13:00", "15:00", "17:00"].map((t) => <span key={t}>{t}</span>)}
-          </div>
+          <div style={{ fontSize: 16, fontWeight: 600, letterSpacing: -0.3, color: "#fff" }}>{f.t}</div>
+          <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", lineHeight: 1.55 }}>{f.d}</div>
         </div>
+      ))}
+    </div>
+  </Section>
+);
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <Stat label="In queue now" value="14" delta="+3" deltaTone="warning"
-            sparkline={<Sparkline data={[8, 9, 10, 12, 14]} w={60} h={20}/>}/>
-          <Stat label="Avg wait" value="6:42" delta="−58s" deltaTone="success"
-            sparkline={<Sparkline data={[8, 9, 8, 7, 7, 7, 6]} w={60} h={20} color="var(--color-accent)"/>}/>
-          <Stat label="Abandoned (today)" value="1.8%" delta="+0.3" deltaTone="danger" valueSize={22}/>
-          <div style={{
-            background: "var(--color-primary-soft)", borderRadius: 12, padding: 12,
-            display: "flex", gap: 10, alignItems: "flex-start",
-          }}>
-            <Icon name="sparkles" size={16} style={{ color: "var(--color-primary)", flex: "none", marginTop: 1 }}/>
-            <div style={{ fontSize: 11.5, color: "var(--color-primary)", lineHeight: 1.4 }}>
-              Staffing tip: 7-day average shows +18% arrivals at 13:40 — consider opening Window 7 before then.
-            </div>
-          </div>
-        </div>
+// ─── Console preview ─────────────────────────────────────────────────────────
+const Console = () => (
+  <Section
+    id="console"
+    eyebrow="Operational console"
+    title="A dashboard that feels like infrastructure."
+    sub="Built for managers who run multiple branches and don't have time for clutter."
+  >
+    <div style={{
+      marginTop: 40, position: "relative",
+      background: "linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%)",
+      borderRadius: 18, padding: 4,
+      border: "1px solid rgba(255,255,255,0.08)",
+      maxWidth: 1280,
+    }}>
+      <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden" }}>
+        <DashboardPreview/>
       </div>
     </div>
-  </div>
+  </Section>
 );
 
-// ─── How it works ─────────────────────────────────────────────────────────────
-
-const HowItWorks = () => (
-  <div style={{ padding: "88px 48px", borderTop: "1px solid var(--color-hairline)" }}>
-    <div style={{ maxWidth: 1184, margin: "0 auto" }}>
-      <SectionLabel>How it works</SectionLabel>
-      <h2 style={{ fontSize: 48, fontWeight: 500, letterSpacing: -1.5, margin: "14px 0 48px", lineHeight: 1.05 }}>
-        From your couch to the counter.
-      </h2>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
-        {[
-          { n: "01", t: "Pick a branch", d: "Open the web app or Telegram bot. See live load by branch." },
-          { n: "02", t: "Take a ticket", d: "Choose a service. You get an estimated arrival window." },
-          { n: "03", t: "Get the ping", d: "When the queue is 5 min from you, we send a push or TG alert." },
-          { n: "04", t: "Walk in & scan", d: "Show QR at the kiosk. Your spot is held; nobody jumps it." },
-        ].map((s, i) => (
-          <div key={i} style={{
-            background: "var(--color-surface)", border: "1px solid var(--color-border)",
-            borderRadius: 16, padding: 24, display: "flex", flexDirection: "column", gap: 16,
-            position: "relative",
-          }}>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--color-fg-3)", letterSpacing: 0.4 }}>{s.n}</div>
-            <div style={{ fontSize: 17, fontWeight: 600, letterSpacing: -0.3 }}>{s.t}</div>
-            <div style={{ fontSize: 13, color: "var(--color-fg-2)", lineHeight: 1.5 }}>{s.d}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  </div>
-);
-
-// ─── Analytics ───────────────────────────────────────────────────────────────
-
-// Pre-computed at module level so SSR and client produce identical strings.
-// Math.sin floating-point results are formatted consistently via Math.round.
-const HEATMAP_GRID: string[][] = Array.from({ length: 7 }, (_, d) =>
-  Array.from({ length: 12 }, (_, h) => {
-    const v = Math.max(0, Math.min(1,
-      0.15 + Math.sin((h - 2) * 0.55) * 0.4 + Math.sin(d * 0.7) * 0.15 +
-      ((d === 0 || d === 4) && h > 4 ? 0.35 : 0)
-    ));
-    const L = Math.round((0.97 - v * 0.55) * 1e4) / 1e4;
-    const C = Math.round(v * 0.18 * 1e4) / 1e4;
-    return `oklch(${L} ${C} 262)`;
-  })
-);
-
-const AnalyticsShowcase = () => (
-  <div id="analytics" style={{ padding: "88px 48px", borderTop: "1px solid var(--color-hairline)", scrollMarginTop: 64 }}>
-    <div style={{ maxWidth: 1184, margin: "0 auto" }}>
-      <SectionLabel>Analytics</SectionLabel>
-      <h2 style={{ fontSize: 48, fontWeight: 500, letterSpacing: -1.5, margin: "14px 0 16px", lineHeight: 1.05 }}>Read your operations like a chart.</h2>
-      <p style={{ fontSize: 16, color: "var(--color-fg-2)", maxWidth: 540, lineHeight: 1.5, marginBottom: 48, letterSpacing: -0.2 }}>
-        Heatmaps for staffing decisions. Cohort views for retention. Predictions for tomorrow.
-      </p>
-      <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 16 }}>
-        {/* Heatmap */}
-        <div style={{
-          background: "var(--color-surface)", border: "1px solid var(--color-border)",
-          borderRadius: 16, padding: 24, display: "flex", flexDirection: "column", gap: 16,
+// ─── Industries ──────────────────────────────────────────────────────────────
+const Industries = () => (
+  <Section id="industries" eyebrow="Built for" title="Industries where waiting eats profit.">
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 14, marginTop: 36, maxWidth: 1280 }}>
+      {[
+        { i: "heart" as const,    t: "Clinics",        d: "Family doctors, specialists" },
+        { i: "eye" as const,      t: "Diagnostics",    d: "Imaging, lab tests" },
+        { i: "sparkles" as const, t: "Salons",         d: "Hair, beauty, spa" },
+        { i: "user" as const,     t: "Dental",         d: "Routine + appointments" },
+        { i: "settings" as const, t: "Service centers", d: "Auto, electronics, repair" },
+      ].map((s) => (
+        <div key={s.t} style={{
+          padding: 22, borderRadius: 14,
+          background: "rgba(255,255,255,0.025)",
+          border: "1px solid rgba(255,255,255,0.06)",
+          display: "flex", flexDirection: "column", gap: 14,
         }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div>
-              <SectionLabel>Weekly heatmap</SectionLabel>
-              <div style={{ fontSize: 18, fontWeight: 600, marginTop: 6, letterSpacing: -0.3 }}>Customer arrivals by hour</div>
-            </div>
-            <Tag dot>Live</Tag>
-          </div>
-          <div style={{ display: "flex", gap: 6 }}>
-            <div style={{ width: 30, paddingTop: 18, display: "flex", flexDirection: "column", gap: 4, fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--color-fg-3)" }}>
-              {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
-                <div key={d} style={{ height: 22, display: "flex", alignItems: "center" }}>{d}</div>
-              ))}
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: "flex", gap: 4, fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--color-fg-3)", marginBottom: 4 }}>
-                {Array.from({ length: 12 }).map((_, h) => (
-                  <div key={h} style={{ flex: 1, textAlign: "center" }}>{(9 + h).toString().padStart(2, "0")}</div>
-                ))}
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                {HEATMAP_GRID.map((row, d) => (
-                  <div key={d} style={{ display: "flex", gap: 4 }}>
-                    {row.map((bg, h) => (
-                      <div key={h} style={{ flex: 1, height: 22, borderRadius: 3, background: bg }}/>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </div>
+          <Icon name={s.i} size={22} style={{ color: "oklch(0.78 0.14 220)" }}/>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{s.t}</div>
+            <div style={{ fontSize: 11.5, color: "rgba(255,255,255,0.45)", marginTop: 3 }}>{s.d}</div>
           </div>
         </div>
-
-        {/* Stats sidebar */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {[
-            { label: "Peak hours", value: "13–15", sub: "Tue–Fri" },
-            { label: "Avg wait", value: "6:42", sub: "−58s vs last week", pos: true },
-            { label: "Abandonment", value: "3.1%", sub: "−0.6 vs last week", pos: true },
-          ].map((s) => (
-            <div key={s.label} style={{
-              background: "var(--color-surface)", border: "1px solid var(--color-border)",
-              borderRadius: 12, padding: "14px 16px",
-            }}>
-              <div style={{ fontSize: 11, color: "var(--color-fg-3)", fontFamily: "var(--font-mono)" }}>{s.label}</div>
-              <div style={{ fontSize: 28, fontWeight: 600, letterSpacing: -0.8, marginTop: 4, fontVariantNumeric: "tabular-nums" }}>{s.value}</div>
-              {s.sub && <div style={{ fontSize: 11.5, color: s.pos ? "var(--color-success)" : "var(--color-fg-3)", marginTop: 2 }}>{s.sub}</div>}
-            </div>
-          ))}
-          <div style={{
-            background: "var(--color-primary-soft)", borderRadius: 12, padding: 14,
-            display: "flex", gap: 10, alignItems: "flex-start",
-          }}>
-            <Icon name="sparkles" size={16} style={{ color: "var(--color-primary)", flex: "none", marginTop: 1 }}/>
-            <div style={{ fontSize: 11.5, color: "var(--color-primary)", lineHeight: 1.4 }}>
-              Staffing tip: 7-day average shows +18% arrivals at 13:40 — consider opening Window 7 before then.
-            </div>
-          </div>
-        </div>
-      </div>
+      ))}
     </div>
-  </div>
+  </Section>
 );
 
-// ─── Early access ─────────────────────────────────────────────────────────────
-
-const Testimonials = () => (
-  <div id="early-access" style={{ padding: "88px 48px", borderTop: "1px solid var(--color-hairline)", scrollMarginTop: 64 }}>
-    <div style={{ maxWidth: 1184, margin: "0 auto" }}>
-      <SectionLabel>Early access</SectionLabel>
-      <h2 style={{ fontSize: 48, fontWeight: 500, letterSpacing: -1.5, margin: "14px 0 16px", lineHeight: 1.05 }}>
-        Built for Uzbekistan, ready for your branch.
-      </h2>
-      <p style={{ fontSize: 16, color: "var(--color-fg-2)", maxWidth: 580, lineHeight: 1.5, marginBottom: 48, letterSpacing: -0.2 }}>
-        zeyvo is in closed early access. We&apos;re onboarding the first branches now — banks, clinics, and public services in Tashkent.
-        If you run a location with a queue, reach out.
-      </p>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
-        {[
-          { icon: "building-2", title: "Banks & financial services", body: "Multi-window, multi-branch management. Works alongside existing Innomax kiosks — no rip-and-replace." },
-          { icon: "stethoscope", title: "Clinics & polyclinics", body: "Walk-in and appointment queues in one system. Patients get a Telegram notification when it&apos;s their turn." },
-          { icon: "landmark", title: "Government & public services", body: "High-volume counters, audit log, exportable reports. Compliant with UZ personal data regulations." },
-        ].map((c) => (
-          <div key={c.title} style={{
-            background: "var(--color-surface)", border: "1px solid var(--color-border)",
-            borderRadius: 16, padding: 28, display: "flex", flexDirection: "column", gap: 16,
-          }}>
-            <Icon name={c.icon} size={24} style={{ color: "var(--color-primary)" }}/>
-            <div style={{ fontSize: 15, fontWeight: 600, letterSpacing: -0.3 }}>{c.title}</div>
-            <div style={{ fontSize: 13.5, color: "var(--color-fg-2)", lineHeight: 1.5 }}>{c.body}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  </div>
-);
-
-// ─── Integrations ─────────────────────────────────────────────────────────────
-
-const Integrations = () => (
-  <div id="integrations" style={{ padding: "88px 48px", borderTop: "1px solid var(--color-hairline)", scrollMarginTop: 64 }}>
-    <div style={{ maxWidth: 1184, margin: "0 auto" }}>
-      <SectionLabel>Integrations</SectionLabel>
-      <h2 style={{ fontSize: 48, fontWeight: 500, letterSpacing: -1.5, margin: "14px 0 16px", lineHeight: 1.05 }}>
-        Plays well with the queue you already have.
-      </h2>
-      <p style={{ fontSize: 16, color: "var(--color-fg-2)", maxWidth: 560, lineHeight: 1.5, marginBottom: 48, letterSpacing: -0.2 }}>
-        Drop zeyvo in next to Innomax kiosks, your existing CRM or any SMS gateway. Migrate room by room.
-      </p>
-      <div style={{
-        background: "var(--color-surface)", border: "1px solid var(--color-border)",
-        borderRadius: 18, padding: 32,
-        display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 12,
-      }}>
-        {["Telegram", "Innomax", "Q-matic", "Twilio", "Eskiz SMS", "1C ERP", "Bitrix24", "Power BI", "Slack", "Google Sheets", "OAuth / SSO", "Webhooks"].map((n) => (
-          <div key={n} style={{
-            height: 60, borderRadius: 10, background: "var(--color-surface-2)",
-            border: "1px solid var(--color-border)",
-            display: "grid", placeItems: "center",
-            fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--color-fg-2)",
-          }}>{n}</div>
-        ))}
-      </div>
-    </div>
-  </div>
-);
-
-// ─── Enterprise ──────────────────────────────────────────────────────────────
-
-const Enterprise = () => (
-  <div style={{ padding: "88px 48px", borderTop: "1px solid var(--color-hairline)" }}>
-    <div style={{ maxWidth: 1184, margin: "0 auto" }}>
-      <div style={{
-        background: "var(--color-fg)", color: "var(--color-bg)",
-        borderRadius: 20, padding: 48,
-        display: "grid", gridTemplateColumns: "1fr 1fr", gap: 40, alignItems: "center",
-      }}>
-        <div>
-          <div style={{ fontSize: 36, fontWeight: 500, letterSpacing: -1.2, lineHeight: 1.1 }}>
-            Enterprise-ready · single-tenant deployments
-          </div>
-          <p style={{ fontSize: 15, opacity: 0.7, lineHeight: 1.5, marginTop: 18, maxWidth: 420 }}>
-            Self-host on your infrastructure or run in the zeyvo cloud. Data residency in UZ, KZ, EU and US.
-          </p>
-          <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
-            <a href="mailto:uzgamer.uz27@gmail.com?subject=zeyvo%20%E2%80%94%20Enterprise%20sales%20enquiry" style={{
-              padding: "12px 22px", borderRadius: 10,
-              background: "var(--color-bg)", color: "var(--color-fg)",
-              fontSize: 14, fontWeight: 600, border: "none", cursor: "pointer",
-              display: "flex", alignItems: "center", gap: 6, textDecoration: "none",
-            }}>Talk to sales <Icon name="arrow" size={13}/></a>
-          </div>
+// ─── Early access ────────────────────────────────────────────────────────────
+const EarlyAccess = () => (
+  <Section
+    id="early-access"
+    eyebrow="Early access"
+    title="Built for Uzbekistan, ready for your branch."
+    sub="zeyvo is in closed early access. We're onboarding the first branches now — banks, clinics, and public services in Tashkent. If you run a location with a queue, reach out."
+  >
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginTop: 36, maxWidth: 1280 }}>
+      {[
+        { t: "Banks & financial services", d: "Multi-window, multi-branch management. Works alongside existing Innomax kiosks — no rip-and-replace." },
+        { t: "Clinics & polyclinics",     d: "Walk-in and appointment queues in one system. Patients get a Telegram notification when it's their turn." },
+        { t: "Government & public services", d: "High-volume counters, audit log, exportable reports. Compliant with UZ personal data regulations." },
+      ].map((c) => (
+        <div key={c.t} style={{
+          padding: 24, borderRadius: 16,
+          background: "rgba(255,255,255,0.025)",
+          border: "1px solid rgba(255,255,255,0.06)",
+          display: "flex", flexDirection: "column", gap: 12,
+        }}>
+          <div style={{ fontSize: 15, fontWeight: 600, color: "#fff", letterSpacing: -0.2 }}>{c.t}</div>
+          <div style={{ fontSize: 13.5, color: "rgba(255,255,255,0.55)", lineHeight: 1.55 }}>{c.d}</div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          {[
-            { i: "shield", t: "Audit log", d: "Every action, exportable" },
-            { i: "lock", t: "End-to-end", d: "TLS 1.3 + AES-256" },
-            { i: "server", t: "Self-hosted", d: "On-prem ready" },
-            { i: "globe", t: "Multi-region", d: "UZ · KZ · EU · US" },
-            { i: "eye", t: "Full audit log", d: "Every action, exportable" },
-            { i: "users", t: "RBAC", d: "Fine-grained roles" },
-          ].map((c) => (
-            <div key={c.t} style={{
-              padding: 16, borderRadius: 12,
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.08)",
-            }}>
-              <Icon name={c.i} size={18} style={{ color: "var(--color-accent)" }}/>
-              <div style={{ fontSize: 13, fontWeight: 600, marginTop: 10 }}>{c.t}</div>
-              <div style={{ fontSize: 11.5, opacity: 0.6, marginTop: 2 }}>{c.d}</div>
-            </div>
-          ))}
-        </div>
-      </div>
+      ))}
     </div>
-  </div>
+  </Section>
 );
-
-// ─── FAQ ─────────────────────────────────────────────────────────────────────
-
-const FAQ_ITEMS = [
-  { q: "Does zeyvo replace our physical kiosks?", a: "No. zeyvo runs on existing kiosks (Innomax, Q-matic, custom) and adds remote, mobile and analytics surfaces around them. You can also use our touchscreen builds." },
-  { q: "What happens when remote and walk-in customers collide?", a: "You set the policy per service: priority remote, priority walk-in, FIFO or hybrid bands. Operators can override per ticket." },
-  { q: "Which languages are supported?", a: "English, Russian and Uzbek out of the box — Latin and Cyrillic for Uzbek." },
-  { q: "How accurate are the wait-time predictions?", a: "Median absolute error is under 90 seconds after two weeks of training data per branch." },
-];
-
-const Faq = () => {
-  const [open, setOpen] = useState<number | null>(0);
-  return (
-    <div id="faq" style={{ padding: "88px 48px", borderTop: "1px solid var(--color-hairline)", scrollMarginTop: 64 }}>
-      <div style={{ maxWidth: 1184, margin: "0 auto" }}>
-        <SectionLabel>FAQ</SectionLabel>
-        <h2 style={{ fontSize: 48, fontWeight: 500, letterSpacing: -1.5, margin: "14px 0 48px", lineHeight: 1.05 }}>
-          Questions, mostly answered.
-        </h2>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          {FAQ_ITEMS.map((row, i) => (
-            <div key={i} style={{
-              background: "var(--color-surface)", border: "1px solid var(--color-border)",
-              borderRadius: 12, padding: "18px 22px", cursor: "pointer",
-            }} onClick={() => setOpen(open === i ? null : i)}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div style={{ fontSize: 16, fontWeight: 500, letterSpacing: -0.2 }}>{row.q}</div>
-                <Icon name={open === i ? "minus" : "plus"} size={18} style={{ color: "var(--color-fg-3)", flex: "none" }}/>
-              </div>
-              {open === i && (
-                <div style={{ fontSize: 14, color: "var(--color-fg-2)", lineHeight: 1.55, marginTop: 12, maxWidth: 800 }}>{row.a}</div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // ─── CTA ─────────────────────────────────────────────────────────────────────
-
-const CtaSection = () => (
-  <div style={{ padding: "96px 48px", borderTop: "1px solid var(--color-hairline)" }}>
-    <div style={{ maxWidth: 1184, margin: "0 auto" }}>
+const CtaCard = () => (
+  <div style={{ padding: "80px 48px 60px" }}>
+    <div style={{
+      maxWidth: 1280, margin: "0 auto",
+      borderRadius: 24, padding: "56px 40px", textAlign: "center",
+      background: "radial-gradient(ellipse at 50% 0%, oklch(0.4 0.18 262 / 0.4) 0%, transparent 60%), linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.02) 100%)",
+      border: "1px solid rgba(255,255,255,0.08)",
+      position: "relative", overflow: "hidden",
+    }}>
       <div style={{
-        borderRadius: 20, padding: 56,
-        background: "radial-gradient(circle at 20% 0%, var(--color-primary-soft) 0%, transparent 50%), radial-gradient(circle at 80% 100%, var(--color-accent-soft, var(--color-primary-soft)) 0%, transparent 50%), var(--color-surface)",
-        border: "1px solid var(--color-border)",
-        textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 20,
+        fontSize: 56, fontWeight: 500, letterSpacing: -2, lineHeight: 1.02, maxWidth: 760, margin: "0 auto",
+        background: "linear-gradient(180deg, #fff 0%, rgba(255,255,255,0.7) 100%)",
+        WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent",
       }}>
-        <h2 style={{ fontSize: 56, fontWeight: 500, letterSpacing: -2, margin: 0, lineHeight: 1.02, maxWidth: 720 }}>
-          Let people live their day. Not your queue.
-        </h2>
-        <p style={{ fontSize: 17, color: "var(--color-fg-2)", maxWidth: 540, lineHeight: 1.5, margin: 0, letterSpacing: -0.1 }}>
-          14-day trial. No card. Migrate one branch first — see the difference, then roll out.
-        </p>
-        <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
-          <Link href="/sign-in" style={{
-            padding: "14px 28px", borderRadius: 12,
-            background: "var(--color-fg)", color: "var(--color-bg)",
-            fontSize: 15, fontWeight: 600, textDecoration: "none",
-            display: "flex", alignItems: "center", gap: 8,
-          }}>
-            Start free trial <Icon name="arrow" size={14}/>
-          </Link>
-          <a href="mailto:uzgamer.uz27@gmail.com?subject=zeyvo%20%E2%80%94%20Book%20a%20demo" style={{
-            padding: "14px 28px", borderRadius: 12,
-            background: "transparent", color: "var(--color-fg)",
-            fontSize: 15, fontWeight: 600, border: "1px solid var(--color-border)",
-            cursor: "pointer", textDecoration: "none",
-          }}>Book a demo</a>
-        </div>
+        Let your customers<br/>live their day.
+      </div>
+      <p style={{ fontSize: 16, color: "rgba(255,255,255,0.6)", maxWidth: 480, margin: "20px auto 0", lineHeight: 1.5 }}>
+        One branch trial. No card. See the difference, then roll out.
+      </p>
+      <div style={{ display: "flex", gap: 10, marginTop: 28, justifyContent: "center", flexWrap: "wrap" }}>
+        <a href="mailto:uzgamer.uz27@gmail.com?subject=zeyvo%20%E2%80%94%20Request%20demo" style={{
+          padding: "14px 22px", borderRadius: 10,
+          background: "#fff", color: "#0a0e15",
+          fontSize: 14, fontWeight: 600, textDecoration: "none",
+          display: "inline-flex", alignItems: "center", gap: 8,
+        }}>Request demo <Icon name="arrow" size={15}/></a>
+        <Link href="/branches" style={{
+          padding: "14px 22px", borderRadius: 10,
+          background: "rgba(255,255,255,0.08)",
+          border: "1px solid rgba(255,255,255,0.15)",
+          color: "#fff", fontSize: 14, fontWeight: 500, textDecoration: "none",
+        }}>Open live demo</Link>
       </div>
     </div>
   </div>
 );
 
 // ─── Footer ──────────────────────────────────────────────────────────────────
-
 type FooterLink = { label: string; href: string; external?: boolean };
-
 const FOOTER_COLUMNS: { title: string; links: FooterLink[] }[] = [
   {
     title: "Product",
     links: [
-      { label: "Remote queue", href: "#features" },
-      { label: "Live monitor", href: "#features" },
-      { label: "Analytics", href: "#analytics" },
-      { label: "Integrations", href: "#integrations" },
-      { label: "FAQ", href: "#faq" },
+      { label: "Remote queue",   href: "#features" },
+      { label: "Live monitor",   href: "#features" },
+      { label: "Analytics",      href: "#console" },
+      { label: "Kiosks",         href: "#features" },
+      { label: "Telegram bot",   href: "https://t.me/zeyvo_bot", external: true },
     ],
   },
   {
     title: "For",
     links: [
-      { label: "Banks", href: "#early-access" },
-      { label: "Clinics", href: "#early-access" },
-      { label: "Government", href: "#early-access" },
-      { label: "All industries", href: "#early-access" },
+      { label: "Clinics",         href: "#industries" },
+      { label: "Diagnostics",     href: "#industries" },
+      { label: "Salons",          href: "#industries" },
+      { label: "Dental",          href: "#industries" },
+      { label: "Service centers", href: "#industries" },
     ],
   },
   {
-    title: "Contact",
+    title: "Company",
     links: [
-      { label: "Email sales", href: "mailto:uzgamer.uz27@gmail.com?subject=zeyvo%20%E2%80%94%20Sales", external: true },
-      { label: "Book a demo", href: "mailto:uzgamer.uz27@gmail.com?subject=zeyvo%20%E2%80%94%20Book%20a%20demo", external: true },
-      { label: "Telegram bot", href: "https://t.me/zeyvo_bot", external: true },
-      { label: "GitHub", href: "https://github.com/Normamatov27/zeyvo", external: true },
+      { label: "Early access",   href: "#early-access" },
+      { label: "Contact",        href: "mailto:uzgamer.uz27@gmail.com", external: true },
+      { label: "GitHub",         href: "https://github.com/Normamatov27/zeyvo", external: true },
     ],
   },
 ];
 
 const Footer = () => (
   <div style={{
-    padding: "48px 48px 36px",
-    borderTop: "1px solid var(--color-hairline)",
-    background: "var(--color-surface)",
+    padding: "32px 40px",
+    borderTop: "1px solid rgba(255,255,255,0.06)",
+    background: "rgba(255,255,255,0.02)",
   }}>
-    <div style={{ maxWidth: 1184, margin: "0 auto" }}>
+    <div style={{ maxWidth: 1280, margin: "0 auto" }}>
       <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 24 }}>
         <div>
-          <Wordmark/>
-          <p style={{ fontSize: 12.5, color: "var(--color-fg-3)", maxWidth: 280, lineHeight: 1.5, marginTop: 14 }}>
-            A modern operating system for real-world queues and customer flow. Built in Tashkent · used everywhere.
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 16, fontWeight: 600, color: "#fff" }}>
+            <Logo size={18} color="#fff" stroke={1.8}/> zeyvo
+          </div>
+          <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.45)", maxWidth: 280, lineHeight: 1.55, marginTop: 12 }}>
+            AI-powered queue & appointment infrastructure for modern service businesses. Built in Tashkent · used everywhere.
           </p>
         </div>
         {FOOTER_COLUMNS.map((col) => (
           <div key={col.title}>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--color-fg-3)", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 12 }}>{col.title}</div>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 10 }}>{col.title}</div>
             {col.links.map((l) => (
               <a
                 key={l.label}
                 href={l.href}
                 {...(l.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                 style={{
-                  fontSize: 13, color: "var(--color-fg-2)",
-                  padding: "4px 0", display: "block",
-                  textDecoration: "none", cursor: "pointer",
+                  fontSize: 12.5, color: "rgba(255,255,255,0.7)",
+                  padding: "3px 0", display: "block",
+                  textDecoration: "none",
                 }}
               >
                 {l.label}
@@ -813,36 +726,40 @@ const Footer = () => (
         ))}
       </div>
       <div style={{
-        marginTop: 36, paddingTop: 20, borderTop: "1px solid var(--color-hairline)",
+        marginTop: 28, paddingTop: 18, borderTop: "1px solid rgba(255,255,255,0.06)",
         display: "flex", justifyContent: "space-between", alignItems: "center",
-        fontSize: 12, color: "var(--color-fg-3)", fontFamily: "var(--font-mono)",
+        fontSize: 11.5, color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-mono)",
       }}>
         <span>© 2026 zeyvo labs · tashkent</span>
-        <span>v0.1.0 · all systems operational</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ width: 6, height: 6, background: "oklch(0.62 0.14 150)", borderRadius: "50%" }}/>
+          all systems operational
+        </span>
       </div>
     </div>
   </div>
 );
 
 // ─── Page ────────────────────────────────────────────────────────────────────
-
 export default function HomePage() {
   const { userId, _hydrated } = useAuthStore();
   const authed = _hydrated && userId !== null;
 
   return (
-    <div id="top" style={{ minHeight: "100vh", background: "var(--color-bg)" }}>
+    <div id="top" style={{
+      minHeight: "100vh",
+      background: "#0a0e15",
+      color: "#fff",
+      fontFamily: "var(--font-sans)",
+    }}>
       <TopNav authed={authed}/>
       <Hero/>
-      <Features/>
-      <LiveDemo/>
-      <HowItWorks/>
-      <AnalyticsShowcase/>
-      <Testimonials/>
-      <Integrations/>
-      <Enterprise/>
-      <Faq/>
-      <CtaSection/>
+      <Problem/>
+      <Solution/>
+      <Console/>
+      <Industries/>
+      <EarlyAccess/>
+      <CtaCard/>
       <Footer/>
     </div>
   );

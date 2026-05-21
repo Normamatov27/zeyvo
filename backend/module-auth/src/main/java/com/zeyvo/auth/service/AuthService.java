@@ -35,7 +35,7 @@ public class AuthService {
     private final OtpRepository otpRepo;
     private final JwtService jwtService;
     private final TelegramAuthService telegramAuthService;
-    private final EskizSmsService eskizSmsService;
+    private final DevSmsService devSmsService;
     private final TelegramBotService telegramBotService;
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher events;
@@ -158,7 +158,7 @@ public class AuthService {
                 throw new DomainException("otp.channel_unavailable",
                         "This delivery channel is not available yet. Use SMS.",
                         HttpStatus.UNPROCESSABLE_ENTITY);
-            default -> eskizSmsService.sendOtp(phone, code);
+            default -> devSmsService.sendOtp(phone, code);
         }
 
         log.debug("OTP requested for {} via {}", phone, channel);

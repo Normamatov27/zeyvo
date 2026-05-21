@@ -90,9 +90,11 @@ zeyvo:
     bot-token: ${TELEGRAM_BOT_TOKEN:}
     bot-username: ${TELEGRAM_BOT_USERNAME:zeyvo_bot}
     webhook-secret: ${TELEGRAM_WEBHOOK_SECRET:}
-  eskiz:
-    email: ${ESKIZ_EMAIL:}
-    password: ${ESKIZ_PASSWORD:}
+  sms:
+    base-url: ${DEVSMS_BASE_URL:https://devsms.uz/api}
+    api-key: ${DEVSMS_API_KEY:}
+    service-name: ${DEVSMS_SERVICE_NAME:Zeyvo}
+    template-type: ${DEVSMS_TEMPLATE_TYPE:4}
   rate-limit:
     tickets-per-minute: 5
     global-per-minute: 60
