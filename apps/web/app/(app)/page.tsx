@@ -140,8 +140,8 @@ const HeroLiveWidget = () => {
   }, []);
   const services = ["Open account", "Currency exchange", "Card replacement", "Consultation"];
   return (
-    <div style={{
-      width: 360, position: "relative",
+    <div className="lp-hero-widget" style={{
+      width: 360, maxWidth: "100%", position: "relative",
       borderRadius: 20, padding: 4,
       background: "linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04))",
       backdropFilter: "blur(20px)",
@@ -223,7 +223,7 @@ const Section = ({ id, eyebrow, title, sub, children, scrollMarginTop = 64 }: {
   id?: string; eyebrow?: string; title?: string; sub?: string;
   children: React.ReactNode; scrollMarginTop?: number;
 }) => (
-  <div id={id} style={{
+  <div id={id} className="lp-section" style={{
     padding: "88px 48px",
     borderTop: "1px solid rgba(255,255,255,0.04)",
     scrollMarginTop,
@@ -324,7 +324,7 @@ const NAV_LINKS: { label: string; href: string }[] = [
 ];
 
 const TopNav = ({ authed }: { authed: boolean }) => (
-  <div style={{
+  <div className="lp-topnav" style={{
     height: 64, padding: "0 40px",
     display: "flex", alignItems: "center", justifyContent: "space-between",
     borderBottom: "1px solid rgba(255,255,255,0.06)",
@@ -341,7 +341,7 @@ const TopNav = ({ authed }: { authed: boolean }) => (
         <Logo size={20} color="#fff" stroke={1.8}/>
         <span style={{ marginLeft: -2 }}>zeyvo</span>
       </a>
-      <nav style={{ display: "flex", gap: 28, fontSize: 13.5 }}>
+      <nav className="lp-nav" style={{ display: "flex", gap: 28, fontSize: 13.5 }}>
         {NAV_LINKS.map((n) => (
           <a key={n.label} href={n.href} style={{
             color: "rgba(255,255,255,0.65)", textDecoration: "none",
@@ -351,7 +351,7 @@ const TopNav = ({ authed }: { authed: boolean }) => (
       </nav>
     </div>
     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-      <span style={{ fontSize: 11.5, color: "rgba(255,255,255,0.5)", fontFamily: "var(--font-mono)" }}>EN · RU · UZ</span>
+      <span className="lp-lang-hint" style={{ fontSize: 11.5, color: "rgba(255,255,255,0.5)", fontFamily: "var(--font-mono)" }}>EN · RU · UZ</span>
       {authed ? (
         <Link href="/branches" style={{
           padding: "8px 14px", borderRadius: 8,
@@ -384,7 +384,7 @@ const TopNav = ({ authed }: { authed: boolean }) => (
 const Hero = () => (
   <div style={{ position: "relative", overflow: "hidden" }}>
     <HeroBackdrop/>
-    <div style={{
+    <div className="lp-hero-grid" style={{
       position: "relative", padding: "96px 48px 80px", maxWidth: 1280, margin: "0 auto",
       display: "grid", gridTemplateColumns: "1fr 400px", gap: 64, alignItems: "center",
     }}>
@@ -483,7 +483,7 @@ const Problem = () => (
     title="Waiting is a tax on the modern day."
     sub="Receptionists overload. Customers leave. Operators guess. Most service businesses still run their queues on Excel and a clipboard."
   >
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginTop: 40, maxWidth: 1280 }}>
+    <div className="lp-grid-stats" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginTop: 40, maxWidth: 1280 }}>
       {[
         { v: "47m", l: "avg wait at a typical clinic on Friday" },
         { v: "23%", l: "customers who leave the line" },
@@ -510,7 +510,7 @@ const Problem = () => (
 // ─── Solution / features ─────────────────────────────────────────────────────
 const Solution = () => (
   <Section id="features" eyebrow="The solution" title="A live operating system for customer flow.">
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginTop: 36, maxWidth: 1280 }}>
+    <div className="lp-grid-features" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginTop: 36, maxWidth: 1280 }}>
       {[
         { i: "phone" as const,    t: "Remote queue",     d: "Take a number from home. Join via web, app or Telegram. Walk in only when called." },
         { i: "calendar" as const, t: "Appointments",     d: "Book any time. We pin your slot, send reminders, hold it against walk-ins." },
@@ -548,14 +548,14 @@ const Console = () => (
     title="A dashboard that feels like infrastructure."
     sub="Built for managers who run multiple branches and don't have time for clutter."
   >
-    <div style={{
+    <div className="lp-console-wrap" style={{
       marginTop: 40, position: "relative",
       background: "linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%)",
       borderRadius: 18, padding: 4,
       border: "1px solid rgba(255,255,255,0.08)",
       maxWidth: 1280,
     }}>
-      <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden" }}>
+      <div className="lp-console-scroll" style={{ background: "#fff", borderRadius: 14, overflow: "hidden" }}>
         <DashboardPreview/>
       </div>
     </div>
@@ -565,7 +565,7 @@ const Console = () => (
 // ─── Industries ──────────────────────────────────────────────────────────────
 const Industries = () => (
   <Section id="industries" eyebrow="Built for" title="Industries where waiting eats profit.">
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 14, marginTop: 36, maxWidth: 1280 }}>
+    <div className="lp-grid-industries" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 14, marginTop: 36, maxWidth: 1280 }}>
       {[
         { i: "heart" as const,    t: "Clinics",        d: "Family doctors, specialists" },
         { i: "eye" as const,      t: "Diagnostics",    d: "Imaging, lab tests" },
@@ -598,7 +598,7 @@ const EarlyAccess = () => (
     title="Built for Uzbekistan, ready for your branch."
     sub="zeyvo is in closed early access. We're onboarding the first branches now — banks, clinics, and public services in Tashkent. If you run a location with a queue, reach out."
   >
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginTop: 36, maxWidth: 1280 }}>
+    <div className="lp-grid-early" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginTop: 36, maxWidth: 1280 }}>
       {[
         { t: "Banks & financial services", d: "Multi-window, multi-branch management. Works alongside existing Innomax kiosks — no rip-and-replace." },
         { t: "Clinics & polyclinics",     d: "Walk-in and appointment queues in one system. Patients get a Telegram notification when it's their turn." },
@@ -620,7 +620,7 @@ const EarlyAccess = () => (
 
 // ─── CTA ─────────────────────────────────────────────────────────────────────
 const CtaCard = () => (
-  <div style={{ padding: "80px 48px 60px" }}>
+  <div className="lp-cta-section" style={{ padding: "80px 48px 60px" }}>
     <div style={{
       maxWidth: 1280, margin: "0 auto",
       borderRadius: 24, padding: "56px 40px", textAlign: "center",
@@ -696,7 +696,7 @@ const Footer = () => (
     background: "rgba(255,255,255,0.02)",
   }}>
     <div style={{ maxWidth: 1280, margin: "0 auto" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 24 }}>
+      <div className="lp-footer-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 24 }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 16, fontWeight: 600, color: "#fff" }}>
             <Logo size={18} color="#fff" stroke={1.8}/> zeyvo
@@ -752,6 +752,46 @@ export default function HomePage() {
       color: "#fff",
       fontFamily: "var(--font-sans)",
     }}>
+      <style>{`
+        /* Tablet ≤900 */
+        @media (max-width: 900px) {
+          .lp-hero-grid {
+            grid-template-columns: 1fr !important;
+            padding: 56px 24px 56px !important;
+            gap: 36px !important;
+          }
+          .lp-hero-widget {
+            width: 100% !important; max-width: 420px; margin: 0 auto;
+          }
+          .lp-hero-grid h1 {
+            font-size: clamp(40px, 9vw, 64px) !important;
+            letter-spacing: -2 !important;
+          }
+          .lp-grid-features { grid-template-columns: 1fr 1fr !important; }
+          .lp-grid-industries { grid-template-columns: repeat(3, 1fr) !important; }
+          .lp-grid-early { grid-template-columns: 1fr !important; }
+          .lp-grid-stats { grid-template-columns: 1fr 1fr !important; }
+          .lp-footer-grid { grid-template-columns: 1fr 1fr !important; }
+          .lp-section { padding: 56px 24px !important; }
+          .lp-cta-section { padding: 56px 24px 48px !important; }
+          .lp-console-scroll { overflow-x: auto !important; }
+          .lp-section h2 { font-size: clamp(28px, 5vw, 40px) !important; letter-spacing: -1 !important; }
+        }
+        /* Phone ≤640 */
+        @media (max-width: 640px) {
+          .lp-nav, .lp-lang-hint { display: none !important; }
+          .lp-grid-features { grid-template-columns: 1fr !important; }
+          .lp-grid-industries { grid-template-columns: 1fr 1fr !important; }
+          .lp-grid-stats { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+          .lp-footer-grid { grid-template-columns: 1fr 1fr !important; gap: 20px !important; }
+          .lp-section { padding: 48px 20px !important; }
+          .lp-cta-section { padding: 48px 20px 40px !important; }
+          .lp-cta-section > div { padding: 36px 24px !important; }
+          .lp-cta-section h2, .lp-cta-section [class*="cta"] { font-size: clamp(32px, 8vw, 44px) !important; }
+          .lp-hero-grid { padding: 40px 20px 56px !important; }
+          .lp-topnav { padding: 0 18px !important; }
+        }
+      `}</style>
       <TopNav authed={authed}/>
       <Hero/>
       <Problem/>
