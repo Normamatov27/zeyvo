@@ -52,6 +52,18 @@
     "ahead": "{count, plural, =0 {Siz keyingisiz!} one {# kishi oldida} other {# kishi oldida}}",
     "eta": "~{minutes} daqiqa",
     "your_turn": "Sizning navbatingiz",
+    "search_placeholder": "Klinika, bank, ofislarni qidiring…",
+    "active_ticket": "Faol talon",
+    "tap_to_view": "Ko'rish",
+    "in_queue": "navbatda",
+    "no_results": "Hech qanday filial topilmadi",
+    "categories": {
+      "nearby": "Yaqin",
+      "banks": "Banklar",
+      "clinics": "Klinikalar",
+      "telecom": "Telekom",
+      "government": "Davlat xizmatlari"
+    },
     "status": {
       "waiting": "Kutilmoqda",
       "called": "Chaqirildi",

@@ -52,6 +52,18 @@
     "ahead": "{count, plural, =0 {You're next!} one {# ahead} other {# ahead}}",
     "eta": "~{minutes} min",
     "your_turn": "It's your turn",
+    "search_placeholder": "Search clinics, banks, offices…",
+    "active_ticket": "Active ticket",
+    "tap_to_view": "Tap to view",
+    "in_queue": "in queue",
+    "no_results": "No branches match your search",
+    "categories": {
+      "nearby": "Nearby",
+      "banks": "Banks",
+      "clinics": "Clinics",
+      "telecom": "Telecom",
+      "government": "Government"
+    },
     "status": {
       "waiting": "Waiting",
       "called": "Being called",

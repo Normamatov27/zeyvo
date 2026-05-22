@@ -3,13 +3,15 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth";
 import { Branch, Ticket, LoadLevel, branchLoadLevel, estimateWaitMin } from "@/lib/types";
 
 type BranchWithLoad = Branch & { distance?: number };
 
-const CATEGORIES = ["Nearby", "Banks", "Clinics", "Telecom", "Government"];
+const CATEGORY_KEYS = ["nearby", "banks", "clinics", "telecom", "government"] as const;
+type CategoryKey = typeof CATEGORY_KEYS[number];
 
 const TYPE_COLOR: Record<string, string> = {
   bank: "var(--color-primary)",
@@ -138,6 +140,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 function ActiveTicketBanner({ ticket }: { ticket: Ticket }) {
+  const t = useTranslations("queue");
   const statusLabel = STATUS_LABEL[ticket.status] ?? ticket.status;
   return (
     <Link href={`/ticket/${ticket.id}`} style={{ textDecoration: "none", color: "inherit" }}>
@@ -151,7 +154,7 @@ function ActiveTicketBanner({ ticket }: { ticket: Ticket }) {
         <div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <span style={{ fontSize: 10.5, opacity: 0.7, textTransform: "uppercase",
-              fontFamily: "var(--font-mono)", letterSpacing: 0.6 }}>Active ticket</span>
+              fontFamily: "var(--font-mono)", letterSpacing: 0.6 }}>{t("active_ticket")}</span>
             <span style={{
               display: "flex", alignItems: "center", gap: 5,
               fontSize: 10.5, padding: "3px 8px", borderRadius: 999,
@@ -159,7 +162,7 @@ function ActiveTicketBanner({ ticket }: { ticket: Ticket }) {
             }}>
               <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#fff",
                 animation: "pulse 1.5s ease-in-out infinite" }}/>
-              {ticket.status === "serving" ? "Your turn!" : `${ticket.queuePosition ?? "?"} ahead`}
+              {ticket.status === "serving" ? t("your_turn") : t("ahead", { count: ticket.queuePosition ?? 0 })}
             </span>
           </div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginTop: 8 }}>
@@ -195,22 +198,23 @@ function ActiveTicketBanner({ ticket }: { ticket: Ticket }) {
   );
 }
 
-const CATEGORY_TYPE: Record<string, string | null> = {
-  Nearby: null,
-  Banks: "bank",
-  Clinics: "clinic",
-  Telecom: "telecom",
-  Government: "government",
+const CATEGORY_TYPE: Record<CategoryKey, string | null> = {
+  nearby: null,
+  banks: "bank",
+  clinics: "clinic",
+  telecom: "telecom",
+  government: "government",
 };
 
 export default function BranchesPage() {
   const router = useRouter();
+  const t = useTranslations("queue");
   const { userId, _hydrated } = useAuthStore();
   const [branches, setBranches] = useState<Branch[]>([]);
   const [activeTicket, setActiveTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("Nearby");
+  const [category, setCategory] = useState<CategoryKey>("nearby");
 
   function loadBranches() {
     return apiFetch<Branch[]>("/api/v1/branches").then(setBranches).catch(() => {});
@@ -268,9 +272,9 @@ export default function BranchesPage() {
         display: "flex", alignItems: "center", justifyContent: "space-between",
       }}>
         <div>
-          <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: -0.4 }}>Find a queue</div>
+          <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: -0.4 }}>{t("find")}</div>
           <div style={{ fontSize: 12, color: "var(--color-fg-3)", marginTop: 1 }}>
-            {branches.length} branches near you
+            {t("near_you", { count: branches.length })}
           </div>
         </div>
         <div style={{ display: "flex", gap: 6 }}>
@@ -299,7 +303,7 @@ export default function BranchesPage() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search clinics, banks, offices…"
+            placeholder={t("search_placeholder")}
             style={{
               flex: 1, border: "none", outline: "none",
               background: "transparent", color: "var(--color-fg)", fontSize: 14,
@@ -309,7 +313,7 @@ export default function BranchesPage() {
 
         {/* Category pills */}
         <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
-          {CATEGORIES.map((c) => (
+          {CATEGORY_KEYS.map((c) => (
             <button
               key={c}
               onClick={() => setCategory(c)}
@@ -321,7 +325,7 @@ export default function BranchesPage() {
                 outline: category !== c ? "1px solid var(--color-border)" : "none",
               }}
             >
-              {c}
+              {t(`categories.${c}`)}
             </button>
           ))}
         </div>
@@ -347,7 +351,7 @@ export default function BranchesPage() {
           ))
         ) : filtered.length === 0 ? (
           <div style={{ textAlign: "center", fontSize: 13, color: "var(--color-fg-3)", padding: 40 }}>
-            No branches found
+            {t("no_results")}
           </div>
         ) : (
           filtered.map((b) => <BranchCard key={b.id} b={b}/>)

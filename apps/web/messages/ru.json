@@ -52,6 +52,18 @@
     "ahead": "{count, plural, =0 {Вы следующий!} one {# впереди} few {# впереди} other {# впереди}}",
     "eta": "~{minutes} мин",
     "your_turn": "Ваша очередь",
+    "search_placeholder": "Поиск клиник, банков, офисов…",
+    "active_ticket": "Активный талон",
+    "tap_to_view": "Открыть",
+    "in_queue": "в очереди",
+    "no_results": "Ничего не найдено",
+    "categories": {
+      "nearby": "Рядом",
+      "banks": "Банки",
+      "clinics": "Клиники",
+      "telecom": "Телеком",
+      "government": "Гос. услуги"
+    },
     "status": {
       "waiting": "Ожидает",
       "called": "Вызван",
