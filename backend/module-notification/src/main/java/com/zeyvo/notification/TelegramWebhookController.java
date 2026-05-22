@@ -306,8 +306,11 @@ public class TelegramWebhookController {
             promptLanguage(chatId);
             return;
         }
+        // Anyone without a phone is still onboarding — re-offer the language picker
+        // (the locale field always has a default, so we can't tell whether the user
+        //  explicitly chose; force the choice up front).
         if (user.getPhone() == null) {
-            promptContact(chatId, locale(user));
+            promptLanguage(chatId);
             return;
         }
         showMainMenu(chatId, locale(user));
@@ -360,9 +363,10 @@ public class TelegramWebhookController {
             }
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
             // Whoever else has this telegram_id or phone wins — try to recover by re-reading.
-            log.warn("Contact-share constraint violation for tg={} phone={}: {}", tgUserId, phone, e.getMessage());
+            final String finalPhone = phone;
+            log.warn("Contact-share constraint violation for tg={} phone={}: {}", tgUserId, finalPhone, e.getMessage());
             user = userRepo.findByTelegramId(tgUserId)
-                    .or(() -> userRepo.findByPhone(phone))
+                    .or(() -> userRepo.findByPhone(finalPhone))
                     .orElse(null);
             if (user == null) {
                 telegram.removeReplyKeyboard(chatId, "⚠️");
