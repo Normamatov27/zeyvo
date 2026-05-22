@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Script from "next/script";
 import { useAuthStore } from "@/stores/auth";
 
 interface TgWebApp {
@@ -11,42 +12,32 @@ interface TgWebApp {
   colorScheme?: "light" | "dark";
 }
 
-function parseTgUser(initData: string): string | null {
-  try {
-    const params = new URLSearchParams(initData);
-    const user = params.get("user");
-    if (!user) return null;
-    const parsed = JSON.parse(decodeURIComponent(user));
-    return parsed?.first_name ?? null;
-  } catch {
-    return null;
-  }
-}
-
 export default function TelegramLayout({ children }: { children: React.ReactNode }) {
   const { setTokens, accessToken } = useAuthStore();
   const [authDone, setAuthDone] = useState(false);
-  const [authFailed, setAuthFailed] = useState(false);
+  const [sdkReady, setSdkReady] = useState(false);
 
+  // Once the Telegram SDK script is loaded, run auth
   useEffect(() => {
+    if (!sdkReady) return;
+
     const tg: TgWebApp | undefined = (window as any).Telegram?.WebApp;
     if (!tg) {
-      // Not inside Telegram (dev mode) — skip auth
+      // Not inside Telegram (dev mode in a normal browser) — skip auth
       setAuthDone(true);
       return;
     }
 
-    tg.ready();
-    tg.expand();
+    try { tg.ready(); tg.expand(); } catch {}
 
     const initData = tg.initData;
     if (!initData || accessToken) {
-      // Already authenticated or no initData
+      // Already authenticated or running outside a real TG context (no initData)
       setAuthDone(true);
       return;
     }
 
-    const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+    const BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
     fetch(`${BASE}/api/v1/auth/telegram`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -68,12 +59,18 @@ export default function TelegramLayout({ children }: { children: React.ReactNode
         setAuthDone(true);
       })
       .catch(() => {
-        setAuthFailed(true);
         setAuthDone(true);
       });
-  }, []);
+  }, [sdkReady, accessToken, setTokens]);
 
   return (
+    <>
+      <Script
+        src="https://telegram.org/js/telegram-web-app.js"
+        strategy="afterInteractive"
+        onLoad={() => setSdkReady(true)}
+        onReady={() => setSdkReady(true)}
+      />
     <div
       className="dark"
       style={{
@@ -102,5 +99,6 @@ export default function TelegramLayout({ children }: { children: React.ReactNode
         children
       )}
     </div>
+    </>
   );
 }
