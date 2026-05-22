@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Script from "next/script";
 import { useAuthStore } from "@/stores/auth";
+import { FullPageLoader } from "@/components/Loader";
 
 interface TgWebApp {
   ready: () => void;
@@ -83,18 +84,7 @@ export default function TelegramLayout({ children }: { children: React.ReactNode
       }}
     >
       {!authDone ? (
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "center",
-          minHeight: "100svh", flexDirection: "column", gap: 12,
-        }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: "50%",
-            border: "3px solid var(--color-primary-soft)",
-            borderTopColor: "var(--color-primary)",
-            animation: "spin 0.8s linear infinite",
-          }}/>
-          <div style={{ fontSize: 13, color: "var(--color-fg-3)" }}>Signing in…</div>
-        </div>
+        <FullPageLoader variant="dark" label="Signing in" hint="connecting · · ·"/>
       ) : (
         children
       )}

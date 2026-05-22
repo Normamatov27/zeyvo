@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, ApiError } from "@/lib/api";
 import { Ticket, fmtClock, fmtEta } from "@/lib/types";
+import { FullPageLoader } from "@/components/Loader";
 
 const ACTIVE = new Set(["waiting", "called", "serving"]);
 
@@ -11,13 +12,27 @@ export default function TgTicketPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [ticket, setTicket] = useState<Ticket | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const load = (initial: boolean) => apiFetch<Ticket>(`/api/v1/tickets/${id}`)
+    .then((t) => { setTicket(t); setError(null); })
+    .catch((e: unknown) => {
+      // Only surface errors on the initial fetch — subsequent poll errors should be silent
+      if (!initial) return;
+      const msg = e instanceof ApiError
+        ? (e.status === 404 ? "Ticket not found" : e.status === 401 || e.status === 403 ? "Please sign in to view this ticket" : "Couldn't load this ticket")
+        : "Couldn't load this ticket";
+      setError(msg);
+    })
+    .finally(() => { if (initial) setLoading(false); });
+
   useEffect(() => {
-    const load = () => apiFetch<Ticket>(`/api/v1/tickets/${id}`).then(setTicket).catch(() => {});
-    load();
-    pollRef.current = setInterval(load, 10_000);
+    load(true);
+    pollRef.current = setInterval(() => load(false), 10_000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   useEffect(() => {
@@ -26,9 +41,39 @@ export default function TgTicketPage() {
     }
   }, [ticket?.status]);
 
-  if (!ticket) return (
-    <div style={{ padding: 40, textAlign: "center", color: "var(--color-fg-3)" }}>Loading…</div>
-  );
+  if (loading) {
+    return <FullPageLoader variant="dark" label="Loading your ticket" hint="reading the queue · · ·"/>;
+  }
+
+  if (error) {
+    return (
+      <div style={{
+        padding: "60px 24px", textAlign: "center",
+        display: "flex", flexDirection: "column", alignItems: "center", gap: 14,
+      }}>
+        <div style={{
+          width: 44, height: 44, borderRadius: 14,
+          background: "var(--color-danger-soft)", color: "var(--color-danger)",
+          display: "grid", placeItems: "center", fontSize: 20, fontWeight: 700,
+        }}>!</div>
+        <div style={{ fontSize: 14, fontWeight: 500, color: "var(--color-fg)" }}>{error}</div>
+        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+          <button onClick={() => { setError(null); setLoading(true); load(true); }} style={{
+            padding: "10px 18px", borderRadius: 10, border: "1px solid var(--color-border)",
+            background: "var(--color-surface)", color: "var(--color-fg)",
+            fontSize: 13, fontWeight: 500, cursor: "pointer",
+          }}>Try again</button>
+          <button onClick={() => router.push("/tg" as any)} style={{
+            padding: "10px 18px", borderRadius: 10, border: "none",
+            background: "var(--color-primary)", color: "#fff",
+            fontSize: 13, fontWeight: 600, cursor: "pointer",
+          }}>Back to home</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!ticket) return null;
 
   const isServing = ticket.status === "serving" || ticket.status === "called";
   const isDone = !ACTIVE.has(ticket.status);
@@ -78,7 +123,7 @@ export default function TgTicketPage() {
       </div>
 
       {isDone && (
-        <button onClick={() => router.push("/tg")} style={{
+        <button onClick={() => router.push("/tg" as any)} style={{
           padding: "14px 0", borderRadius: 14, border: "none",
           background: "var(--color-primary)", color: "#fff",
           fontSize: 15, fontWeight: 600, cursor: "pointer",

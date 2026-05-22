@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, ApiError } from "@/lib/api";
 import { Ticket, fmtClock, fmtEta } from "@/lib/types";
 import { getStompClient, subscribeTicket } from "@/lib/realtime";
+import { FullPageLoader } from "@/components/Loader";
 
 const ACTIVE = new Set(["waiting", "called", "serving"]);
 
@@ -144,6 +145,7 @@ export default function TicketPage() {
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [queueAround, setQueueAround] = useState<QueueTicket[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [showQr, setShowQr] = useState(false);
@@ -156,7 +158,7 @@ export default function TicketPage() {
   const subRef = useRef<{ unsubscribe: () => void } | null>(null);
   const prevStatusRef = useRef<string | null>(null);
 
-  const fetchTicket = useCallback(() => {
+  const fetchTicket = useCallback((isInitial: boolean = false) => {
     return apiFetch<Ticket>(`/api/v1/tickets/${id}`).then((t) => {
       // Detect transition to "called" — play sound + browser notification
       if (prevStatusRef.current !== "called" && t.status === "called") {
@@ -169,6 +171,7 @@ export default function TicketPage() {
       }
       prevStatusRef.current = t.status;
       setTicket(t);
+      setLoadError(null);
 
       if (ACTIVE.has(t.status) && t.branchId) {
         apiFetch<QueueTicket[]>(`/api/v1/tickets?branchId=${t.branchId}`)
@@ -185,12 +188,21 @@ export default function TicketPage() {
           })
           .catch(() => {});
       }
-    }).catch(() => {});
+    }).catch((e: unknown) => {
+      // Silent on polls; surface on the initial fetch so the page can show an error
+      if (!isInitial) return;
+      const msg = e instanceof ApiError
+        ? (e.status === 404 ? "Ticket not found"
+          : e.status === 401 || e.status === 403 ? "Please sign in to view this ticket"
+          : "Couldn't load this ticket")
+        : "Couldn't load this ticket";
+      setLoadError(msg);
+    });
   }, [id]);
 
   useEffect(() => {
-    fetchTicket().finally(() => setLoading(false));
-    pollRef.current = setInterval(fetchTicket, 8_000);
+    fetchTicket(true).finally(() => setLoading(false));
+    pollRef.current = setInterval(() => fetchTicket(false), 8_000);
 
     const stomp = getStompClient();
     const connect = () => {
@@ -249,24 +261,35 @@ export default function TicketPage() {
   }
 
   if (loading) {
-    return (
-      <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
-        <div style={{ height: 240, borderRadius: 20, background: "var(--color-surface-3)",
-          animation: "pulse 1.5s ease-in-out infinite" }}/>
-        <div style={{ height: 80, borderRadius: 14, background: "var(--color-surface)",
-          animation: "pulse 1.5s ease-in-out infinite" }}/>
-      </div>
-    );
+    return <FullPageLoader label="Loading your ticket" hint="reading the queue · · ·"/>;
   }
 
-  if (!ticket) {
+  if (loadError || !ticket) {
     return (
-      <div style={{ padding: 40, textAlign: "center" }}>
-        <div style={{ fontSize: 14, color: "var(--color-fg-3)" }}>Ticket not found</div>
-        <button onClick={() => router.push("/")} style={{
-          marginTop: 14, padding: "8px 20px", borderRadius: 10, border: "none",
-          background: "var(--color-primary)", color: "#fff", cursor: "pointer", fontSize: 14,
-        }}>Find a queue</button>
+      <div style={{
+        padding: "60px 24px", textAlign: "center",
+        display: "flex", flexDirection: "column", alignItems: "center", gap: 14,
+      }}>
+        <div style={{
+          width: 44, height: 44, borderRadius: 14,
+          background: "var(--color-danger-soft)", color: "var(--color-danger)",
+          display: "grid", placeItems: "center", fontSize: 20, fontWeight: 700,
+        }}>!</div>
+        <div style={{ fontSize: 14, fontWeight: 500, color: "var(--color-fg)" }}>
+          {loadError ?? "Ticket not found"}
+        </div>
+        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+          <button onClick={() => { setLoading(true); setLoadError(null); fetchTicket(true).finally(() => setLoading(false)); }} style={{
+            padding: "10px 18px", borderRadius: 10, border: "1px solid var(--color-border)",
+            background: "var(--color-surface)", color: "var(--color-fg)",
+            fontSize: 13, fontWeight: 500, cursor: "pointer",
+          }}>Try again</button>
+          <button onClick={() => router.push("/branches")} style={{
+            padding: "10px 18px", borderRadius: 10, border: "none",
+            background: "var(--color-primary)", color: "#fff",
+            fontSize: 13, fontWeight: 600, cursor: "pointer",
+          }}>Find a queue</button>
+        </div>
       </div>
     );
   }

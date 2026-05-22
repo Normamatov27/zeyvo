@@ -44,7 +44,26 @@ export async function apiFetch<T = unknown>(
   headers.set("Content-Type", "application/json");
   if (resolvedToken) headers.set("Authorization", `Bearer ${resolvedToken}`);
 
-  const res = await fetch(`${BASE}${path}`, { ...init, headers });
+  // 30s request timeout — prevents the UI from hanging on a network stall.
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30_000);
+  const callerSignal = init.signal;
+  if (callerSignal) {
+    if (callerSignal.aborted) controller.abort();
+    else callerSignal.addEventListener("abort", () => controller.abort());
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, { ...init, headers, signal: controller.signal });
+  } catch (err) {
+    if ((err as any)?.name === "AbortError") {
+      throw new ApiError(0, "request.timeout", "Request timed out — check your connection");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   // Auto-refresh on 401/403 (Spring Security returns 403 for anonymous
   // access to protected endpoints) — try once with a fresh token

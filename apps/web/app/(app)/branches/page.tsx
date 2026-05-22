@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth";
 import { Branch, Ticket, LoadLevel, branchLoadLevel, estimateWaitMin } from "@/lib/types";
+import { FullPageLoader, Skeleton } from "@/components/Loader";
 
 type BranchWithLoad = Branch & { distance?: number };
 
@@ -242,16 +243,7 @@ export default function BranchesPage() {
   }, [_hydrated, userId]);
 
   if (!_hydrated || userId === null) {
-    return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100%", padding: 40 }}>
-        <span style={{
-          width: 28, height: 28, borderRadius: "50%",
-          border: "3px solid var(--color-border)", borderTopColor: "var(--color-primary)",
-          animation: "spin 0.8s linear infinite", display: "block",
-        }}/>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
+    return <FullPageLoader/>;
   }
 
   const typeFilter = CATEGORY_TYPE[category] ?? null;
