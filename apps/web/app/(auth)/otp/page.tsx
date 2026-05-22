@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef, Suspense } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { apiFetchAnon } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth";
 
@@ -14,19 +15,13 @@ interface AuthApiResponse {
   locale: string;
 }
 
-const CHANNEL_HINT: Record<string, string> = {
-  sms: "Sent via SMS",
-  telegram: "Sent to your Telegram DMs",
-  whatsapp: "Sent via WhatsApp",
-  call: "Listen for a voice call",
-};
-
 function OtpForm() {
   const router = useRouter();
   const params = useSearchParams();
   const phone = params.get("phone") ?? "";
   const channel = params.get("channel") ?? "sms";
   const redirect = params.get("redirect") ?? "/branches";
+  const t = useTranslations("auth");
 
   const { setTokens } = useAuthStore();
 
@@ -34,6 +29,12 @@ function OtpForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resending, setResending] = useState(false);
+
+  const channelHint =
+    channel === "telegram" ? t("channel_telegram") :
+    channel === "whatsapp" ? t("channel_whatsapp") :
+    channel === "call" ? t("channel_call") :
+    t("channel_sms");
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -49,7 +50,18 @@ function OtpForm() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       router.replace(redirect as any);
     } catch (err: any) {
-      setError(err.message ?? "Invalid code");
+      const errCode: string = err?.code ?? "";
+      if (errCode === "auth.otp_expired" || errCode === "auth.otp_not_found") {
+        setError(t("err_otp_expired"));
+      } else if (errCode === "auth.otp_invalid" || errCode === "auth.wrong_code") {
+        setError(t("err_otp_wrong"));
+      } else if (errCode === "auth.rate_limited") {
+        setError(t("err_rate"));
+      } else if (errCode === "request.timeout" || err?.status >= 500) {
+        setError(t("err_unavailable"));
+      } else {
+        setError(err?.message ?? t("err_otp_wrong"));
+      }
       setLoading(false);
     }
   }
@@ -64,7 +76,12 @@ function OtpForm() {
         body: JSON.stringify({ phone, channel }),
       });
     } catch (err: any) {
-      setError(err.message ?? "Failed to resend");
+      const errCode: string = err?.code ?? "";
+      setError(
+        errCode === "auth.rate_limited" ? t("err_resend_rate") :
+        errCode === "request.timeout" || err?.status >= 500 ? t("err_unavailable") :
+        err?.message ?? t("err_resend_rate")
+      );
     } finally {
       setResending(false);
     }
@@ -79,9 +96,9 @@ function OtpForm() {
         display: "flex", flexDirection: "column", gap: 14,
       }}>
         <div>
-          <div style={{ fontSize: 17, fontWeight: 600, letterSpacing: -0.3 }}>Enter code</div>
+          <div style={{ fontSize: 17, fontWeight: 600, letterSpacing: -0.3 }}>{t("otp_form_heading")}</div>
           <div style={{ fontSize: 13, color: "var(--color-fg-3)", marginTop: 4 }}>
-            {CHANNEL_HINT[channel] ?? "Sent"} to{" "}
+            {channelHint}{" "}
             <span style={{ fontFamily: "var(--font-mono)", color: "var(--color-fg-2)" }}>{phone}</span>
           </div>
         </div>
@@ -125,7 +142,7 @@ function OtpForm() {
             padding: 0, textAlign: "left",
           }}
         >
-          {resending ? "Resending…" : "Resend code"}
+          {resending ? t("resending") : t("resend")}
         </button>
       </div>
 
@@ -139,13 +156,14 @@ function OtpForm() {
           cursor: code.length < 6 || loading ? "not-allowed" : "pointer",
         }}
       >
-        {loading ? "Verifying…" : "Verify"}
+        {loading ? t("verifying") : t("verify")}
       </button>
     </form>
   );
 }
 
 export default function OtpPage() {
+  const t = useTranslations("auth");
   return (
     <Suspense>
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
@@ -155,13 +173,13 @@ export default function OtpPage() {
             textTransform: "uppercase", color: "var(--color-primary)",
             fontFamily: "var(--font-mono)", marginBottom: 10,
           }}>
-            02 · Verify
+            {t("otp_step")}
           </div>
           <h1 style={{
             fontSize: 30, fontWeight: 600, letterSpacing: -1,
             lineHeight: 1.1, margin: 0,
           }}>
-            Enter the 6-digit code
+            {t("otp_heading")}
           </h1>
         </div>
         <OtpForm />

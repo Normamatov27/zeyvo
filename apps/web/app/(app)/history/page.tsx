@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useTranslations, useLocale } from "next-intl";
 import { apiFetch } from "@/lib/api";
-import { Ticket, fmtClock } from "@/lib/types";
+import { Ticket, Appointment, fmtClock } from "@/lib/types";
 
-const STATUS_COLOR: Record<string, { color: string; bg: string }> = {
+const TICKET_STATUS_COLOR: Record<string, { color: string; bg: string }> = {
   served:    { color: "var(--color-success)", bg: "var(--color-success-soft)" },
   waiting:   { color: "var(--color-primary)", bg: "var(--color-primary-soft)" },
   called:    { color: "var(--color-warning)", bg: "var(--color-warning-soft)" },
@@ -17,7 +17,18 @@ const STATUS_COLOR: Record<string, { color: string; bg: string }> = {
   transferred:{ color: "var(--color-accent)", bg: "var(--color-accent-soft)" },
 };
 
+const APPT_STATUS_COLOR: Record<string, { color: string; bg: string }> = {
+  booked:    { color: "var(--color-primary)", bg: "var(--color-primary-soft)" },
+  cancelled: { color: "var(--color-fg-3)",    bg: "var(--color-surface-3)" },
+  no_show:   { color: "var(--color-warning)", bg: "var(--color-warning-soft)" },
+  served:    { color: "var(--color-success)", bg: "var(--color-success-soft)" },
+};
+
 const LOCALE_FMT: Record<string, string> = { en: "en-GB", ru: "ru-RU", uz: "uz-UZ" };
+
+type HistoryItem =
+  | { kind: "ticket"; date: string; ts: number; data: Ticket }
+  | { kind: "appt";   date: string; ts: number; data: Appointment };
 
 function useFmtDate() {
   const t = useTranslations("history");
@@ -35,27 +46,45 @@ function useFmtDate() {
 
 export default function HistoryPage() {
   const t = useTranslations("history");
+  const tAppt = useTranslations("appointments");
   const tAuth = useTranslations("auth");
   const tQueue = useTranslations("queue");
   const fmtDate = useFmtDate();
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    apiFetch<Ticket[]>("/api/v1/tickets/my")
-      .then(setTickets)
+    Promise.all([
+      apiFetch<Ticket[]>("/api/v1/tickets/my").catch(() => [] as Ticket[]),
+      apiFetch<Appointment[]>("/api/v1/appointments/my").catch(() => [] as Appointment[]),
+    ])
+      .then(([tks, appts]) => { setTickets(tks); setAppointments(appts); })
       .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, []);
 
+  // Merge and sort all items by descending time
+  const items: HistoryItem[] = [
+    ...tickets.map((tk): HistoryItem => ({
+      kind: "ticket", ts: new Date(tk.joinedAt).getTime(),
+      date: fmtDate(tk.joinedAt), data: tk,
+    })),
+    ...appointments.map((a): HistoryItem => ({
+      kind: "appt", ts: new Date(a.scheduledAt).getTime(),
+      date: fmtDate(a.scheduledAt), data: a,
+    })),
+  ].sort((a, b) => b.ts - a.ts);
+
+  const isEmpty = items.length === 0;
+
   // Group by date
-  const grouped: { date: string; tickets: Ticket[] }[] = [];
-  for (const ticket of tickets) {
-    const date = fmtDate(ticket.joinedAt);
+  const grouped: { date: string; items: HistoryItem[] }[] = [];
+  for (const item of items) {
     const last = grouped[grouped.length - 1];
-    if (last && last.date === date) last.tickets.push(ticket);
-    else grouped.push({ date, tickets: [ticket] });
+    if (last && last.date === item.date) last.items.push(item);
+    else grouped.push({ date: item.date, items: [item] });
   }
 
   return (
@@ -68,7 +97,7 @@ export default function HistoryPage() {
       }}>
         <div style={{ fontSize: 17, fontWeight: 600, letterSpacing: -0.3 }}>{t("title")}</div>
         <div style={{ fontSize: 11.5, color: "var(--color-fg-3)", marginTop: 1 }}>
-          {loading ? t("loading") : t("ticket_count", { count: tickets.length })}
+          {loading ? t("loading") : t("ticket_count", { count: items.length })}
         </div>
       </div>
 
@@ -93,7 +122,7 @@ export default function HistoryPage() {
           </div>
         )}
 
-        {!loading && !error && tickets.length === 0 && (
+        {!loading && !error && isEmpty && (
           <div style={{ textAlign: "center", padding: "60px 0" }}>
             <div style={{ fontSize: 32, marginBottom: 10 }}>🎫</div>
             <div style={{ fontSize: 14, fontWeight: 500, color: "var(--color-fg)" }}>{t("empty_title")}</div>
@@ -108,7 +137,7 @@ export default function HistoryPage() {
           </div>
         )}
 
-        {grouped.map(({ date, tickets: group }) => (
+        {grouped.map(({ date, items: group }) => (
           <div key={date}>
             <div style={{
               fontSize: 11, fontWeight: 600, color: "var(--color-fg-3)",
@@ -118,61 +147,103 @@ export default function HistoryPage() {
               {date}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {group.map((tk) => {
-                const cfg = STATUS_COLOR[tk.status] ?? STATUS_COLOR.cancelled!;
-                const isActive = ["waiting", "called", "serving"].includes(tk.status);
-                return (
-                  <Link key={tk.id} href={`/ticket/${tk.id}`} style={{ textDecoration: "none", color: "inherit" }}>
-                    <div style={{
-                      background: "var(--color-surface)", border: "1px solid var(--color-border)",
-                      borderRadius: 12, padding: "12px 14px",
-                      display: "flex", alignItems: "center", gap: 12,
-                      cursor: "pointer",
-                    }}>
-                      {/* Ticket number */}
+              {group.map((item) => {
+                if (item.kind === "ticket") {
+                  const tk = item.data;
+                  const cfg = TICKET_STATUS_COLOR[tk.status] ?? TICKET_STATUS_COLOR.cancelled!;
+                  const isActive = ["waiting", "called", "serving"].includes(tk.status);
+                  return (
+                    <Link key={`t-${tk.id}`} href={`/ticket/${tk.id}`} style={{ textDecoration: "none", color: "inherit" }}>
                       <div style={{
-                        width: 48, height: 48, borderRadius: 10, flex: "none",
-                        background: "var(--color-surface-2)",
-                        display: "grid", placeItems: "center",
-                        fontFamily: "var(--font-mono)", fontSize: 16, fontWeight: 700,
-                        color: "var(--color-fg)",
+                        background: "var(--color-surface)", border: "1px solid var(--color-border)",
+                        borderRadius: 12, padding: "12px 14px",
+                        display: "flex", alignItems: "center", gap: 12,
                       }}>
-                        {tk.number}
-                      </div>
-
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-fg)",
-                          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {tk.branchName ?? ""}
-                        </div>
-                        <div style={{ fontSize: 11.5, color: "var(--color-fg-3)", marginTop: 2,
-                          fontFamily: "var(--font-mono)" }}>
-                          {tk.serviceName && <span style={{ marginRight: 4 }}>{tk.serviceName} ·</span>}
-                          {tk.source === "kiosk" ? t("source_kiosk") : t("source_remote")} · {fmtClock(tk.joinedAt)}
-                          {tk.servedAt && ` → ${fmtClock(tk.servedAt)}`}
-                        </div>
-                      </div>
-
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{
-                          fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 999,
-                          background: cfg.bg, color: cfg.color,
-                          display: "flex", alignItems: "center", gap: 4,
+                        <div style={{
+                          width: 48, height: 48, borderRadius: 10, flex: "none",
+                          background: "var(--color-surface-2)",
+                          display: "grid", placeItems: "center",
+                          fontFamily: "var(--font-mono)", fontSize: 16, fontWeight: 700,
+                          color: "var(--color-fg)",
                         }}>
-                          {isActive && (
-                            <span style={{ width: 5, height: 5, borderRadius: "50%",
-                              background: cfg.color, flex: "none" }}/>
-                          )}
-                          {t(`status.${tk.status}` as any)}
-                        </span>
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                          stroke="var(--color-fg-4)" strokeWidth="2">
-                          <path d="m9 18 6-6-6-6"/>
-                        </svg>
+                          {tk.number}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-fg)",
+                            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {tk.branchName ?? ""}
+                          </div>
+                          <div style={{ fontSize: 11.5, color: "var(--color-fg-3)", marginTop: 2, fontFamily: "var(--font-mono)" }}>
+                            {tk.serviceName && <span style={{ marginRight: 4 }}>{tk.serviceName} ·</span>}
+                            {tk.source === "kiosk" ? t("source_kiosk") : t("source_remote")} · {fmtClock(tk.joinedAt)}
+                            {tk.servedAt && ` → ${fmtClock(tk.servedAt)}`}
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{
+                            fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 999,
+                            background: cfg.bg, color: cfg.color,
+                            display: "flex", alignItems: "center", gap: 4,
+                          }}>
+                            {isActive && <span style={{ width: 5, height: 5, borderRadius: "50%", background: cfg.color, flex: "none" }}/>}
+                            {t(`status.${tk.status}` as any)}
+                          </span>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-fg-4)" strokeWidth="2">
+                            <path d="m9 18 6-6-6-6"/>
+                          </svg>
+                        </div>
                       </div>
-                    </div>
-                  </Link>
-                );
+                    </Link>
+                  );
+                } else {
+                  const a = item.data;
+                  const cfg = APPT_STATUS_COLOR[a.status] ?? APPT_STATUS_COLOR.cancelled!;
+                  const apptTime = new Date(a.scheduledAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+                  return (
+                    <Link key={`a-${a.id}`} href={`/appointment/${a.id}` as any} style={{ textDecoration: "none", color: "inherit" }}>
+                      <div style={{
+                        background: "var(--color-surface)", border: "1px solid var(--color-border)",
+                        borderRadius: 12, padding: "12px 14px",
+                        display: "flex", alignItems: "center", gap: 12,
+                      }}>
+                        <div style={{
+                          width: 48, height: 48, borderRadius: 10, flex: "none",
+                          background: "var(--color-primary-soft)",
+                          display: "grid", placeItems: "center",
+                          color: "var(--color-primary)",
+                        }}>
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                            <rect x="3" y="4" width="18" height="18" rx="2"/>
+                            <line x1="16" y1="2" x2="16" y2="6"/>
+                            <line x1="8" y1="2" x2="8" y2="6"/>
+                            <line x1="3" y1="10" x2="21" y2="10"/>
+                          </svg>
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-fg)",
+                            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {a.branchName ?? ""}
+                          </div>
+                          <div style={{ fontSize: 11.5, color: "var(--color-fg-3)", marginTop: 2, fontFamily: "var(--font-mono)" }}>
+                            {a.serviceName && <span style={{ marginRight: 4 }}>{a.serviceName} ·</span>}
+                            {apptTime}
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{
+                            fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 999,
+                            background: cfg.bg, color: cfg.color,
+                          }}>
+                            {tAppt(`status.${a.status}` as any)}
+                          </span>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-fg-4)" strokeWidth="2">
+                            <path d="m9 18 6-6-6-6"/>
+                          </svg>
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                }
               })}
             </div>
           </div>

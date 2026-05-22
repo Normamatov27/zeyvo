@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { apiFetchAnon } from "@/lib/api";
 
 interface OnboardingResponse {
@@ -19,6 +20,7 @@ function slugify(s: string): string {
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const t = useTranslations("auth");
 
   const [orgName, setOrgName] = useState("");
   const [orgSlug, setOrgSlug] = useState("");
@@ -27,6 +29,7 @@ export default function OnboardingPage() {
   const [phone, setPhone] = useState("");
   const [firstBranchName, setFirstBranchName] = useState("");
 
+  const [agreedToTos, setAgreedToTos] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,7 +41,8 @@ export default function OnboardingPage() {
   }
 
   const phoneNorm = normalisePhone(phone);
-  const ready = orgName.trim().length >= 2 && fullName.trim().length >= 2 && phoneNorm.length >= 5 && !submitting;
+  const phoneValid = phoneNorm.length >= 9;
+  const ready = orgName.trim().length >= 2 && fullName.trim().length >= 2 && phoneValid && agreedToTos && !submitting;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -58,12 +62,20 @@ export default function OnboardingPage() {
           firstBranchName: firstBranchName.trim() || null,
         }),
       });
-      // Hand off to existing OTP page; on verify it'll land on /admin/overview
       const url = `/otp?phone=${encodeURIComponent(phoneNorm)}&channel=${encodeURIComponent(res.channel)}&redirect=${encodeURIComponent("/admin/overview")}`;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       router.replace(url as any);
     } catch (err: any) {
-      setError(err?.message ?? "Onboarding failed");
+      const code: string = err?.code ?? "";
+      if (code === "org.slug_taken") {
+        setError(t("err_slug_taken"));
+      } else if (code === "auth.phone_already_registered") {
+        setError(t("err_phone_registered"));
+      } else if (err?.status >= 500 || code === "request.timeout") {
+        setError(t("err_unavailable"));
+      } else {
+        setError(err?.message ?? t("err_onboarding"));
+      }
       setSubmitting(false);
     }
   }
@@ -76,30 +88,30 @@ export default function OnboardingPage() {
           textTransform: "uppercase", color: "var(--color-primary)",
           fontFamily: "var(--font-mono)", marginBottom: 10,
         }}>
-          01 · Get started
+          {t("onboarding_step")}
         </div>
         <h1 style={{ fontSize: 30, fontWeight: 600, letterSpacing: -1, lineHeight: 1.1, margin: 0 }}>
-          Set up your organization
+          {t("onboarding_heading")}
         </h1>
         <p style={{ fontSize: 14, color: "var(--color-fg-2)", marginTop: 8, lineHeight: 1.5 }}>
-          One branch trial. No card required. We'll text you a verification code.
+          {t("onboarding_subtitle")}
         </p>
       </div>
 
       <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <Field label="Organization name" required>
+        <Field label={t("org_name")} required>
           <input
             value={orgName}
             onChange={(e) => setOrgName(e.target.value)}
-            placeholder="Asaka Bank"
+            placeholder={t("org_name_placeholder")}
             autoFocus
             style={inputStyle}
           />
         </Field>
 
         <Field
-          label="Slug"
-          hint={effectiveSlug ? `zeyvo.tech/${effectiveSlug}` : "auto-generated from org name"}
+          label={t("slug_label")}
+          hint={effectiveSlug ? `zeyvo.tech/${effectiveSlug}` : t("slug_auto")}
         >
           <input
             value={effectiveSlug}
@@ -109,16 +121,20 @@ export default function OnboardingPage() {
           />
         </Field>
 
-        <Field label="Your name" required>
+        <Field label={t("your_name")} required>
           <input
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
-            placeholder="Ozodbek Normamatov"
+            placeholder={t("your_name_placeholder")}
             style={inputStyle}
           />
         </Field>
 
-        <Field label="Phone (your phone)" required hint="We'll send a 6-digit code by SMS">
+        <Field
+          label={t("phone_label")}
+          required
+          hint={phone && phoneNorm.length > 0 && phoneNorm.length < 9 ? t("phone_incomplete") : t("phone_sms_hint")}
+        >
           <input
             type="tel"
             value={phone}
@@ -127,20 +143,39 @@ export default function OnboardingPage() {
               const v = e.target.value.trim();
               if (v && !v.startsWith("+")) setPhone("+" + v.replace(/^\+*/, ""));
             }}
-            placeholder="+998 90 123 4567"
+            placeholder={t("phone_placeholder")}
             autoComplete="tel"
             style={{ ...inputStyle, fontFamily: "var(--font-mono)", letterSpacing: 0.5 }}
           />
         </Field>
 
-        <Field label="First branch name (optional)" hint="You can add this later from the admin panel">
+        <Field label={t("branch_name_label")} hint={t("branch_name_hint")}>
           <input
             value={firstBranchName}
             onChange={(e) => setFirstBranchName(e.target.value)}
-            placeholder="Mirzo Ulugbek filiali"
+            placeholder={t("branch_name_placeholder")}
             style={inputStyle}
           />
         </Field>
+
+        <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", userSelect: "none" }}>
+          <input
+            type="checkbox"
+            checked={agreedToTos}
+            onChange={(e) => setAgreedToTos(e.target.checked)}
+            style={{ marginTop: 2, width: 16, height: 16, accentColor: "var(--color-primary)", flexShrink: 0 }}
+          />
+          <span style={{ fontSize: 12.5, color: "var(--color-fg-2)", lineHeight: 1.5 }}>
+            {t("tos_agree")}{" "}
+            <Link href={"/terms" as any} target="_blank" style={{ color: "var(--color-primary)", textDecoration: "none", fontWeight: 500 }}>
+              {t("tos_terms")}
+            </Link>
+            {" "}{t("tos_and")}{" "}
+            <Link href={"/privacy" as any} target="_blank" style={{ color: "var(--color-primary)", textDecoration: "none", fontWeight: 500 }}>
+              {t("tos_privacy")}
+            </Link>
+          </span>
+        </label>
 
         {error && (
           <div style={{
@@ -163,13 +198,13 @@ export default function OnboardingPage() {
             marginTop: 6,
           }}
         >
-          {submitting ? "Creating organization…" : "Create organization →"}
+          {submitting ? t("creating") : t("create_cta")}
         </button>
 
         <div style={{ fontSize: 12, color: "var(--color-fg-3)", textAlign: "center", marginTop: 4 }}>
-          Already have an account?{" "}
+          {t("have_account")}{" "}
           <Link href="/sign-in" style={{ color: "var(--color-primary)", textDecoration: "none", fontWeight: 500 }}>
-            Sign in
+            {t("sign_in")}
           </Link>
         </div>
       </form>

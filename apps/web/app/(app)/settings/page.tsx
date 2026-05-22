@@ -2,17 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useAuthStore } from "@/stores/auth";
 import { useUiStore } from "@/stores/ui";
 import { apiFetch } from "@/lib/api";
 
 type Theme = "light" | "dark" | "system";
-
-const THEME_OPTIONS: { value: Theme; label: string; icon: string }[] = [
-  { value: "light", label: "Light", icon: "☀️" },
-  { value: "system", label: "System", icon: "💻" },
-  { value: "dark", label: "Dark", icon: "🌙" },
-];
 
 interface UserProfile {
   id: string;
@@ -82,6 +77,7 @@ function Row({ label, value, danger, accent, onClick, last }: {
 function LinkTelegramModal({
   onClose, onLinked,
 }: { onClose: () => void; onLinked: () => void }) {
+  const t = useTranslations("settings");
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [data, setData] = useState<LinkTelegramResponse | null>(null);
   const [copied, setCopied] = useState(false);
@@ -116,7 +112,7 @@ function LinkTelegramModal({
         }}
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: -0.3 }}>Link Telegram</div>
+          <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: -0.3 }}>{t("link_tg_title")}</div>
           <button onClick={onClose} style={{
             width: 30, height: 30, borderRadius: 8, border: "1px solid var(--color-border)",
             background: "var(--color-surface-2)", cursor: "pointer", color: "var(--color-fg-3)",
@@ -126,23 +122,22 @@ function LinkTelegramModal({
 
         {state === "loading" && (
           <div style={{ textAlign: "center", padding: 20, color: "var(--color-fg-3)", fontSize: 13 }}>
-            Generating link code…
+            {t("link_tg_loading")}
           </div>
         )}
 
         {state === "error" && (
           <div style={{ color: "var(--color-danger)", fontSize: 13, padding: "8px 0" }}>
-            Failed to generate code. Sign in and try again.
+            {t("link_tg_error")}
           </div>
         )}
 
         {state === "ready" && data && (
           <>
             <div style={{ fontSize: 13, color: "var(--color-fg-2)", lineHeight: 1.6 }}>
-              Open the bot and tap <strong>Start</strong> — it will link your account automatically.
+              {t("link_tg_instruction")}
             </div>
 
-            {/* Code display */}
             <div style={{
               background: "var(--color-surface-2)", border: "1px solid var(--color-border)",
               borderRadius: 12, padding: "14px 16px",
@@ -156,12 +151,12 @@ function LinkTelegramModal({
                 background: "transparent", cursor: "pointer", fontSize: 12,
                 color: copied ? "var(--color-success)" : "var(--color-fg-3)",
               }}>
-                {copied ? "Copied ✓" : "Copy"}
+                {copied ? t("copied") : t("copy")}
               </button>
             </div>
 
             <div style={{ fontSize: 12, color: "var(--color-fg-3)", textAlign: "center" }}>
-              Code expires in 10 minutes
+              {t("link_tg_expires")}
             </div>
 
             <a
@@ -178,14 +173,14 @@ function LinkTelegramModal({
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8l-1.68 7.92c-.12.56-.44.7-.88.44l-2.44-1.8-1.18 1.14c-.12.12-.24.16-.48.16l.16-2.4 4.28-3.88c.18-.16-.04-.24-.28-.08L8.32 14.5l-2.4-.74c-.52-.16-.52-.52.12-.78l9.36-3.6c.44-.16.82.1.64.78v-.36z"/>
               </svg>
-              Open @zeyvo_bot
+              {t("link_tg_open")}
             </a>
 
             <button onClick={onLinked} style={{
               padding: "12px 0", borderRadius: 12, border: "1.5px solid var(--color-border)",
               background: "transparent", color: "var(--color-fg-2)", fontSize: 13, cursor: "pointer",
             }}>
-              Done — I sent the code
+              {t("link_tg_done")}
             </button>
           </>
         )}
@@ -196,6 +191,7 @@ function LinkTelegramModal({
 
 export default function SettingsPage() {
   const router = useRouter();
+  const t = useTranslations("settings");
   const { roles, clear } = useAuthStore();
   const { theme, setTheme } = useUiStore();
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -203,6 +199,12 @@ export default function SettingsPage() {
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState("");
   const [savingName, setSavingName] = useState(false);
+
+  const themeOptions: { value: Theme; label: string; icon: string }[] = [
+    { value: "light", label: t("theme_light"), icon: "☀️" },
+    { value: "system", label: t("theme_system"), icon: "💻" },
+    { value: "dark", label: t("theme_dark"), icon: "🌙" },
+  ];
 
   function loadProfile() {
     apiFetch<UserProfile>("/api/v1/me").then(setProfile).catch(() => {});
@@ -243,13 +245,11 @@ export default function SettingsPage() {
         background: "var(--color-bg)",
         position: "sticky", top: 0, zIndex: 5,
       }}>
-        <div style={{ fontSize: 17, fontWeight: 600, letterSpacing: -0.3 }}>Settings</div>
+        <div style={{ fontSize: 17, fontWeight: 600, letterSpacing: -0.3 }}>{t("title")}</div>
       </div>
 
       <div style={{ padding: "20px 16px", display: "flex", flexDirection: "column", gap: 20 }}>
-        {/* Account */}
-        <Section title="Account">
-          {/* Name row — inline editable */}
+        <Section title={t("account")}>
           {editingName ? (
             <div style={{
               padding: "12px 16px", borderBottom: "1px solid var(--color-hairline)",
@@ -260,7 +260,7 @@ export default function SettingsPage() {
                 value={nameInput}
                 onChange={(e) => setNameInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") saveName(); if (e.key === "Escape") setEditingName(false); }}
-                placeholder="Your name"
+                placeholder={t("your_name_placeholder")}
                 style={{
                   flex: 1, padding: "6px 10px", borderRadius: 8,
                   border: "1.5px solid var(--color-primary)", outline: "none",
@@ -272,14 +272,14 @@ export default function SettingsPage() {
                 background: "var(--color-primary)", color: "#fff",
                 fontSize: 13, fontWeight: 600, cursor: "pointer",
               }}>
-                {savingName ? "…" : "Save"}
+                {savingName ? "…" : t("save")}
               </button>
               <button onClick={() => setEditingName(false)} style={{
                 padding: "6px 10px", borderRadius: 8,
                 border: "1px solid var(--color-border)", background: "transparent",
                 color: "var(--color-fg-3)", fontSize: 13, cursor: "pointer",
               }}>
-                Cancel
+                {t("cancel")}
               </button>
             </div>
           ) : (
@@ -291,10 +291,10 @@ export default function SettingsPage() {
                 borderBottom: "1px solid var(--color-hairline)", cursor: "pointer", textAlign: "left",
               }}
             >
-              <span style={{ fontSize: 14, fontWeight: 500, color: "var(--color-fg)" }}>Name</span>
+              <span style={{ fontSize: 14, fontWeight: 500, color: "var(--color-fg)" }}>{t("name")}</span>
               <span style={{ fontSize: 13, color: "var(--color-fg-3)", fontFamily: "var(--font-mono)",
                 display: "flex", alignItems: "center", gap: 6 }}>
-                {profile?.fullName ?? "Add name"}
+                {profile?.fullName ?? t("addName")}
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
@@ -303,32 +303,31 @@ export default function SettingsPage() {
               </span>
             </button>
           )}
-          {profile?.phone && <Row label="Phone" value={profile.phone} />}
+          {profile?.phone && <Row label={t("phone")} value={profile.phone} />}
           <Row
-            label={tgLinked ? "Telegram" : "Link Telegram"}
-            value={tgLinked ? "Linked ✓" : "Link for notifications →"}
+            label={tgLinked ? "Telegram" : t("linkTelegram")}
+            value={tgLinked ? t("linked") : t("linkForNotifs")}
             accent={!tgLinked}
             onClick={tgLinked ? undefined : () => setShowLinkModal(true)}
           />
-          <Row label="Role" value={roles.join(", ") || "customer"} />
+          <Row label={t("role")} value={roles.join(", ") || t("customer_role")} />
           {isAdmin && (
             <Row
-              label="Admin panel"
-              value="Open →"
+              label={t("adminPanel")}
+              value={t("open")}
               onClick={() => router.push("/admin/overview")}
             />
           )}
-          <Row label="Sign out" danger last onClick={signOut} />
+          <Row label={t("signOut")} danger last onClick={signOut} />
         </Section>
 
-        {/* Appearance */}
-        <Section title="Appearance">
+        <Section title={t("appearance")}>
           <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--color-hairline)" }}>
             <div style={{ fontSize: 14, fontWeight: 500, color: "var(--color-fg)", marginBottom: 10 }}>
-              Theme
+              {t("theme")}
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              {THEME_OPTIONS.map((opt) => {
+              {themeOptions.map((opt) => {
                 const active = theme === opt.value;
                 return (
                   <button
@@ -351,13 +350,12 @@ export default function SettingsPage() {
               })}
             </div>
           </div>
-          <Row label="Language" value="O'zbek (UZ)" last />
+          <Row label={t("language")} value="O'zbek (UZ)" last />
         </Section>
 
-        {/* About */}
-        <Section title="About">
-          <Row label="Version" value="0.1.0-mvp" />
-          <Row label="zeyvo" value="queue management OS" last />
+        <Section title={t("about")}>
+          <Row label={t("version")} value="0.1.0-mvp" />
+          <Row label="zeyvo" value={t("app_tagline")} last />
         </Section>
       </div>
 
