@@ -3,6 +3,8 @@ package com.zeyvo.queue.api;
 import com.zeyvo.common.web.DomainException;
 import com.zeyvo.queue.api.dto.TicketDto;
 import com.zeyvo.queue.service.TicketService;
+import com.zeyvo.tenant.api.dto.WindowDeskDto;
+import com.zeyvo.tenant.infra.WindowDeskRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -11,6 +13,7 @@ import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,11 +30,66 @@ import java.util.UUID;
 public class WindowController {
 
     private final TicketService ticketService;
+    private final WindowDeskRepository windowRepo;
 
     @PersistenceContext
     private EntityManager em;
 
     private static final Set<String> VALID_STATUSES = Set.of("open", "closed", "paused", "idle");
+
+    @GetMapping("/my")
+    @Transactional(readOnly = true)
+    @Operation(summary = "Get the window assigned to the current operator")
+    public WindowDeskDto myWindow(Authentication auth) {
+        UUID operatorId = resolveUserId(auth);
+        return windowRepo.findByOperatorId(operatorId)
+                .map(WindowDeskDto::from)
+                .orElseThrow(() -> new DomainException("window.not_assigned",
+                        "No window is assigned to you. Ask your manager to assign you.",
+                        HttpStatus.NOT_FOUND));
+    }
+
+    @PostMapping("/{windowId}/assign")
+    @Transactional
+    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'MANAGER', 'SUPER_ADMIN')")
+    @Operation(summary = "Assign an operator to a window (pass ?userId= to assign someone else, omit for self)")
+    public WindowDeskDto assignWindow(@PathVariable UUID windowId,
+                                      @RequestParam(required = false) UUID userId,
+                                      Authentication auth) {
+        UUID operatorId = userId != null ? userId : resolveUserId(auth);
+        // Clear any previous window assignment for this operator
+        windowRepo.findByOperatorId(operatorId).ifPresent(prev -> {
+            if (!prev.getId().equals(windowId)) {
+                prev.setOperatorId(null);
+                windowRepo.save(prev);
+            }
+        });
+        var window = windowRepo.findById(windowId)
+                .orElseThrow(() -> new DomainException("window.not_found", "Window not found", HttpStatus.NOT_FOUND));
+        window.setOperatorId(operatorId);
+        windowRepo.save(window);
+        return WindowDeskDto.from(window);
+    }
+
+    @DeleteMapping("/{windowId}/assign")
+    @Transactional
+    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'MANAGER', 'SUPER_ADMIN')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Unassign the operator from a window")
+    public void unassignWindow(@PathVariable UUID windowId) {
+        windowRepo.findById(windowId).ifPresent(w -> {
+            w.setOperatorId(null);
+            windowRepo.save(w);
+        });
+    }
+
+    private UUID resolveUserId(Authentication auth) {
+        if (auth != null && auth.getDetails() instanceof java.util.Map<?, ?> claims) {
+            Object sub = claims.get("sub");
+            if (sub instanceof String s && !s.isBlank()) return UUID.fromString(s);
+        }
+        throw new DomainException("auth.missing_user", "Cannot resolve user from token", HttpStatus.UNAUTHORIZED);
+    }
 
     @PostMapping("/{windowId}/call-next")
     @Operation(summary = "Call the next waiting ticket for this window")

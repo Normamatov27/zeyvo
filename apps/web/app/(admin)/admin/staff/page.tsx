@@ -237,7 +237,7 @@ export default function StaffPage() {
 
   const load = useCallback(async () => {
     try {
-      const list = await apiFetch<{ id: string }[]>("/api/v1/branches");
+      const list = await apiFetch<{ id: string }[]>("/api/v1/admin/branches");
       const details = await Promise.allSettled(
         list.map((b) => apiFetch<BranchDetail>(`/api/v1/branches/${b.id}`))
       );

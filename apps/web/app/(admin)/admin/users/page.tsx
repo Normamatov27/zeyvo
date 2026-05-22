@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
+import { useAuthStore } from "@/stores/auth";
 
 interface AdminUser {
   id: string;
@@ -161,10 +163,16 @@ function ManageRolesModal({ user, onClose, onSaved }: {
 }
 
 export default function AdminUsersPage() {
+  const { roles } = useAuthStore();
+  const router = useRouter();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [editUser, setEditUser] = useState<AdminUser | null>(null);
+
+  useEffect(() => {
+    if (!roles.includes("super_admin")) router.replace("/admin/overview");
+  }, [roles]);
 
   const load = useCallback((phone?: string) => {
     setLoading(true);

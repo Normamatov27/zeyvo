@@ -6,13 +6,10 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth";
-import { Branch, Ticket, LoadLevel, branchLoadLevel, estimateWaitMin } from "@/lib/types";
-import { FullPageLoader, Skeleton } from "@/components/Loader";
+import { Branch, Org, Ticket, LoadLevel, branchLoadLevel, estimateWaitMin } from "@/lib/types";
+import { FullPageLoader } from "@/components/Loader";
 
-type BranchWithLoad = Branch & { distance?: number };
-
-const CATEGORY_KEYS = ["nearby", "banks", "clinics", "telecom", "government"] as const;
-type CategoryKey = typeof CATEGORY_KEYS[number];
+const ACTIVE = new Set(["waiting", "called", "serving"]);
 
 const TYPE_COLOR: Record<string, string> = {
   bank: "var(--color-primary)",
@@ -26,7 +23,6 @@ const TYPE_SOFT: Record<string, string> = {
   telecom: "var(--color-accent-soft)",
   government: "var(--color-warning-soft)",
 };
-
 const LOAD_COLOR: Record<LoadLevel, string> = {
   low: "var(--color-success)",
   medium: "var(--color-warning)",
@@ -46,7 +42,36 @@ const BuildingIcon = ({ size = 20 }: { size?: number }) => (
   </svg>
 );
 
-function BranchCard({ b }: { b: BranchWithLoad }) {
+function OrgCard({ org, onClick }: { org: Org; onClick: () => void }) {
+  return (
+    <button onClick={onClick} style={{
+      width: "100%", textAlign: "left", cursor: "pointer",
+      background: "var(--color-surface)", border: "1px solid var(--color-border)",
+      borderRadius: 14, padding: 16,
+      display: "flex", alignItems: "center", gap: 14,
+    }}>
+      <div style={{
+        width: 44, height: 44, borderRadius: 11, flex: "none",
+        background: "var(--color-primary-soft)", color: "var(--color-primary)",
+        display: "grid", placeItems: "center",
+      }}>
+        <BuildingIcon size={20}/>
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14.5, fontWeight: 700, letterSpacing: -0.3 }}>{org.name}</div>
+        <div style={{ fontSize: 12, color: "var(--color-fg-3)", marginTop: 2 }}>
+          {org.branchCount} {org.branchCount === 1 ? "branch" : "branches"}
+        </div>
+      </div>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+        stroke="var(--color-fg-3)" strokeWidth="2.5" strokeLinecap="round">
+        <path d="M9 18l6-6-6-6"/>
+      </svg>
+    </button>
+  );
+}
+
+function BranchCard({ b }: { b: Branch }) {
   const load = branchLoadLevel(b.activeTickets ?? 0, b.openWindows ?? 0);
   const waitMin = estimateWaitMin(b.activeTickets ?? 0, b.avgServiceS ?? 300, b.openWindows ?? 0);
   const type = b.type ?? "bank";
@@ -59,9 +84,7 @@ function BranchCard({ b }: { b: BranchWithLoad }) {
         background: "var(--color-surface)", border: "1px solid var(--color-border)",
         borderRadius: 14, padding: 14, display: "flex", flexDirection: "column", gap: 10,
         cursor: "pointer",
-        transition: "border-color 0.15s",
       }}>
-        {/* Top row — icon + name + load badge */}
         <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
           <div style={{
             width: 42, height: 42, borderRadius: 10, flex: "none",
@@ -76,7 +99,6 @@ function BranchCard({ b }: { b: BranchWithLoad }) {
             </div>
             <div style={{ fontSize: 11.5, color: "var(--color-fg-3)", marginTop: 2 }}>
               {b.address ?? "Tashkent"}
-              {b.distance != null ? ` · ${b.distance} km` : ""}
             </div>
           </div>
           <span style={{
@@ -90,26 +112,21 @@ function BranchCard({ b }: { b: BranchWithLoad }) {
           </span>
         </div>
 
-        {/* Bottom row — stats + CTA */}
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
           paddingTop: 10, borderTop: "1px solid var(--color-hairline)",
         }}>
           <div style={{ display: "flex", gap: 20 }}>
             <div>
-              <div style={{
-                fontSize: 10, color: "var(--color-fg-3)", textTransform: "uppercase",
-                letterSpacing: 0.4, fontFamily: "var(--font-mono)",
-              }}>wait</div>
+              <div style={{ fontSize: 10, color: "var(--color-fg-3)", textTransform: "uppercase",
+                letterSpacing: 0.4, fontFamily: "var(--font-mono)" }}>wait</div>
               <div style={{ fontSize: 17, fontWeight: 600, letterSpacing: -0.3, fontVariantNumeric: "tabular-nums" }}>
                 ~{waitMin} min
               </div>
             </div>
             <div>
-              <div style={{
-                fontSize: 10, color: "var(--color-fg-3)", textTransform: "uppercase",
-                letterSpacing: 0.4, fontFamily: "var(--font-mono)",
-              }}>queue</div>
+              <div style={{ fontSize: 10, color: "var(--color-fg-3)", textTransform: "uppercase",
+                letterSpacing: 0.4, fontFamily: "var(--font-mono)" }}>queue</div>
               <div style={{ fontSize: 17, fontWeight: 600, letterSpacing: -0.3, fontVariantNumeric: "tabular-nums" }}>
                 {b.activeTickets} ppl
               </div>
@@ -121,7 +138,7 @@ function BranchCard({ b }: { b: BranchWithLoad }) {
             fontSize: 13, fontWeight: 600,
             display: "flex", alignItems: "center", gap: 6,
           }}>
-            Take ticket
+            View
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M5 12h14M12 5l7 7-7 7"/>
             </svg>
@@ -132,17 +149,8 @@ function BranchCard({ b }: { b: BranchWithLoad }) {
   );
 }
 
-const ACTIVE = new Set(["waiting", "called", "serving"]);
-
-const STATUS_LABEL: Record<string, string> = {
-  waiting: "Waiting",
-  called: "Called",
-  serving: "Being served",
-};
-
 function ActiveTicketBanner({ ticket }: { ticket: Ticket }) {
   const t = useTranslations("queue");
-  const statusLabel = STATUS_LABEL[ticket.status] ?? ticket.status;
   return (
     <Link href={`/ticket/${ticket.id}`} style={{ textDecoration: "none", color: "inherit" }}>
       <div style={{
@@ -199,27 +207,19 @@ function ActiveTicketBanner({ ticket }: { ticket: Ticket }) {
   );
 }
 
-const CATEGORY_TYPE: Record<CategoryKey, string | null> = {
-  nearby: null,
-  banks: "bank",
-  clinics: "clinic",
-  telecom: "telecom",
-  government: "government",
-};
-
 export default function BranchesPage() {
   const router = useRouter();
   const t = useTranslations("queue");
   const { userId, _hydrated } = useAuthStore();
+
+  const [step, setStep] = useState<"orgs" | "branches">("orgs");
+  const [orgs, setOrgs] = useState<Org[]>([]);
+  const [selectedOrg, setSelectedOrg] = useState<Org | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [branchesLoading, setBranchesLoading] = useState(false);
   const [activeTicket, setActiveTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState<CategoryKey>("nearby");
-
-  function loadBranches() {
-    return apiFetch<Branch[]>("/api/v1/branches").then(setBranches).catch(() => {});
-  }
 
   useEffect(() => {
     if (!_hydrated) return;
@@ -228,30 +228,42 @@ export default function BranchesPage() {
       return;
     }
     Promise.all([
-      apiFetch<Branch[]>("/api/v1/branches"),
+      apiFetch<Org[]>("/api/v1/orgs"),
       apiFetch<Ticket[]>("/api/v1/tickets/my").catch(() => [] as Ticket[]),
-    ]).then(([list, myTickets]) => {
-      setBranches(list);
-      const active = myTickets.find((t) => ACTIVE.has(t.status));
+    ]).then(([orgList, myTickets]) => {
+      setOrgs(orgList);
+      const active = myTickets.find((tt) => ACTIVE.has(tt.status));
       if (active) setActiveTicket(active);
     }).catch(console.error)
       .finally(() => setLoading(false));
-
-    // Refresh queue counts every 30s to keep wait times live
-    const iv = setInterval(loadBranches, 30_000);
-    return () => clearInterval(iv);
   }, [_hydrated, userId]);
 
-  if (!_hydrated || userId === null) {
-    return <FullPageLoader/>;
+  function selectOrg(org: Org) {
+    setSelectedOrg(org);
+    setStep("branches");
+    setBranchesLoading(true);
+    setSearch("");
+    apiFetch<Branch[]>(`/api/v1/orgs/${org.id}/branches`)
+      .then(setBranches)
+      .catch(() => setBranches([]))
+      .finally(() => setBranchesLoading(false));
   }
 
-  const typeFilter = CATEGORY_TYPE[category] ?? null;
-  const filtered = (branches as BranchWithLoad[]).filter((b) => {
-    if (search.trim()) return b.name.toLowerCase().includes(search.toLowerCase());
-    if (typeFilter) return b.type === typeFilter;
-    return true;
-  });
+  function goBack() {
+    setStep("orgs");
+    setSelectedOrg(null);
+    setBranches([]);
+    setSearch("");
+  }
+
+  if (!_hydrated || userId === null) return <FullPageLoader/>;
+
+  const filteredOrgs = orgs.filter((o) =>
+    !search.trim() || o.name.toLowerCase().includes(search.toLowerCase())
+  );
+  const filteredBranches = branches.filter((b) =>
+    !search.trim() || b.name.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100%" }}>
@@ -261,29 +273,34 @@ export default function BranchesPage() {
         position: "sticky", top: 0, zIndex: 5,
         background: "var(--color-bg)",
         borderBottom: "1px solid var(--color-hairline)",
-        display: "flex", alignItems: "center", justifyContent: "space-between",
+        display: "flex", alignItems: "center", gap: 10,
       }}>
-        <div>
-          <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: -0.4 }}>{t("find")}</div>
-          <div style={{ fontSize: 12, color: "var(--color-fg-3)", marginTop: 1 }}>
-            {t("near_you", { count: branches.length })}
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: 6 }}>
-          <button style={{
-            width: 34, height: 34, borderRadius: 10,
+        {step === "branches" && (
+          <button onClick={goBack} style={{
+            width: 34, height: 34, borderRadius: 10, flex: "none",
             background: "var(--color-surface)", border: "1px solid var(--color-border)",
             display: "grid", placeItems: "center", color: "var(--color-fg-2)", cursor: "pointer",
           }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
             </svg>
           </button>
+        )}
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: -0.4 }}>
+            {step === "orgs" ? t("find") : selectedOrg?.name}
+          </div>
+          <div style={{ fontSize: 12, color: "var(--color-fg-3)", marginTop: 1 }}>
+            {step === "orgs"
+              ? `${orgs.length} organisations`
+              : `${branches.length} ${branches.length === 1 ? "branch" : "branches"}`
+            }
+          </div>
         </div>
       </div>
 
       <div style={{ padding: "12px 16px 24px", display: "flex", flexDirection: "column", gap: 12 }}>
-        {/* Search bar */}
+        {/* Search */}
         <div style={{
           display: "flex", alignItems: "center", gap: 8,
           height: 42, padding: "0 14px", borderRadius: 12,
@@ -295,7 +312,7 @@ export default function BranchesPage() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={t("search_placeholder")}
+            placeholder={step === "orgs" ? "Search organisations…" : t("search_placeholder")}
             style={{
               flex: 1, border: "none", outline: "none",
               background: "transparent", color: "var(--color-fg)", fontSize: 14,
@@ -303,50 +320,45 @@ export default function BranchesPage() {
           />
         </div>
 
-        {/* Category pills */}
-        <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
-          {CATEGORY_KEYS.map((c) => (
-            <button
-              key={c}
-              onClick={() => setCategory(c)}
-              style={{
-                padding: "6px 12px", borderRadius: 999, fontSize: 12.5, fontWeight: 500,
-                whiteSpace: "nowrap", cursor: "pointer", border: "none",
-                background: category === c ? "var(--color-fg)" : "var(--color-surface)",
-                color: category === c ? "var(--color-bg)" : "var(--color-fg-2)",
-                outline: category !== c ? "1px solid var(--color-border)" : "none",
-              }}
-            >
-              {t(`categories.${c}`)}
-            </button>
-          ))}
-        </div>
-
         {/* Active ticket banner */}
         {!loading && activeTicket && <ActiveTicketBanner ticket={activeTicket}/>}
 
-        {/* Section label */}
-        <div style={{
-          fontSize: 11, fontWeight: 600, color: "var(--color-fg-3)",
-          textTransform: "uppercase", letterSpacing: 0.8, fontFamily: "var(--font-mono)",
-        }}>
-          Closest to you · {loading ? "…" : filtered.length}
-        </div>
+        {/* Orgs step */}
+        {step === "orgs" && (
+          loading ? (
+            [1, 2, 3].map((i) => (
+              <div key={i} style={{
+                height: 78, borderRadius: 14,
+                background: "var(--color-surface)", border: "1px solid var(--color-border)",
+              }}/>
+            ))
+          ) : filteredOrgs.length === 0 ? (
+            <div style={{ textAlign: "center", fontSize: 13, color: "var(--color-fg-3)", padding: 40 }}>
+              {t("no_results")}
+            </div>
+          ) : (
+            filteredOrgs.map((org) => (
+              <OrgCard key={org.id} org={org} onClick={() => selectOrg(org)}/>
+            ))
+          )
+        )}
 
-        {/* Branch list */}
-        {loading ? (
-          [1, 2, 3].map((i) => (
-            <div key={i} style={{
-              height: 110, borderRadius: 14,
-              background: "var(--color-surface)", border: "1px solid var(--color-border)",
-            }}/>
-          ))
-        ) : filtered.length === 0 ? (
-          <div style={{ textAlign: "center", fontSize: 13, color: "var(--color-fg-3)", padding: 40 }}>
-            {t("no_results")}
-          </div>
-        ) : (
-          filtered.map((b) => <BranchCard key={b.id} b={b}/>)
+        {/* Branches step */}
+        {step === "branches" && (
+          branchesLoading ? (
+            [1, 2, 3].map((i) => (
+              <div key={i} style={{
+                height: 110, borderRadius: 14,
+                background: "var(--color-surface)", border: "1px solid var(--color-border)",
+              }}/>
+            ))
+          ) : filteredBranches.length === 0 ? (
+            <div style={{ textAlign: "center", fontSize: 13, color: "var(--color-fg-3)", padding: 40 }}>
+              {t("no_results")}
+            </div>
+          ) : (
+            filteredBranches.map((b) => <BranchCard key={b.id} b={b}/>)
+          )
         )}
       </div>
     </div>

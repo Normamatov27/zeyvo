@@ -38,8 +38,19 @@ public class TenantService {
     @SuppressWarnings("unchecked")
     @Transactional(readOnly = true)
     public List<BranchDto> listBranches() {
-        List<Object[]> rows = em.createNativeQuery("""
-                SELECT b.id, b.organization_id, b.slug, b.name, b.short_name,
+        return listBranchesQuery(null);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Transactional(readOnly = true)
+    public List<BranchDto> listBranchesByOrg(UUID orgId) {
+        return listBranchesQuery(orgId);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<BranchDto> listBranchesQuery(UUID orgId) {
+        String sql = """
+                SELECT b.id, b.organization_id, o.name AS org_name, b.slug, b.name, b.short_name,
                        b.type, b.address, b.lat, b.lng, b.timezone, b.capacity, b.active,
                        (SELECT COUNT(*) FROM app.ticket t
                         WHERE t.branch_id = b.id AND t.status IN ('waiting','called','serving')) AS active_tickets,
@@ -48,9 +59,14 @@ public class TenantService {
                        COALESCE((SELECT ROUND(AVG(s.avg_duration_s))::int FROM app.service s
                         WHERE s.branch_id = b.id AND s.active = true), 300) AS avg_service_s
                 FROM app.branch b
+                JOIN app.organization o ON o.id = b.organization_id
                 WHERE b.active = true
-                ORDER BY b.name
-                """).getResultList();
+                """ + (orgId != null ? "AND b.organization_id = :orgId\n" : "") + """
+                ORDER BY o.name, b.name
+                """;
+        var query = em.createNativeQuery(sql);
+        if (orgId != null) query.setParameter("orgId", orgId);
+        List<Object[]> rows = query.getResultList();
         return rows.stream().map(r -> new BranchDto(
                 UUID.fromString(r[0].toString()),
                 UUID.fromString(r[1].toString()),
@@ -59,15 +75,39 @@ public class TenantService {
                 (String) r[4],
                 (String) r[5],
                 (String) r[6],
-                r[7] != null ? ((Number) r[7]).doubleValue() : null,
+                (String) r[7],
                 r[8] != null ? ((Number) r[8]).doubleValue() : null,
-                (String) r[9],
-                ((Number) r[10]).intValue(),
-                (Boolean) r[11],
-                r[12] != null ? ((Number) r[12]).intValue() : 0,
+                r[9] != null ? ((Number) r[9]).doubleValue() : null,
+                (String) r[10],
+                ((Number) r[11]).intValue(),
+                (Boolean) r[12],
                 r[13] != null ? ((Number) r[13]).intValue() : 0,
-                r[14] != null ? ((Number) r[14]).intValue() : 300
+                r[14] != null ? ((Number) r[14]).intValue() : 0,
+                r[15] != null ? ((Number) r[15]).intValue() : 300
         )).toList();
+    }
+
+    @SuppressWarnings("unchecked")
+    @Transactional(readOnly = true)
+    public List<java.util.Map<String, Object>> listOrgs() {
+        List<Object[]> rows = em.createNativeQuery("""
+                SELECT o.id, o.name, o.slug, o.plan, o.active,
+                       COUNT(b.id) AS branch_count
+                FROM app.organization o
+                LEFT JOIN app.branch b ON b.organization_id = o.id AND b.active = true
+                WHERE o.active = true AND o.deleted_at IS NULL
+                GROUP BY o.id
+                ORDER BY o.name
+                """).getResultList();
+        return rows.stream().map(r -> {
+            var m = new java.util.LinkedHashMap<String, Object>();
+            m.put("id", r[0].toString());
+            m.put("name", r[1]);
+            m.put("slug", r[2]);
+            m.put("plan", r[3]);
+            m.put("branchCount", r[5] != null ? ((Number) r[5]).intValue() : 0);
+            return (java.util.Map<String, Object>) m;
+        }).toList();
     }
 
     @Transactional(readOnly = true)

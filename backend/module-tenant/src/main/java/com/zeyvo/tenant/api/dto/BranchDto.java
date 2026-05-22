@@ -7,6 +7,7 @@ import java.util.UUID;
 public record BranchDto(
         UUID id,
         UUID organizationId,
+        String orgName,
         String slug,
         String name,
         String shortName,
@@ -22,7 +23,7 @@ public record BranchDto(
         int avgServiceS
 ) {
     public static BranchDto from(Branch b) {
-        return new BranchDto(b.getId(), b.getOrganizationId(), b.getSlug(),
+        return new BranchDto(b.getId(), b.getOrganizationId(), null, b.getSlug(),
                 b.getName(), b.getShortName(), b.getType(), b.getAddress(),
                 b.getLat(), b.getLng(), b.getTimezone(), b.getCapacity(), b.isActive(),
                 0, 0, 300);

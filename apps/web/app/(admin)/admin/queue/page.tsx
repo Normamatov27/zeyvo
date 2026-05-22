@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { apiFetch, ApiError } from "@/lib/api";
 import { BranchDetail, Ticket, TicketStatus, fmtClock, fmtEta } from "@/lib/types";
 import { getStompClient, subscribeBranchQueue } from "@/lib/realtime";
+import { useAuthStore } from "@/stores/auth";
 
 const STATUS_COLOR: Record<string, string> = {
   waiting: "var(--color-primary)",
@@ -112,6 +113,8 @@ function TicketRow({ ticket, onCall, onTransfer, isFirst }: {
 function QueuePanelInner() {
   const params = useSearchParams();
   const branchId = params.get("branchId");
+  const { roles } = useAuthStore();
+  const isOperator = roles.includes("operator") && !roles.includes("manager") && !roles.includes("org_admin") && !roles.includes("super_admin");
 
   const [branches, setBranches] = useState<BranchDetail[]>([]);
   const [activeBranch, setActiveBranch] = useState<BranchDetail | null>(null);
@@ -124,13 +127,28 @@ function QueuePanelInner() {
   const [transferTicket, setTransferTicket] = useState<Ticket | null>(null);
   const [transferToWindowId, setTransferToWindowId] = useState("");
   const [transferring, setTransferring] = useState(false);
+  const [assignedWindow, setAssignedWindow] = useState<{ id: string; number: number; label?: string } | null>(null);
+  const [assignedWindowChecked, setAssignedWindowChecked] = useState(false);
   const subRef = useRef<{ unsubscribe: () => void } | null>(null);
   const activeBranchRef = useRef<BranchDetail | null>(null);
   const selectedWindowRef = useRef<string | null>(null);
 
+  // For operators: fetch their assigned window on mount
+  useEffect(() => {
+    if (!isOperator) { setAssignedWindowChecked(true); return; }
+    apiFetch<{ id: string; number: number; label?: string }>("/api/v1/windows/my")
+      .then((w) => {
+        setAssignedWindow(w);
+        setSelectedWindowId(w.id);
+        selectedWindowRef.current = w.id;
+      })
+      .catch(() => {})
+      .finally(() => setAssignedWindowChecked(true));
+  }, [isOperator]);
+
   async function loadBranches(keepWindow = false) {
     try {
-      const list = await apiFetch<{ id: string }[]>("/api/v1/branches");
+      const list = await apiFetch<{ id: string }[]>("/api/v1/admin/branches");
       const details = await Promise.allSettled(
         list.map((b) => apiFetch<BranchDetail>(`/api/v1/branches/${b.id}`))
       );
@@ -461,41 +479,66 @@ function QueuePanelInner() {
           padding: 18, display: "flex", flexDirection: "column", gap: 14, overflow: "auto",
           background: "var(--color-surface)",
         }}>
-          {/* Window picker */}
+          {/* Window picker / operator window */}
           <div>
             <div style={{
               fontSize: 10, fontWeight: 600, color: "var(--color-fg-3)",
               textTransform: "uppercase", letterSpacing: 0.6, fontFamily: "var(--font-mono)",
               marginBottom: 8,
             }}>My window</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {windows.map((w) => {
-                const sel = selectedWindowId === w.id;
-                const open = w.status === "open";
-                return (
-                  <button
-                    key={w.id}
-                    onClick={() => {
-                      setSelectedWindowId(w.id);
-                      selectedWindowRef.current = w.id;
-                    }}
-                    style={{
-                      padding: "6px 11px", borderRadius: 8, cursor: "pointer",
-                      border: `1.5px solid ${sel ? "var(--color-primary)" : open ? "var(--color-success)" : "var(--color-border)"}`,
-                      background: sel ? "var(--color-primary-soft)" : "transparent",
-                      color: sel ? "var(--color-primary)" : open ? "var(--color-success)" : "var(--color-fg-3)",
-                      fontSize: 12, fontWeight: 600,
-                    }}
-                  >
-                    W{w.number}
-                    {open && !sel && (
-                      <span style={{ marginLeft: 4, width: 5, height: 5, borderRadius: "50%",
-                        background: "var(--color-success)", display: "inline-block", verticalAlign: "middle" }}/>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+            {isOperator ? (
+              !assignedWindowChecked ? (
+                <div style={{ fontSize: 12, color: "var(--color-fg-3)" }}>Loading…</div>
+              ) : assignedWindow ? (
+                <div style={{
+                  padding: "8px 12px", borderRadius: 8,
+                  border: "1.5px solid var(--color-primary)",
+                  background: "var(--color-primary-soft)",
+                  color: "var(--color-primary)",
+                  fontSize: 13, fontWeight: 600,
+                }}>
+                  Window {assignedWindow.number}{assignedWindow.label ? ` — ${assignedWindow.label}` : ""}
+                </div>
+              ) : (
+                <div style={{
+                  fontSize: 12, color: "var(--color-fg-3)",
+                  background: "var(--color-surface-2)", borderRadius: 8,
+                  padding: "10px 12px", lineHeight: 1.5,
+                  border: "1px dashed var(--color-border)",
+                }}>
+                  No window assigned.<br/>Ask your manager to assign you to a window.
+                </div>
+              )
+            ) : (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {windows.map((w) => {
+                  const sel = selectedWindowId === w.id;
+                  const open = w.status === "open";
+                  return (
+                    <button
+                      key={w.id}
+                      onClick={() => {
+                        setSelectedWindowId(w.id);
+                        selectedWindowRef.current = w.id;
+                      }}
+                      style={{
+                        padding: "6px 11px", borderRadius: 8, cursor: "pointer",
+                        border: `1.5px solid ${sel ? "var(--color-primary)" : open ? "var(--color-success)" : "var(--color-border)"}`,
+                        background: sel ? "var(--color-primary-soft)" : "transparent",
+                        color: sel ? "var(--color-primary)" : open ? "var(--color-success)" : "var(--color-fg-3)",
+                        fontSize: 12, fontWeight: 600,
+                      }}
+                    >
+                      W{w.number}
+                      {open && !sel && (
+                        <span style={{ marginLeft: 4, width: 5, height: 5, borderRadius: "50%",
+                          background: "var(--color-success)", display: "inline-block", verticalAlign: "middle" }}/>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Currently serving */}

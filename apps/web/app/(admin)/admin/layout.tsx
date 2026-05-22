@@ -11,28 +11,39 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 
 const ADMIN_ROLES = new Set(["operator", "manager", "org_admin", "super_admin"]);
 
-const GROUPS: { group: string; items: { href: string; label: string; live?: boolean }[] }[] = [
+type RoleKey = "operator" | "manager" | "org_admin" | "super_admin";
+const ROLE_RANK: Record<RoleKey, number> = { operator: 1, manager: 2, org_admin: 3, super_admin: 4 };
+
+const GROUPS: {
+  group: string;
+  minRole: RoleKey;
+  items: { href: string; label: string; live?: boolean; minRole?: RoleKey }[];
+}[] = [
   {
     group: "live",
+    minRole: "operator",
     items: [
-      { href: "/admin/overview", label: "overview", live: true },
+      { href: "/admin/overview", label: "overview", live: true, minRole: "manager" },
       { href: "/admin/queue",    label: "queue" },
     ],
   },
   {
     group: "operations",
+    minRole: "manager",
     items: [
-      { href: "/admin/branches", label: "branches" },
-      { href: "/admin/staff",    label: "staff" },
-      { href: "/admin/services", label: "services" },
-      { href: "/admin/users",    label: "users" },
+      { href: "/admin/branches",     label: "branches",     minRole: "org_admin" },
+      { href: "/admin/staff",        label: "staff",        minRole: "org_admin" },
+      { href: "/admin/services",     label: "services",     minRole: "org_admin" },
+      { href: "/admin/users",        label: "users",        minRole: "super_admin" },
+      { href: "/admin/appointments", label: "appointments" },
     ],
   },
   {
     group: "intelligence",
+    minRole: "manager",
     items: [
       { href: "/admin/analytics", label: "analytics" },
-      { href: "/admin/predict",   label: "predictions" },
+      { href: "/admin/predict",   label: "predictions", minRole: "org_admin" },
     ],
   },
 ];
@@ -44,12 +55,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [profileName, setProfileName] = useState<string | null>(null);
   const t = useTranslations("admin");
 
-  // Auth gate: redirect to sign-in if not an admin/operator role.
-  // Wait for hydration so we don't redirect before localStorage rehydrates roles.
+  // Auth gate + operator redirect (must run before early returns to satisfy hooks rules)
   useEffect(() => {
     if (!_hydrated) return;
     if (!userId || !roles.some((r) => ADMIN_ROLES.has(r))) {
       router.replace(`/sign-in?redirect=${encodeURIComponent(pathname)}` as any);
+      return;
+    }
+    const isOp = roles.includes("operator") && !roles.includes("manager") && !roles.includes("org_admin") && !roles.includes("super_admin");
+    if (isOp && pathname !== "/admin/queue" && !pathname.startsWith("/admin/queue/")) {
+      router.replace("/admin/queue");
     }
   }, [_hydrated, userId, roles, pathname]);
 
@@ -80,16 +95,42 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  const roleKey: "super_admin" | "org_admin" | "manager" | "operator" =
+  const roleKey: RoleKey =
     roles.includes("super_admin") ? "super_admin"
     : roles.includes("org_admin") ? "org_admin"
     : roles.includes("manager") ? "manager"
     : "operator";
+  const rank = ROLE_RANK[roleKey];
   const displayRole = t(`roles.${roleKey}`);
   const isSuper = roles.includes("super_admin");
 
+
   return (
     <div style={{ display: "flex", height: "100svh", overflow: "hidden" }}>
+      {/* Mobile gate — admin is desktop-only */}
+      <style>{`
+        @media (max-width: 900px) {
+          .admin-root { display: none !important; }
+          .admin-mobile-gate { display: flex !important; }
+        }
+      `}</style>
+      <div className="admin-mobile-gate" style={{
+        display: "none", position: "fixed", inset: 0, zIndex: 9999,
+        background: "var(--color-bg)", flexDirection: "column",
+        alignItems: "center", justifyContent: "center",
+        padding: 32, textAlign: "center", gap: 16,
+      }}>
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none"
+          stroke="var(--color-fg-3)" strokeWidth="1.5" strokeLinecap="round">
+          <rect x="2" y="3" width="20" height="14" rx="2"/>
+          <path d="M8 21h8M12 17v4"/>
+        </svg>
+        <div style={{ fontSize: 17, fontWeight: 600 }}>Open on a larger screen</div>
+        <div style={{ fontSize: 13, color: "var(--color-fg-3)", maxWidth: 280, lineHeight: 1.5 }}>
+          The admin panel is designed for desktop. Please open it on a device with a screen wider than 900px.
+        </div>
+      </div>
+      <div className="admin-root" style={{ display: "flex", width: "100%", height: "100%", overflow: "hidden" }}>
       {/* Sidebar */}
       <aside style={{
         width: 220, flexShrink: 0,
@@ -136,7 +177,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
 
         {/* Nav groups */}
-        {GROUPS.map((group) => (
+        {GROUPS.filter((g) => ROLE_RANK[g.minRole] <= rank).map((group) => {
+          const visibleItems = group.items.filter((i) => ROLE_RANK[i.minRole ?? "operator"] <= rank);
+          if (visibleItems.length === 0) return null;
+          return (
           <div key={group.group} style={{ marginBottom: 14 }}>
             <div style={{
               padding: "4px 10px 6px",
@@ -144,7 +188,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               textTransform: "uppercase", letterSpacing: 0.6,
               color: "var(--color-fg-4)", fontWeight: 500,
             }}>{t(`groups.${group.group}`)}</div>
-            {group.items.map((item) => {
+            {visibleItems.map((item) => {
               const active = pathname === item.href || pathname.startsWith(item.href + "/");
               return (
                 <Link key={item.href} href={item.href as any} style={{
@@ -174,7 +218,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               );
             })}
           </div>
-        ))}
+          );
+        })}
 
         {/* Theme + Locale (push to bottom) */}
         <div style={{ marginTop: "auto", padding: "10px 4px 12px", borderTop: "1px solid var(--color-hairline)", display: "flex", flexDirection: "column", gap: 8 }}>
@@ -214,6 +259,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <main style={{ flex: 1, overflow: "auto", background: "var(--color-bg)" }}>
         {children}
       </main>
+      </div>
     </div>
   );
 }

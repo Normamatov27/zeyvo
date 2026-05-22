@@ -54,6 +54,7 @@ export default function HistoryPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [tab, setTab] = useState<"tickets" | "appointments">("tickets");
 
   useEffect(() => {
     Promise.all([
@@ -65,40 +66,64 @@ export default function HistoryPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Merge and sort all items by descending time
-  const items: HistoryItem[] = [
-    ...tickets.map((tk): HistoryItem => ({
+  const ticketItems: HistoryItem[] = tickets
+    .map((tk): HistoryItem => ({
       kind: "ticket", ts: new Date(tk.joinedAt).getTime(),
       date: fmtDate(tk.joinedAt), data: tk,
-    })),
-    ...appointments.map((a): HistoryItem => ({
+    }))
+    .sort((a, b) => b.ts - a.ts);
+
+  const apptItems: HistoryItem[] = appointments
+    .map((a): HistoryItem => ({
       kind: "appt", ts: new Date(a.scheduledAt).getTime(),
       date: fmtDate(a.scheduledAt), data: a,
-    })),
-  ].sort((a, b) => b.ts - a.ts);
+    }))
+    .sort((a, b) => b.ts - a.ts);
 
+  const items = tab === "tickets" ? ticketItems : apptItems;
   const isEmpty = items.length === 0;
 
-  // Group by date
-  const grouped: { date: string; items: HistoryItem[] }[] = [];
-  for (const item of items) {
-    const last = grouped[grouped.length - 1];
-    if (last && last.date === item.date) last.items.push(item);
-    else grouped.push({ date: item.date, items: [item] });
+  function buildGroups(list: HistoryItem[]) {
+    const grouped: { date: string; items: HistoryItem[] }[] = [];
+    for (const item of list) {
+      const last = grouped[grouped.length - 1];
+      if (last && last.date === item.date) last.items.push(item);
+      else grouped.push({ date: item.date, items: [item] });
+    }
+    return grouped;
   }
+  const grouped = buildGroups(items);
+
+  const TAB_STYLE = (active: boolean) => ({
+    flex: 1, padding: "8px 0", borderRadius: 8, border: "none", cursor: "pointer",
+    fontSize: 13, fontWeight: 600,
+    background: active ? "var(--color-fg)" : "transparent",
+    color: active ? "var(--color-bg)" : "var(--color-fg-3)",
+    transition: "all 0.15s",
+  });
 
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100%" }}>
       <div style={{
-        padding: "16px 16px 12px",
+        padding: "16px 16px 0",
         borderBottom: "1px solid var(--color-hairline)",
         background: "var(--color-bg)",
         position: "sticky", top: 0, zIndex: 5,
       }}>
         <div style={{ fontSize: 17, fontWeight: 600, letterSpacing: -0.3 }}>{t("title")}</div>
-        <div style={{ fontSize: 11.5, color: "var(--color-fg-3)", marginTop: 1 }}>
-          {loading ? t("loading") : t("ticket_count", { count: items.length })}
+        {/* Tabs */}
+        <div style={{
+          display: "flex", gap: 4, marginTop: 12,
+          background: "var(--color-surface-2)", borderRadius: 10, padding: 4,
+        }}>
+          <button style={TAB_STYLE(tab === "tickets")} onClick={() => setTab("tickets")}>
+            {t("tab_tickets")}
+          </button>
+          <button style={TAB_STYLE(tab === "appointments")} onClick={() => setTab("appointments")}>
+            {t("tab_appointments")}
+          </button>
         </div>
+        <div style={{ height: 12 }}/>
       </div>
 
       <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 20 }}>
@@ -122,13 +147,22 @@ export default function HistoryPage() {
           </div>
         )}
 
-        {!loading && !error && isEmpty && (
+        {!loading && !error && isEmpty && tab === "tickets" && (
           <div style={{ textAlign: "center", padding: "60px 0" }}>
-            <div style={{ fontSize: 32, marginBottom: 10 }}>🎫</div>
             <div style={{ fontSize: 14, fontWeight: 500, color: "var(--color-fg)" }}>{t("empty_title")}</div>
-            <div style={{ fontSize: 13, color: "var(--color-fg-3)", marginTop: 4 }}>
-              {t("empty_sub")}
-            </div>
+            <div style={{ fontSize: 13, color: "var(--color-fg-3)", marginTop: 4 }}>{t("empty_sub")}</div>
+            <Link href="/branches" style={{
+              display: "inline-block", marginTop: 16, padding: "10px 22px",
+              borderRadius: 12, background: "var(--color-primary)", color: "#fff",
+              fontSize: 13, fontWeight: 600, textDecoration: "none",
+            }}>{tQueue("find")}</Link>
+          </div>
+        )}
+
+        {!loading && !error && isEmpty && tab === "appointments" && (
+          <div style={{ textAlign: "center", padding: "60px 0" }}>
+            <div style={{ fontSize: 14, fontWeight: 500, color: "var(--color-fg)" }}>{tAppt("empty_title")}</div>
+            <div style={{ fontSize: 13, color: "var(--color-fg-3)", marginTop: 4 }}>{tAppt("empty_sub")}</div>
             <Link href="/branches" style={{
               display: "inline-block", marginTop: 16, padding: "10px 22px",
               borderRadius: 12, background: "var(--color-primary)", color: "#fff",

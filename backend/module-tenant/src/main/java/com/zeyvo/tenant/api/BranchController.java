@@ -26,9 +26,30 @@ public class BranchController {
     private final TenantService tenantService;
 
     @GetMapping("/v1/branches")
-    @Operation(summary = "List all active branches")
+    @Operation(summary = "List all active branches (public, includes orgName)")
     public List<BranchDto> list() {
         return tenantService.listBranches();
+    }
+
+    @GetMapping("/v1/admin/branches")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasAnyRole('OPERATOR', 'MANAGER', 'ORG_ADMIN', 'SUPER_ADMIN')")
+    @Operation(summary = "List branches scoped to the caller's org (super_admin sees all)")
+    public List<BranchDto> adminList(Authentication auth) {
+        UUID orgId = resolveOrgIdOrNull(auth);
+        return orgId != null ? tenantService.listBranchesByOrg(orgId) : tenantService.listBranches();
+    }
+
+    @GetMapping("/v1/orgs")
+    @Operation(summary = "List all active organisations (for customer booking flow)")
+    public List<java.util.Map<String, Object>> listOrgs() {
+        return tenantService.listOrgs();
+    }
+
+    @GetMapping("/v1/orgs/{orgId}/branches")
+    @Operation(summary = "List active branches for a specific organisation")
+    public List<BranchDto> branchesByOrg(@PathVariable UUID orgId) {
+        return tenantService.listBranchesByOrg(orgId);
     }
 
     @GetMapping("/v1/branches/{id}")
@@ -150,15 +171,23 @@ public class BranchController {
     }
 
     private UUID resolveOrgId(Authentication auth) {
-        // auth.getDetails() is io.jsonwebtoken.Claims which implements Map<String,Object>
         if (auth != null && auth.getDetails() instanceof java.util.Map<?, ?> claims) {
             Object orgId = claims.get("org_id");
             if (orgId instanceof String s && !s.isBlank()) return UUID.fromString(s);
         }
-        // No org_id in JWT — user exists but has no organization. Deny rather than silently
-        // assigning to the wrong tenant.
         throw new DomainException("auth.no_organization",
                 "Your account is not linked to any organization. Contact support.",
                 HttpStatus.FORBIDDEN);
+    }
+
+    private UUID resolveOrgIdOrNull(Authentication auth) {
+        if (auth != null && auth.getDetails() instanceof java.util.Map<?, ?> claims) {
+            // super_admin may have no org_id — returns null → no filter (sees all)
+            Object rolesObj = claims.get("roles");
+            if (rolesObj instanceof java.util.List<?> roles && roles.contains("SUPER_ADMIN")) return null;
+            Object orgId = claims.get("org_id");
+            if (orgId instanceof String s && !s.isBlank()) return UUID.fromString(s);
+        }
+        return null;
     }
 }

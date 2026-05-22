@@ -51,7 +51,7 @@ export default function OverviewPage() {
   useEffect(() => {
     async function load() {
       try {
-        const list = await apiFetch<{ id: string }[]>("/api/v1/branches");
+        const list = await apiFetch<{ id: string }[]>("/api/v1/admin/branches");
         const details = await Promise.allSettled(
           list.map((b) => apiFetch<BranchDetail>(`/api/v1/branches/${b.id}`))
         );
@@ -280,13 +280,25 @@ export default function OverviewPage() {
               })}
               {branches.length === 0 && (
                 <div style={{ gridColumn: "1/-1", textAlign: "center",
-                  padding: "40px 0", color: "var(--color-fg-3)", fontSize: 13 }}>
-                  No branches found. Run{" "}
-                  <code style={{ fontFamily: "var(--font-mono)", fontSize: 12,
-                    background: "var(--color-surface-3)", padding: "2px 6px", borderRadius: 4 }}>
-                    POST /api/v1/dev/seed
-                  </code>{" "}
-                  to seed demo data.
+                  padding: "48px 24px", display: "flex", flexDirection: "column",
+                  alignItems: "center", gap: 12 }}>
+                  <div style={{ fontSize: 36 }}>🏢</div>
+                  <div style={{ fontSize: 15, fontWeight: 600 }}>No branches yet</div>
+                  <div style={{ fontSize: 13, color: "var(--color-fg-3)", maxWidth: 320, lineHeight: 1.5 }}>
+                    Create your first branch to start managing queues and serving customers.
+                  </div>
+                  <Link href="/admin/branches" style={{
+                    marginTop: 4, padding: "10px 20px", borderRadius: 10,
+                    background: "var(--color-primary)", color: "#fff",
+                    textDecoration: "none", fontSize: 13, fontWeight: 600,
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                  }}>
+                    Create your first branch
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" strokeWidth="2.5">
+                      <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                  </Link>
                 </div>
               )}
             </div>

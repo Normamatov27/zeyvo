@@ -24,7 +24,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @SecurityRequirement(name = "bearerAuth")
 @Tag(name = "Admin — Users")
-@PreAuthorize("hasAnyRole('ORG_ADMIN', 'SUPER_ADMIN')")
 public class AdminUserController {
 
     private final UserAccountRepository userRepo;
@@ -38,7 +37,8 @@ public class AdminUserController {
 
     @GetMapping
     @Transactional(readOnly = true)
-    @Operation(summary = "List users (most recent 200)")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @Operation(summary = "List users (most recent 200) — super_admin only")
     @SuppressWarnings("unchecked")
     public List<Map<String, Object>> list(
             @RequestParam(required = false) String phone
@@ -95,6 +95,7 @@ public class AdminUserController {
     @PostMapping("/{userId}/roles")
     @Transactional
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Replace all roles for a user")
     public void setRoles(@PathVariable UUID userId,
                          @RequestBody List<String> roles) {
@@ -130,6 +131,7 @@ public class AdminUserController {
     @PostMapping("/{userId}/roles/add")
     @Transactional
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Add a single role to a user")
     public void addRole(@PathVariable UUID userId,
                         @RequestParam String role) {
@@ -155,6 +157,7 @@ public class AdminUserController {
     @DeleteMapping("/{userId}/roles/{role}")
     @Transactional
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Remove a role from a user")
     public void removeRole(@PathVariable UUID userId,
                            @PathVariable String role) {

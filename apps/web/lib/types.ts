@@ -1,8 +1,17 @@
 // API response types — mirroring backend DTO records
 
+export interface Org {
+  id: string;
+  name: string;
+  slug: string;
+  plan: string;
+  branchCount: number;
+}
+
 export interface Branch {
   id: string;
   organizationId: string;
+  orgName: string | null;
   slug: string;
   name: string;
   shortName: string | null;
@@ -77,6 +86,28 @@ export interface Ticket {
   branchName: string | null;
   windowLabel: string | null;
   ratingStars: number | null;
+}
+
+export type AppointmentStatus = "booked" | "cancelled" | "no_show" | "served";
+
+export interface Appointment {
+  id: string;
+  branchId: string;
+  serviceId: string;
+  customerId: string;
+  scheduledAt: string;
+  durationSeconds: number;
+  status: AppointmentStatus;
+  ticketId: string | null;
+  notes: string | null;
+  createdAt: string;
+  branchName: string | null;
+  serviceName: string | null;
+}
+
+export interface SlotInfo {
+  time: string;
+  available: boolean;
 }
 
 export type LoadLevel = "low" | "medium" | "high";

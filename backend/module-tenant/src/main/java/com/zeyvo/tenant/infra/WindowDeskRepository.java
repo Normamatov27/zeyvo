@@ -10,6 +10,8 @@ import java.util.UUID;
 public interface WindowDeskRepository extends JpaRepository<WindowDesk, UUID> {
     List<WindowDesk> findByBranchIdOrderByNumberAsc(UUID branchId);
 
+    java.util.Optional<WindowDesk> findByOperatorId(UUID operatorId);
+
     @Query("SELECT COUNT(w) FROM WindowDesk w WHERE w.branchId = :branchId AND w.status = 'open'")
     int countOpenByBranch(UUID branchId);
 }
