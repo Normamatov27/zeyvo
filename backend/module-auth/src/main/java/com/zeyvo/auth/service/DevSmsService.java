@@ -45,8 +45,30 @@ public class DevSmsService {
             log.warn("[DEV] OTP for {}: {}", phone, code);
             return;
         }
-
         doSend(phone, code);
+    }
+
+    public void sendText(String phone, String text) {
+        if (apiKey.isBlank()) {
+            log.info("[DEV] SMS to {}: {}", phone, text);
+            return;
+        }
+        String normalizedPhone = phone.replaceAll("[^0-9]", "");
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("phone", normalizedPhone);
+        payload.put("type", "notification");
+        payload.put("message", text);
+        try {
+            http.post()
+                    .uri(baseUrl + "/send_sms.php")
+                    .header("Authorization", "Bearer " + apiKey)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(payload)
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (Exception e) {
+            log.warn("SMS send failed for {}: {}", normalizedPhone, e.getMessage());
+        }
     }
 
     @SuppressWarnings("unchecked")

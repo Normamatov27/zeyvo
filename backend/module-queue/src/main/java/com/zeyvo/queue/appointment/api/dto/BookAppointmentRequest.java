@@ -8,5 +8,8 @@ import java.util.UUID;
 public record BookAppointmentRequest(
         @NotNull UUID branchId,
         @NotNull UUID serviceId,
-        @NotNull Instant scheduledAt
+        @NotNull Instant scheduledAt,
+        UUID providerId,
+        String appointmentType,
+        String patientNote
 ) {}

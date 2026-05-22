@@ -11,16 +11,14 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -58,6 +56,12 @@ public class AppointmentController {
         return service.getAdminView(branchId, from, to);
     }
 
+    @GetMapping("/{id}")
+    @Operation(summary = "Get appointment by ID")
+    public AppointmentDto get(@PathVariable UUID id) {
+        return service.getById(id);
+    }
+
     @PostMapping("/{id}/cancel")
     @Operation(summary = "Cancel an appointment")
     public AppointmentDto cancel(@PathVariable UUID id,
@@ -68,13 +72,31 @@ public class AppointmentController {
         return AppointmentDto.from(appt);
     }
 
+    @PostMapping("/{id}/confirm")
+    @Operation(summary = "Admin: confirm a booked appointment")
+    public AppointmentDto confirm(@PathVariable UUID id) {
+        return AppointmentDto.from(service.confirm(id));
+    }
+
     @PostMapping("/{id}/check-in")
-    @Operation(summary = "Admin: check in an appointment → creates a live ticket")
-    public TicketDto checkIn(@PathVariable UUID id,
-                              @AuthenticationPrincipal Principal principal) {
+    @Operation(summary = "Admin: check in an appointment (booked/confirmed → checked_in)")
+    public AppointmentDto checkIn(@PathVariable UUID id) {
+        return AppointmentDto.from(service.checkIn(id));
+    }
+
+    @PostMapping("/{id}/start")
+    @Operation(summary = "Admin: start serving — creates a live queue ticket (checked_in → in_progress)")
+    public TicketDto startServing(@PathVariable UUID id,
+                                  @AuthenticationPrincipal Principal principal) {
         UUID operatorId = UUID.fromString(principal.getName());
-        Ticket ticket = service.checkIn(id, operatorId);
+        Ticket ticket = service.startServing(id, operatorId);
         return TicketDto.from(ticket);
+    }
+
+    @PostMapping("/{id}/no-show")
+    @Operation(summary = "Admin: mark appointment as no-show")
+    public AppointmentDto noShow(@PathVariable UUID id) {
+        return AppointmentDto.from(service.markNoShow(id));
     }
 
     @GetMapping("/availability")
@@ -82,7 +104,41 @@ public class AppointmentController {
     public List<AppointmentService.SlotInfo> availability(
             @RequestParam UUID branchId,
             @RequestParam String date,
-            @RequestParam(required = false) UUID serviceId) {
-        return service.getAvailability(branchId, date, serviceId);
+            @RequestParam(required = false) UUID serviceId,
+            @RequestParam(required = false) UUID providerId) {
+        return service.getAvailability(branchId, date, serviceId, providerId);
+    }
+
+    // ── Waitlist ────────────────────────────────────────────────────────────────
+
+    @PostMapping("/waitlist")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Join the waitlist for a date/branch/service")
+    public void joinWaitlist(@RequestBody Map<String, String> body,
+                             @AuthenticationPrincipal Principal principal) {
+        UUID customerId = UUID.fromString(principal.getName());
+        service.joinWaitlist(
+                UUID.fromString(body.get("branchId")),
+                UUID.fromString(body.get("serviceId")),
+                body.containsKey("providerId") ? UUID.fromString(body.get("providerId")) : null,
+                body.get("preferredDate"),
+                customerId
+        );
+    }
+
+    @GetMapping("/waitlist/my")
+    @Operation(summary = "My waitlist entries")
+    public List<Map<String, Object>> myWaitlist(@AuthenticationPrincipal Principal principal) {
+        UUID customerId = UUID.fromString(principal.getName());
+        return service.getMyWaitlist(customerId);
+    }
+
+    @DeleteMapping("/waitlist/{waitlistId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Leave the waitlist")
+    public void leaveWaitlist(@PathVariable UUID waitlistId,
+                               @AuthenticationPrincipal Principal principal) {
+        UUID customerId = UUID.fromString(principal.getName());
+        service.leaveWaitlist(waitlistId, customerId);
     }
 }

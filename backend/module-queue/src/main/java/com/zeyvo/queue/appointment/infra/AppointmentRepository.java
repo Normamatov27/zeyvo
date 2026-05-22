@@ -31,6 +31,31 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
         WHERE a.branchId = :branchId
           AND a.scheduledAt = :slot
           AND a.serviceId = :serviceId
+          AND a.providerId IS NULL
+          AND a.status NOT IN (com.zeyvo.queue.appointment.domain.AppointmentStatus.CANCELLED)
+        """)
+    long countBookedAtSlotNoProvider(
+            @Param("branchId") UUID branchId,
+            @Param("slot") Instant slot,
+            @Param("serviceId") UUID serviceId);
+
+    @Query("""
+        SELECT COUNT(a) FROM Appointment a
+        WHERE a.branchId = :branchId
+          AND a.scheduledAt = :slot
+          AND a.providerId = :providerId
+          AND a.status NOT IN (com.zeyvo.queue.appointment.domain.AppointmentStatus.CANCELLED)
+        """)
+    long countBookedAtSlotForProvider(
+            @Param("branchId") UUID branchId,
+            @Param("slot") Instant slot,
+            @Param("providerId") UUID providerId);
+
+    @Query("""
+        SELECT COUNT(a) FROM Appointment a
+        WHERE a.branchId = :branchId
+          AND a.scheduledAt = :slot
+          AND a.serviceId = :serviceId
           AND a.status = :status
         """)
     long countBookedAtSlot(

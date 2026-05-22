@@ -88,21 +88,67 @@ export interface Ticket {
   ratingStars: number | null;
 }
 
-export type AppointmentStatus = "booked" | "cancelled" | "no_show" | "served";
+export type AppointmentStatus =
+  | "booked"
+  | "confirmed"
+  | "checked_in"
+  | "in_progress"
+  | "no_show"
+  | "served"
+  | "cancelled";
+
+export type AppointmentType = "standard" | "emergency" | "follow_up" | "walk_in";
 
 export interface Appointment {
   id: string;
   branchId: string;
   serviceId: string;
   customerId: string;
+  providerId: string | null;
   scheduledAt: string;
   durationSeconds: number;
+  appointmentType: AppointmentType;
+  priority: number;
   status: AppointmentStatus;
   ticketId: string | null;
   notes: string | null;
+  patientNote: string | null;
+  checkInAt: string | null;
   createdAt: string;
   branchName: string | null;
   serviceName: string | null;
+  providerName: string | null;
+}
+
+export interface Provider {
+  id: string;
+  organizationId: string;
+  fullName: string;
+  specialty: string | null;
+  bio: string | null;
+  avatarUrl: string | null;
+  active: boolean;
+  createdAt: string;
+  branchIds: string[];
+  schedule: ProviderScheduleSlot[];
+}
+
+export interface ProviderScheduleSlot {
+  branchId: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  slotDurationMin: number;
+}
+
+export interface WaitlistEntry {
+  id: string;
+  branchId: string;
+  branchName: string;
+  serviceId: string;
+  serviceName: string;
+  preferredDate: string;
+  createdAt: string;
 }
 
 export interface SlotInfo {

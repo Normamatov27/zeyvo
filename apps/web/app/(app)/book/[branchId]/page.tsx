@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth";
-import { BranchDetail, SlotInfo } from "@/lib/types";
+import { BranchDetail, SlotInfo, Provider } from "@/lib/types";
 
 function fmtSlotTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
@@ -19,6 +19,8 @@ function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+type Step = "date" | "service" | "provider" | "slot" | "note" | "done";
+
 export default function BookPage() {
   const { branchId } = useParams<{ branchId: string }>();
   const router = useRouter();
@@ -26,11 +28,15 @@ export default function BookPage() {
   const { userId, _hydrated } = useAuthStore();
 
   const [branch, setBranch] = useState<BranchDetail | null>(null);
-  const [step, setStep] = useState<"date" | "service" | "slot" | "done">("date");
+  const [step, setStep] = useState<Step>("date");
   const [selectedDate, setSelectedDate] = useState(isoDate(new Date()));
   const [selectedService, setSelectedService] = useState<string | null>(null);
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [selectedProvider, setSelectedProvider] = useState<string | null>(null); // null = any
+  const [loadingProviders, setLoadingProviders] = useState(false);
   const [slots, setSlots] = useState<SlotInfo[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [patientNote, setPatientNote] = useState("");
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,14 +56,26 @@ export default function BookPage() {
       .catch(() => setError("Branch not found"));
   }, [branchId]);
 
-  async function loadSlots(date: string, serviceId: string) {
+  async function loadProviders() {
+    setLoadingProviders(true);
+    try {
+      const provs = await apiFetch<Provider[]>(`/api/v1/providers?branchId=${branchId}`);
+      setProviders(provs);
+    } catch {
+      setProviders([]);
+    } finally {
+      setLoadingProviders(false);
+    }
+  }
+
+  async function loadSlots(date: string, serviceId: string, providerId: string | null) {
     setLoadingSlots(true);
     setSlots([]);
     setSelectedSlot(null);
     try {
-      const data = await apiFetch<SlotInfo[]>(
-        `/api/v1/appointments/availability?branchId=${branchId}&date=${date}&serviceId=${serviceId}`
-      );
+      const url = `/api/v1/appointments/availability?branchId=${branchId}&date=${date}&serviceId=${serviceId}`
+        + (providerId ? `&providerId=${providerId}` : "");
+      const data = await apiFetch<SlotInfo[]>(url);
       setSlots(data);
     } catch {
       setError("Failed to load slots");
@@ -66,10 +84,16 @@ export default function BookPage() {
     }
   }
 
-  function goToSlots() {
+  function goToProvider() {
     if (!selectedService) return;
+    loadProviders();
+    setStep("provider");
+  }
+
+  function goToSlots(providerId: string | null) {
+    setSelectedProvider(providerId);
     setStep("slot");
-    loadSlots(selectedDate, selectedService);
+    loadSlots(selectedDate, selectedService!, providerId);
   }
 
   async function confirm() {
@@ -83,6 +107,8 @@ export default function BookPage() {
           branchId,
           serviceId: selectedService,
           scheduledAt: selectedSlot,
+          providerId: selectedProvider ?? undefined,
+          patientNote: patientNote.trim() || undefined,
         }),
       });
       setAppointmentId(res.id);
@@ -98,12 +124,18 @@ export default function BookPage() {
     }
   }
 
-  // Date options: today + next 13 days
   const dateOptions = Array.from({ length: 14 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() + i);
-    return isoDate(d);
+    const d = new Date(); d.setDate(d.getDate() + i); return isoDate(d);
   });
+
+  const stepLabel: Record<Step, string> = {
+    date: t("pick_date"),
+    service: t("pick_service"),
+    provider: "Choose doctor (optional)",
+    slot: t("pick_slot"),
+    note: "Add a note",
+    done: t("confirm"),
+  };
 
   if (!branch) {
     return (
@@ -127,17 +159,29 @@ export default function BookPage() {
           {branch.name}
         </button>
         <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: -0.4 }}>{t("book_later")}</div>
-        <div style={{ fontSize: 12, color: "var(--color-fg-3)", marginTop: 3 }}>
-          {step === "date" ? t("pick_date") : step === "service" ? t("pick_service") : step === "slot" ? t("pick_slot") : t("confirm")}
-        </div>
+        <div style={{ fontSize: 12, color: "var(--color-fg-3)", marginTop: 3 }}>{stepLabel[step]}</div>
       </div>
+
+      {/* Step indicator */}
+      {step !== "done" && (
+        <div style={{ display: "flex", gap: 4 }}>
+          {(["date", "service", "provider", "slot", "note"] as Step[]).map((s) => (
+            <div key={s} style={{
+              flex: 1, height: 3, borderRadius: 2,
+              background: s === step ? "var(--color-primary)"
+                : ["date", "service", "provider", "slot", "note"].indexOf(s) < ["date", "service", "provider", "slot", "note"].indexOf(step)
+                ? "var(--color-primary)"
+                : "var(--color-surface-3)",
+              opacity: s === step ? 1 : 0.4,
+            }}/>
+          ))}
+        </div>
+      )}
 
       {/* Step: date */}
       {step === "date" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{
-            display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6,
-          }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
             {dateOptions.map((d) => {
               const date = new Date(d + "T00:00:00");
               const isSelected = d === selectedDate;
@@ -158,11 +202,9 @@ export default function BookPage() {
               );
             })}
           </div>
-
           <div style={{ fontSize: 13, color: "var(--color-fg-2)", textAlign: "center" }}>
             {fmtDateLabel(selectedDate + "T12:00:00")}
           </div>
-
           <button onClick={() => setStep("service")} style={{
             padding: "13px 0", borderRadius: 12, border: "none",
             background: "var(--color-primary)", color: "#fff",
@@ -186,7 +228,7 @@ export default function BookPage() {
                 textAlign: "left", display: "flex", justifyContent: "space-between", alignItems: "center",
               }}>
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 500, color: "var(--color-fg)" }}>{svc.name}</div>
+                  <div style={{ fontSize: 14, fontWeight: 500 }}>{svc.name}</div>
                   <div style={{ fontSize: 12, color: "var(--color-fg-3)", marginTop: 2 }}>
                     ~{Math.round(svc.avgDurationS / 60)} min
                   </div>
@@ -199,29 +241,95 @@ export default function BookPage() {
               </button>
             );
           })}
-
           <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
             <button onClick={() => setStep("date")} style={{
               flex: 1, padding: "13px 0", borderRadius: 12,
               border: "1px solid var(--color-border)", background: "var(--color-surface)",
               color: "var(--color-fg)", fontSize: 14, cursor: "pointer",
-            }}>
-              ←
-            </button>
-            <button onClick={goToSlots} disabled={!selectedService} style={{
+            }}>←</button>
+            <button onClick={goToProvider} disabled={!selectedService} style={{
               flex: 4, padding: "13px 0", borderRadius: 12, border: "none",
               background: selectedService ? "var(--color-primary)" : "var(--color-fg-4)",
               color: "#fff", fontSize: 15, fontWeight: 600, cursor: selectedService ? "pointer" : "not-allowed",
             }}>
-              {t("pick_slot")} →
+              Next →
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Step: provider */}
+      {step === "provider" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {loadingProviders ? (
+            <div style={{ textAlign: "center", padding: 24, color: "var(--color-fg-3)", fontSize: 13 }}>
+              Loading providers…
+            </div>
+          ) : (
+            <>
+              {/* Any available option */}
+              <button onClick={() => goToSlots(null)} style={{
+                padding: "14px 16px", borderRadius: 12, cursor: "pointer",
+                border: "1.5px solid var(--color-border)",
+                background: "var(--color-surface)",
+                textAlign: "left", display: "flex", alignItems: "center", gap: 14,
+              }}>
+                <div style={{
+                  width: 38, height: 38, borderRadius: 10, flex: "none",
+                  background: "var(--color-surface-3)", color: "var(--color-fg-3)",
+                  display: "grid", placeItems: "center", fontSize: 18,
+                }}>?</div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 500 }}>Any available</div>
+                  <div style={{ fontSize: 12, color: "var(--color-fg-3)", marginTop: 1 }}>
+                    Pick from all open slots
+                  </div>
+                </div>
+              </button>
+
+              {providers.map((p) => (
+                <button key={p.id} onClick={() => goToSlots(p.id)} style={{
+                  padding: "14px 16px", borderRadius: 12, cursor: "pointer",
+                  border: "1.5px solid var(--color-border)",
+                  background: "var(--color-surface)",
+                  textAlign: "left", display: "flex", alignItems: "center", gap: 14,
+                }}>
+                  <div style={{
+                    width: 38, height: 38, borderRadius: 10, flex: "none",
+                    background: "var(--color-primary-soft)", color: "var(--color-primary)",
+                    display: "grid", placeItems: "center",
+                    fontSize: 16, fontWeight: 700,
+                  }}>
+                    {p.fullName.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 500 }}>{p.fullName}</div>
+                    {p.specialty && (
+                      <div style={{ fontSize: 12, color: "var(--color-fg-3)", marginTop: 1 }}>{p.specialty}</div>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </>
+          )}
+
+          <button onClick={() => setStep("service")} style={{
+            padding: "12px 0", borderRadius: 12,
+            border: "1px solid var(--color-border)", background: "var(--color-surface)",
+            color: "var(--color-fg)", fontSize: 14, cursor: "pointer", marginTop: 4,
+          }}>← Back</button>
         </div>
       )}
 
       {/* Step: slot */}
       {step === "slot" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {selectedProvider && (
+            <div style={{ fontSize: 12, color: "var(--color-fg-3)", fontFamily: "var(--font-mono)" }}>
+              {providers.find((p) => p.id === selectedProvider)?.fullName ?? ""}
+            </div>
+          )}
+
           {loadingSlots ? (
             <div style={{ textAlign: "center", padding: "32px 0", color: "var(--color-fg-3)", fontSize: 13 }}>
               {t("loading_slots")}
@@ -229,12 +337,12 @@ export default function BookPage() {
           ) : slots.filter(s => s.available).length === 0 ? (
             <div style={{ textAlign: "center", padding: "32px 0" }}>
               <div style={{ fontSize: 13, color: "var(--color-fg-3)" }}>{t("no_slots")}</div>
-              <button onClick={() => setStep("date")} style={{
+              <button onClick={() => setStep("provider")} style={{
                 marginTop: 12, padding: "10px 20px", borderRadius: 10,
                 border: "1px solid var(--color-border)", background: "var(--color-surface)",
                 color: "var(--color-fg)", fontSize: 13, cursor: "pointer",
               }}>
-                {t("pick_date")}
+                Choose another provider
               </button>
             </div>
           ) : (
@@ -270,23 +378,82 @@ export default function BookPage() {
 
           {!loadingSlots && (
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => setStep("service")} style={{
+              <button onClick={() => setStep("provider")} style={{
                 flex: 1, padding: "13px 0", borderRadius: 12,
                 border: "1px solid var(--color-border)", background: "var(--color-surface)",
                 color: "var(--color-fg)", fontSize: 14, cursor: "pointer",
-              }}>
-                ←
-              </button>
-              <button onClick={confirm} disabled={!selectedSlot || confirming} style={{
+              }}>←</button>
+              <button onClick={() => setStep("note")} disabled={!selectedSlot} style={{
                 flex: 4, padding: "13px 0", borderRadius: 12, border: "none",
-                background: selectedSlot && !confirming ? "var(--color-primary)" : "var(--color-fg-4)",
+                background: selectedSlot ? "var(--color-primary)" : "var(--color-fg-4)",
                 color: "#fff", fontSize: 15, fontWeight: 600,
-                cursor: selectedSlot && !confirming ? "pointer" : "not-allowed",
+                cursor: selectedSlot ? "pointer" : "not-allowed",
               }}>
-                {confirming ? t("confirming") : t("confirm")}
+                Next →
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Step: note */}
+      {step === "note" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{
+            background: "var(--color-surface)", border: "1px solid var(--color-border)",
+            borderRadius: 14, padding: 16,
+          }}>
+            <div style={{ fontSize: 12, color: "var(--color-fg-3)", marginBottom: 8 }}>
+              {fmtDateLabel(selectedDate + "T12:00:00")}
+              {selectedSlot && ` at ${fmtSlotTime(selectedSlot)}`}
+            </div>
+            {selectedProvider && (
+              <div style={{ fontSize: 13, color: "var(--color-fg-2)" }}>
+                {providers.find((p) => p.id === selectedProvider)?.fullName}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <div style={{ fontSize: 12, color: "var(--color-fg-3)", marginBottom: 6 }}>
+              Patient note (optional)
+            </div>
+            <textarea
+              value={patientNote}
+              onChange={(e) => setPatientNote(e.target.value)}
+              placeholder="Describe your symptoms or reason for visit…"
+              rows={3}
+              style={{
+                width: "100%", padding: "10px 12px", borderRadius: 10,
+                border: "1px solid var(--color-border)",
+                background: "var(--color-surface-2)", color: "var(--color-fg)",
+                fontSize: 13, resize: "vertical", boxSizing: "border-box",
+              }}
+            />
+          </div>
+
+          {error && (
+            <div style={{ fontSize: 12, color: "var(--color-danger)", padding: "8px 12px",
+              borderRadius: 8, background: "var(--color-danger-soft)" }}>
+              {error}
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setStep("slot")} style={{
+              flex: 1, padding: "13px 0", borderRadius: 12,
+              border: "1px solid var(--color-border)", background: "var(--color-surface)",
+              color: "var(--color-fg)", fontSize: 14, cursor: "pointer",
+            }}>←</button>
+            <button onClick={confirm} disabled={confirming} style={{
+              flex: 4, padding: "13px 0", borderRadius: 12, border: "none",
+              background: confirming ? "var(--color-fg-4)" : "var(--color-primary)",
+              color: "#fff", fontSize: 15, fontWeight: 600,
+              cursor: confirming ? "not-allowed" : "pointer",
+            }}>
+              {confirming ? t("confirming") : t("confirm")}
+            </button>
+          </div>
         </div>
       )}
 

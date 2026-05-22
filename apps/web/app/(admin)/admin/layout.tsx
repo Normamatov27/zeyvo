@@ -36,6 +36,7 @@ const GROUPS: {
       { href: "/admin/services",     label: "services",     minRole: "org_admin" },
       { href: "/admin/users",        label: "users",        minRole: "super_admin" },
       { href: "/admin/appointments", label: "appointments" },
+      { href: "/admin/providers",   label: "providers",    minRole: "org_admin" },
       { href: "/admin/chat",         label: "chat",         minRole: "org_admin" },
     ],
   },

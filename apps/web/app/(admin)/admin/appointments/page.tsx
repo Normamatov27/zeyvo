@@ -1,247 +1,276 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api";
-import { Appointment, Branch } from "@/lib/types";
+import { Appointment, Branch, Provider } from "@/lib/types";
 
-function fmtDatetime(iso: string): string {
-  return new Date(iso).toLocaleString("en-GB", {
-    weekday: "short", day: "numeric", month: "short",
-    hour: "2-digit", minute: "2-digit",
-  });
-}
+const HOUR_HEIGHT = 60; // px per hour
+const DAY_START = 8;
+const DAY_END = 20;
 
-function fmtTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-}
+const STATUS_COLOR: Record<string, { color: string; bg: string; label: string }> = {
+  booked:     { color: "var(--color-primary)", bg: "var(--color-primary-soft)", label: "Booked" },
+  confirmed:  { color: "var(--color-violet)",  bg: "oklch(0.96 0.04 280)",     label: "Confirmed" },
+  checked_in: { color: "var(--color-success)", bg: "var(--color-success-soft)", label: "Checked in" },
+  in_progress:{ color: "var(--color-warning)", bg: "var(--color-warning-soft)", label: "In progress" },
+  no_show:    { color: "var(--color-fg-3)",    bg: "var(--color-surface-3)",   label: "No-show" },
+  served:     { color: "var(--color-success)", bg: "var(--color-success-soft)", label: "Served" },
+  cancelled:  { color: "var(--color-fg-4)",    bg: "var(--color-surface-3)",   label: "Cancelled" },
+};
 
-function isoDate(d: Date): string {
+function isoDate(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
-const APPT_STATUS_COLOR: Record<string, { color: string; bg: string }> = {
-  booked:    { color: "var(--color-primary)", bg: "var(--color-primary-soft)" },
-  cancelled: { color: "var(--color-fg-3)",    bg: "var(--color-surface-3)" },
-  no_show:   { color: "var(--color-warning)", bg: "var(--color-warning-soft)" },
-  served:    { color: "var(--color-success)", bg: "var(--color-success-soft)" },
-};
+function fmtHour(h: number) {
+  return `${String(h).padStart(2, "0")}:00`;
+}
+
+function topForInstant(iso: string): number {
+  const d = new Date(iso);
+  const h = d.getHours() + d.getMinutes() / 60;
+  return Math.max(0, (h - DAY_START) * HOUR_HEIGHT);
+}
+
+function heightForDuration(seconds: number): number {
+  return Math.max(24, (seconds / 3600) * HOUR_HEIGHT);
+}
 
 export default function AdminAppointmentsPage() {
-  const t = useTranslations("appointments");
   const router = useRouter();
-
+  const [date, setDate] = useState(new Date());
   const [branches, setBranches] = useState<Branch[]>([]);
   const [selectedBranch, setSelectedBranch] = useState<string | null>(null);
+  const [providers, setProviders] = useState<Provider[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  // Load today + next 7 days
-  const from = new Date();
-  from.setHours(0, 0, 0, 0);
-  const to = new Date(from);
-  to.setDate(to.getDate() + 7);
-
   useEffect(() => {
     apiFetch<Branch[]>("/api/v1/admin/branches")
-      .then((bs) => {
-        setBranches(bs);
-        if (bs.length > 0) setSelectedBranch(bs[0]!.id);
-      })
+      .then((bs) => { setBranches(bs); if (bs.length > 0) setSelectedBranch(bs[0]!.id); })
       .catch(() => {});
   }, []);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!selectedBranch) return;
     setLoading(true);
-    apiFetch<Appointment[]>(
-      `/api/v1/appointments?branchId=${selectedBranch}&from=${from.toISOString()}&to=${to.toISOString()}`
-    )
-      .then(setAppointments)
-      .catch(() => setAppointments([]))
-      .finally(() => setLoading(false));
-  }, [selectedBranch]);
-
-  async function checkIn(id: string) {
-    setActionLoading(id);
+    const from = new Date(date); from.setHours(0, 0, 0, 0);
+    const to = new Date(date); to.setHours(23, 59, 59, 999);
     try {
-      const ticket = await apiFetch<{ id: string }>(`/api/v1/appointments/${id}/check-in`, { method: "POST" });
-      router.push(`/admin/queue`);
+      const [appts, provs] = await Promise.all([
+        apiFetch<Appointment[]>(
+          `/api/v1/appointments?branchId=${selectedBranch}&from=${from.toISOString()}&to=${to.toISOString()}`
+        ),
+        apiFetch<Provider[]>(`/api/v1/providers?branchId=${selectedBranch}`),
+      ]);
+      setAppointments(appts);
+      setProviders(provs);
+    } catch {
+      setAppointments([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedBranch, date]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function action(apptId: string, endpoint: string) {
+    setActionLoading(apptId + endpoint);
+    try {
+      await apiFetch(`/api/v1/appointments/${apptId}/${endpoint}`, { method: "POST" });
+      await load();
     } catch (e: any) {
-      alert(e?.message ?? "Check-in failed");
+      alert(e?.message ?? "Action failed");
     } finally {
       setActionLoading(null);
     }
   }
 
-  async function cancelAppt(id: string) {
-    if (!confirm("Cancel this appointment?")) return;
-    setActionLoading(id);
+  async function startServing(apptId: string) {
+    setActionLoading(apptId + "start");
     try {
-      await apiFetch(`/api/v1/appointments/${id}/cancel?admin=true`, { method: "POST" });
-      setAppointments((prev) => prev.map((a) => a.id === id ? { ...a, status: "cancelled" as const } : a));
+      const ticket = await apiFetch<{ id: string }>(`/api/v1/appointments/${apptId}/start`, { method: "POST" });
+      router.push("/admin/queue");
     } catch (e: any) {
-      alert(e?.message ?? "Cancel failed");
-    } finally {
+      alert(e?.message ?? "Failed to start serving");
       setActionLoading(null);
     }
   }
 
-  const booked = appointments.filter((a) => a.status === "booked");
-  const past = appointments.filter((a) => a.status !== "booked");
+  function prevDay() { const d = new Date(date); d.setDate(d.getDate() - 1); setDate(d); }
+  function nextDay() { const d = new Date(date); d.setDate(d.getDate() + 1); setDate(d); }
+
+  const noProvider = appointments.filter((a) => !a.providerId);
+  const totalHours = DAY_END - DAY_START;
+  const gridHeight = totalHours * HOUR_HEIGHT;
+
+  const dateLabel = date.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
   return (
-    <div style={{ padding: 28, display: "flex", flexDirection: "column", gap: 24, maxWidth: 900 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div>
-          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: -0.4 }}>{t("title")}</div>
-          <div style={{ fontSize: 12, color: "var(--color-fg-3)", marginTop: 3 }}>
-            Today + next 7 days
-          </div>
-        </div>
-
+    <div style={{ padding: "20px 28px", display: "flex", flexDirection: "column", gap: 16, minWidth: 0, flex: 1, height: "100%" }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: -0.3 }}>Appointments</div>
+        <div style={{ flex: 1 }}/>
         {branches.length > 1 && (
-          <select
-            value={selectedBranch ?? ""}
-            onChange={(e) => setSelectedBranch(e.target.value)}
-            style={{
-              padding: "8px 12px", borderRadius: 8,
-              border: "1px solid var(--color-border)",
-              background: "var(--color-surface)", color: "var(--color-fg)",
-              fontSize: 13, cursor: "pointer",
-            }}
-          >
-            {branches.map((b) => (
-              <option key={b.id} value={b.id}>{b.name}</option>
-            ))}
+          <select value={selectedBranch ?? ""} onChange={(e) => setSelectedBranch(e.target.value)}
+            style={{ padding: "7px 11px", borderRadius: 8, border: "1px solid var(--color-border)",
+              background: "var(--color-surface)", color: "var(--color-fg)", fontSize: 13, cursor: "pointer" }}>
+            {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
         )}
+        {/* Date nav */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <button onClick={prevDay} style={navBtnStyle}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="m15 18-6-6 6-6"/>
+            </svg>
+          </button>
+          <div style={{ fontSize: 13, fontWeight: 500, minWidth: 200, textAlign: "center" }}>{dateLabel}</div>
+          <button onClick={nextDay} style={navBtnStyle}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="m9 18 6-6-6-6"/>
+            </svg>
+          </button>
+          <button onClick={() => setDate(new Date())}
+            style={{ ...navBtnStyle, fontSize: 11, padding: "6px 10px", borderRadius: 6, fontWeight: 500 }}>
+            Today
+          </button>
+        </div>
       </div>
 
-      {loading ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {[1, 2, 3].map((i) => (
-            <div key={i} style={{ height: 64, borderRadius: 10, background: "var(--color-surface)",
-              border: "1px solid var(--color-border)" }}/>
-          ))}
-        </div>
-      ) : (
-        <>
-          {/* Upcoming */}
-          <div>
-            <div style={{
-              fontSize: 11, fontWeight: 600, color: "var(--color-fg-3)",
-              textTransform: "uppercase", letterSpacing: 0.6, fontFamily: "var(--font-mono)",
-              marginBottom: 10,
-            }}>
-              Upcoming ({booked.length})
-            </div>
-            {booked.length === 0 ? (
-              <div style={{ fontSize: 13, color: "var(--color-fg-3)", padding: "20px 0" }}>
-                {t("empty_title")}
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {booked.map((a) => (
-                  <div key={a.id} style={{
-                    background: "var(--color-surface)", border: "1px solid var(--color-border)",
-                    borderRadius: 10, padding: "12px 16px",
-                    display: "flex", alignItems: "center", gap: 16,
+      {/* Calendar grid */}
+      <div style={{ flex: 1, overflow: "auto", border: "1px solid var(--color-border)", borderRadius: 12 }}>
+        {loading ? (
+          <div style={{ padding: 40, textAlign: "center", color: "var(--color-fg-3)", fontSize: 13 }}>Loading…</div>
+        ) : (
+          <div style={{ display: "flex", minWidth: 600 }}>
+            {/* Time axis */}
+            <div style={{ width: 56, flexShrink: 0, borderRight: "1px solid var(--color-hairline)" }}>
+              <div style={{ height: 40, borderBottom: "1px solid var(--color-hairline)" }}/>
+              <div style={{ position: "relative", height: gridHeight }}>
+                {Array.from({ length: totalHours }, (_, i) => (
+                  <div key={i} style={{
+                    position: "absolute", top: i * HOUR_HEIGHT - 8, left: 0, right: 0,
+                    textAlign: "right", paddingRight: 8,
+                    fontSize: 10, fontFamily: "var(--font-mono)",
+                    color: "var(--color-fg-4)",
                   }}>
-                    <div style={{
-                      fontFamily: "var(--font-mono)", fontSize: 15, fontWeight: 700,
-                      color: "var(--color-primary)", minWidth: 50,
-                    }}>
-                      {fmtTime(a.scheduledAt)}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-fg)" }}>
-                        {a.serviceName ?? "Service"}
-                      </div>
-                      <div style={{ fontSize: 11.5, color: "var(--color-fg-3)", marginTop: 1, fontFamily: "var(--font-mono)" }}>
-                        {fmtDatetime(a.scheduledAt)} · ~{Math.round(a.durationSeconds / 60)} min
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button
-                        onClick={() => checkIn(a.id)}
-                        disabled={actionLoading === a.id}
-                        style={{
-                          padding: "7px 14px", borderRadius: 8, border: "none",
-                          background: "var(--color-primary)", color: "#fff",
-                          fontSize: 12, fontWeight: 600, cursor: "pointer",
-                        }}
-                      >
-                        {actionLoading === a.id ? "…" : t("check_in")}
-                      </button>
-                      <button
-                        onClick={() => cancelAppt(a.id)}
-                        disabled={actionLoading === a.id}
-                        style={{
-                          padding: "7px 12px", borderRadius: 8,
-                          border: "1px solid var(--color-border)",
-                          background: "var(--color-surface)", color: "var(--color-fg-3)",
-                          fontSize: 12, cursor: "pointer",
-                        }}
-                      >
-                        {t("cancel")}
-                      </button>
-                    </div>
+                    {fmtHour(DAY_START + i)}
                   </div>
                 ))}
               </div>
-            )}
-          </div>
-
-          {/* Past */}
-          {past.length > 0 && (
-            <div>
-              <div style={{
-                fontSize: 11, fontWeight: 600, color: "var(--color-fg-3)",
-                textTransform: "uppercase", letterSpacing: 0.6, fontFamily: "var(--font-mono)",
-                marginBottom: 10,
-              }}>
-                Recent ({past.length})
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {past.map((a) => {
-                  const cfg = APPT_STATUS_COLOR[a.status] ?? APPT_STATUS_COLOR.cancelled!;
-                  return (
-                    <div key={a.id} style={{
-                      background: "var(--color-surface)", border: "1px solid var(--color-border)",
-                      borderRadius: 10, padding: "10px 16px",
-                      display: "flex", alignItems: "center", gap: 16, opacity: 0.7,
-                    }}>
-                      <div style={{
-                        fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 600,
-                        color: "var(--color-fg-3)", minWidth: 50,
-                      }}>
-                        {fmtTime(a.scheduledAt)}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-fg)" }}>
-                          {a.serviceName ?? "Service"}
-                        </div>
-                        <div style={{ fontSize: 11, color: "var(--color-fg-3)", marginTop: 1, fontFamily: "var(--font-mono)" }}>
-                          {fmtDatetime(a.scheduledAt)}
-                        </div>
-                      </div>
-                      <span style={{
-                        fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 999,
-                        background: cfg.bg, color: cfg.color,
-                      }}>
-                        {t(`status.${a.status}` as any)}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
             </div>
-          )}
-        </>
-      )}
+
+            {/* Columns: one per provider + one "unassigned" */}
+            {[...providers, null as Provider | null].map((prov) => {
+              const colAppts = prov
+                ? appointments.filter((a) => a.providerId === prov.id)
+                : noProvider;
+              if (prov && colAppts.length === 0 && providers.length > 0 && noProvider.length === 0) {
+                // Show empty provider columns only if there's data
+              }
+              return (
+                <div key={prov?.id ?? "none"} style={{
+                  flex: 1, minWidth: 160,
+                  borderRight: "1px solid var(--color-hairline)",
+                }}>
+                  {/* Column header */}
+                  <div style={{
+                    height: 40, borderBottom: "1px solid var(--color-hairline)",
+                    padding: "0 10px", display: "flex", alignItems: "center",
+                    background: "var(--color-surface)",
+                    fontSize: 12, fontWeight: 600, color: "var(--color-fg-2)",
+                  }}>
+                    {prov ? prov.fullName : "Unassigned"}
+                    {prov?.specialty && (
+                      <span style={{ marginLeft: 6, fontSize: 10, color: "var(--color-fg-4)",
+                        fontFamily: "var(--font-mono)" }}>{prov.specialty}</span>
+                    )}
+                  </div>
+
+                  {/* Hour grid lines + appointments */}
+                  <div style={{ position: "relative", height: gridHeight, background: "var(--color-bg)" }}>
+                    {Array.from({ length: totalHours }, (_, i) => (
+                      <div key={i} style={{
+                        position: "absolute", top: i * HOUR_HEIGHT, left: 0, right: 0,
+                        borderTop: "1px solid var(--color-hairline)", pointerEvents: "none",
+                      }}/>
+                    ))}
+
+                    {colAppts.map((a) => {
+                      const sc = STATUS_COLOR[a.status] ?? STATUS_COLOR.booked!;
+                      const top = topForInstant(a.scheduledAt);
+                      const height = heightForDuration(a.durationSeconds);
+                      return (
+                        <div
+                          key={a.id}
+                          onClick={() => router.push(`/admin/appointments/${a.id}` as any)}
+                          style={{
+                            position: "absolute",
+                            top, left: 4, right: 4,
+                            height: Math.min(height, gridHeight - top - 2),
+                            background: sc.bg,
+                            border: `1.5px solid ${sc.color}`,
+                            borderRadius: 7, padding: "4px 7px",
+                            cursor: "pointer", overflow: "hidden",
+                            display: "flex", flexDirection: "column", gap: 2,
+                          }}
+                        >
+                          <div style={{ fontSize: 11, fontWeight: 600, color: sc.color,
+                            fontFamily: "var(--font-mono)" }}>
+                            {new Date(a.scheduledAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                          </div>
+                          <div style={{ fontSize: 11, color: "var(--color-fg-2)", overflow: "hidden",
+                            textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {a.serviceName ?? "Service"}
+                          </div>
+                          {/* Inline action */}
+                          {(a.status === "booked" || a.status === "confirmed") && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); action(a.id, "check-in"); }}
+                              disabled={actionLoading != null}
+                              style={{
+                                marginTop: "auto", padding: "2px 6px", borderRadius: 4,
+                                border: "none", background: sc.color, color: "#fff",
+                                fontSize: 9, fontWeight: 600, cursor: "pointer", alignSelf: "flex-start",
+                              }}
+                            >
+                              Check in
+                            </button>
+                          )}
+                          {a.status === "checked_in" && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); startServing(a.id); }}
+                              disabled={actionLoading != null}
+                              style={{
+                                marginTop: "auto", padding: "2px 6px", borderRadius: 4,
+                                border: "none", background: "var(--color-success)", color: "#fff",
+                                fontSize: 9, fontWeight: 600, cursor: "pointer", alignSelf: "flex-start",
+                              }}
+                            >
+                              Start
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
+
+const navBtnStyle: React.CSSProperties = {
+  padding: "6px 8px", borderRadius: 7,
+  border: "1px solid var(--color-border)",
+  background: "var(--color-surface)", color: "var(--color-fg-2)",
+  cursor: "pointer", display: "grid", placeItems: "center",
+};

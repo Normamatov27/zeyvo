@@ -1,7 +1,7 @@
 package com.zeyvo.queue.appointment.domain;
 
 public enum AppointmentStatus {
-    BOOKED, CANCELLED, NO_SHOW, SERVED;
+    BOOKED, CONFIRMED, CHECKED_IN, IN_PROGRESS, NO_SHOW, SERVED, CANCELLED;
 
     public String value() {
         return name().toLowerCase();

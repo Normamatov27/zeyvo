@@ -95,17 +95,21 @@ export default function AppointmentPage() {
     );
   }
 
-  const isBooked = appt.status === "booked";
+  const isBooked = appt.status === "booked" || appt.status === "confirmed";
   const isDone = appt.status === "served" || appt.status === "no_show";
   const oneHourBefore = new Date(appt.scheduledAt).getTime() - 3600_000;
   const canCancel = isBooked && Date.now() < oneHourBefore;
 
-  const statusColor = {
-    booked: { color: "var(--color-primary)", bg: "var(--color-primary-soft)" },
-    cancelled: { color: "var(--color-fg-3)", bg: "var(--color-surface-3)" },
-    no_show: { color: "var(--color-warning)", bg: "var(--color-warning-soft)" },
-    served: { color: "var(--color-success)", bg: "var(--color-success-soft)" },
-  }[appt.status] ?? { color: "var(--color-fg-3)", bg: "var(--color-surface-3)" };
+  const statusColor: Record<string, { color: string; bg: string }> = {
+    booked:     { color: "var(--color-primary)", bg: "var(--color-primary-soft)" },
+    confirmed:  { color: "var(--color-violet)",  bg: "oklch(0.96 0.04 280)" },
+    checked_in: { color: "var(--color-success)", bg: "var(--color-success-soft)" },
+    in_progress:{ color: "var(--color-warning)", bg: "var(--color-warning-soft)" },
+    cancelled:  { color: "var(--color-fg-3)", bg: "var(--color-surface-3)" },
+    no_show:    { color: "var(--color-warning)", bg: "var(--color-warning-soft)" },
+    served:     { color: "var(--color-success)", bg: "var(--color-success-soft)" },
+  };
+  const sc = statusColor[appt.status] ?? { color: "var(--color-fg-3)", bg: "var(--color-surface-3)" };
 
   return (
     <div style={{ padding: 20, maxWidth: 480, margin: "0 auto", display: "flex", flexDirection: "column", gap: 14 }}>
@@ -138,6 +142,11 @@ export default function AppointmentPage() {
         <div style={{ marginTop: 16, fontSize: 13, opacity: 0.85 }}>
           {fmtDatetime(appt.scheduledAt)}
         </div>
+        {appt.providerName && (
+          <div style={{ marginTop: 6, fontSize: 12, opacity: 0.75 }}>
+            {appt.providerName}
+          </div>
+        )}
         <div style={{
           marginTop: 12, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.2)",
           display: "flex", gap: 20,
@@ -173,7 +182,7 @@ export default function AppointmentPage() {
       <div style={{ display: "flex", justifyContent: "center" }}>
         <span style={{
           fontSize: 12, fontWeight: 600, padding: "5px 14px", borderRadius: 999,
-          background: statusColor.bg, color: statusColor.color,
+          background: sc.bg, color: sc.color,
         }}>
           {t(`status.${appt.status}` as any)}
         </span>

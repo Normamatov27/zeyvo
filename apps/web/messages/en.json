@@ -25,6 +25,7 @@
       "analytics": "Analytics",
       "predictions": "Predictions",
       "appointments": "Appointments",
+      "providers": "Providers",
       "chat": "Chat"
     },
     "platformAdmin": "Platform admin",
