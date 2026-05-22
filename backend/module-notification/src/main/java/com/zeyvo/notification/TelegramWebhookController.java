@@ -212,7 +212,6 @@ public class TelegramWebhookController {
     // ─── Webhook entry point ────────────────────────────────────────────────────
 
     @PostMapping("/webhook")
-    @Transactional
     public ResponseEntity<Void> webhook(
             @RequestHeader(value = "X-Telegram-Bot-Api-Secret-Token", required = false) String secret,
             @RequestBody Map<String, Object> update) {
@@ -326,25 +325,50 @@ public class TelegramWebhookController {
         if (phone == null || phone.isBlank()) return;
         if (!phone.startsWith("+")) phone = "+" + phone;
 
-        UserAccount user = userRepo.findByTelegramId(tgUserId).orElse(null);
-        if (user == null) {
-            // Edge case: contact arrived without prior /start (or DB was wiped). Create now.
-            user = userRepo.findByPhone(phone).orElse(null);
-            if (user == null) {
+        UserAccount byTg    = userRepo.findByTelegramId(tgUserId).orElse(null);
+        UserAccount byPhone = userRepo.findByPhone(phone).orElse(null);
+        UserAccount user;
+
+        try {
+            if (byPhone != null && byTg != null && !byPhone.getId().equals(byTg.getId())) {
+                // Two rows exist (stub from /start + canonical from prior OTP signup).
+                // Merge into the phone-canonical row, drop the stub.
+                String stubLocale = byTg.getLocale();
+                String stubName   = byTg.getFullName();
+                userRepo.deleteById(byTg.getId()); // its own tx — releases telegram_id constraint slot
+                byPhone.setTelegramId(tgUserId);
+                if (byPhone.getFullName() == null && stubName != null) byPhone.setFullName(stubName);
+                if (stubLocale != null && !"uz".equals(stubLocale)) byPhone.setLocale(stubLocale);
+                user = userRepo.save(byPhone);
+            } else if (byPhone != null) {
+                // No prior bot row, but the OTP flow already created the account — just link telegram.
+                byPhone.setTelegramId(tgUserId);
+                user = userRepo.save(byPhone);
+            } else if (byTg != null) {
+                // Stub from /start with no prior account on this phone — set phone.
+                byTg.setPhone(phone);
+                user = userRepo.save(byTg);
+            } else {
+                // Brand new everywhere — defensive fallback (handleStart usually pre-creates).
                 String firstName = (String) from.getOrDefault("first_name", "");
-                user = UserAccount.builder()
+                user = userRepo.save(UserAccount.builder()
                         .telegramId(tgUserId)
                         .phone(phone)
                         .fullName(firstName.isBlank() ? null : firstName)
                         .locale("uz")
-                        .build();
-            } else {
-                user.setTelegramId(tgUserId);
+                        .build());
             }
-        } else {
-            if (user.getPhone() == null) user.setPhone(phone);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            // Whoever else has this telegram_id or phone wins — try to recover by re-reading.
+            log.warn("Contact-share constraint violation for tg={} phone={}: {}", tgUserId, phone, e.getMessage());
+            user = userRepo.findByTelegramId(tgUserId)
+                    .or(() -> userRepo.findByPhone(phone))
+                    .orElse(null);
+            if (user == null) {
+                telegram.removeReplyKeyboard(chatId, "⚠️");
+                return;
+            }
         }
-        userRepo.save(user);
 
         String loc = locale(user);
         telegram.removeReplyKeyboard(chatId, s("phone_saved", loc));
