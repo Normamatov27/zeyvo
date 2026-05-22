@@ -691,6 +691,8 @@ const FOOTER_COLUMNS: { title: string; links: FooterLink[] }[] = [
       { label: "Early access",   href: "#early-access" },
       { label: "Contact",        href: "mailto:uzgamer.uz27@gmail.com", external: true },
       { label: "GitHub",         href: "https://github.com/Normamatov27/zeyvo", external: true },
+      { label: "Privacy Policy", href: "/privacy" },
+      { label: "Terms of Use",   href: "/terms" },
     ],
   },
 ];
@@ -736,7 +738,11 @@ const Footer = () => (
         display: "flex", justifyContent: "space-between", alignItems: "center",
         fontSize: 11.5, color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-mono)",
       }}>
-        <span>© 2026 zeyvo labs · tashkent</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <span>© 2026 zeyvo labs · tashkent</span>
+          <a href="/privacy" style={{ color: "rgba(255,255,255,0.4)", textDecoration: "none" }}>Privacy</a>
+          <a href="/terms" style={{ color: "rgba(255,255,255,0.4)", textDecoration: "none" }}>Terms</a>
+        </div>
         <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <span style={{ width: 6, height: 6, background: "oklch(0.62 0.14 150)", borderRadius: "50%" }}/>
           all systems operational

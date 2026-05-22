@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api";
 import { ApiError } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth";
@@ -12,6 +13,7 @@ const ACTIVE = new Set(["waiting", "called", "serving"]);
 export default function BranchPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const t = useTranslations("branch");
   const { userId, _hydrated } = useAuthStore();
   const [branch, setBranch] = useState<BranchDetail | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -64,7 +66,7 @@ export default function BranchPage() {
         // Find the existing ticket and redirect to it
         try {
           const myTickets = await apiFetch<Ticket[]>("/api/v1/tickets/my");
-          const active = myTickets.find((t) => t.branchId === id && ACTIVE.has(t.status));
+          const active = myTickets.find((tk) => tk.branchId === id && ACTIVE.has(tk.status));
           if (active) { router.push(`/ticket/${active.id}`); return; }
         } catch {}
       }
@@ -106,10 +108,10 @@ export default function BranchPage() {
   if (error || !branch) {
     return (
       <div style={{ padding: 24, textAlign: "center" }}>
-        <div style={{ fontSize: 14, color: "var(--color-danger)" }}>{error ?? "Not found"}</div>
+        <div style={{ fontSize: 14, color: "var(--color-danger)" }}>{error ?? t("not_found")}</div>
         <button onClick={() => router.back()} style={{ marginTop: 14, padding: "8px 16px",
           borderRadius: 10, border: "1px solid var(--color-border)", background: "transparent",
-          color: "var(--color-fg)", cursor: "pointer" }}>Go back</button>
+          color: "var(--color-fg)", cursor: "pointer" }}>{t("go_back")}</button>
       </div>
     );
   }
@@ -159,7 +161,7 @@ export default function BranchPage() {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-fg-3)",
                 textTransform: "uppercase", letterSpacing: 0.6, fontFamily: "var(--font-mono)" }}>
-                Branch occupancy
+                {t("occupancy")}
               </div>
               <span style={{
                 display: "flex", alignItems: "center", gap: 4,
@@ -168,14 +170,14 @@ export default function BranchPage() {
               }}>
                 <span style={{ width: 6, height: 6, borderRadius: "50%",
                   background: "var(--color-success)", flex: "none" }}/>
-                Live
+                {t("live")}
               </span>
             </div>
             <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
               <span style={{ fontSize: 32, fontWeight: 600, letterSpacing: -1,
                 fontVariantNumeric: "tabular-nums" }}>{occ}%</span>
               <span style={{ fontSize: 12, color: "var(--color-fg-3)" }}>
-                {branch.activeTickets} people · {openWindows} windows open
+                {t("people_windows", { people: branch.activeTickets, windows: openWindows })}
               </span>
             </div>
             <div style={{ display: "flex", gap: 2, height: 6, borderRadius: 3, overflow: "hidden" }}>
@@ -201,15 +203,15 @@ export default function BranchPage() {
                 <div style={{ fontSize: 12, fontWeight: 600, color: "var(--color-primary)",
                   textTransform: "uppercase", letterSpacing: 0.5, fontFamily: "var(--font-mono)",
                   marginBottom: 3 }}>
-                  Already in queue
+                  {t("in_queue_already")}
                 </div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-fg)",
                   fontFamily: "var(--font-mono)" }}>
                   {existingTicket.number}
                 </div>
                 <div style={{ fontSize: 12, color: "var(--color-fg-2)", marginTop: 2 }}>
-                  Status: {existingTicket.status}
-                  {existingTicket.queuePosition != null && ` · ${existingTicket.queuePosition} ahead`}
+                  {t("status_label")}: {existingTicket.status}
+                  {existingTicket.queuePosition != null && ` · ${t("people_ahead", { count: existingTicket.queuePosition })}`}
                 </div>
               </div>
               <button
@@ -220,7 +222,7 @@ export default function BranchPage() {
                   fontSize: 13, fontWeight: 600, cursor: "pointer", flex: "none",
                 }}
               >
-                View ticket
+                {t("view_ticket")}
               </button>
             </div>
           )}
@@ -228,7 +230,7 @@ export default function BranchPage() {
           {/* Service picker */}
           <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-fg-3)",
             textTransform: "uppercase", letterSpacing: 0.6, fontFamily: "var(--font-mono)" }}>
-            Choose service
+            {t("choose_service")}
           </div>
           {branch.services.filter((s) => s.active).map((svc) => {
             const sel = svc.id === selected;
@@ -261,7 +263,7 @@ export default function BranchPage() {
                     {svc.name}
                   </div>
                   <div style={{ fontSize: 11.5, color: "var(--color-fg-3)", marginTop: 2 }}>
-                    ~{Math.round(svc.avgDurationS / 60)} min per customer · ~{waitMin} min wait
+                    {t("min_per_customer", { min: Math.round(svc.avgDurationS / 60) })} · {t("min_wait", { wait: waitMin })}
                   </div>
                 </div>
               </div>
@@ -277,7 +279,7 @@ export default function BranchPage() {
               <path d="M12 2a10 10 0 100 20A10 10 0 0012 2z"/><path d="M12 6v6l4 2"/>
             </svg>
             <div style={{ flex: 1, fontSize: 12, color: "var(--color-primary)" }}>
-              We'll ping you ~3 min before your turn — leave when ready.
+              {t("notification_nudge")}
             </div>
           </div>
 
@@ -299,30 +301,47 @@ export default function BranchPage() {
                 marginTop: 4,
               }}
             >
-              Track your ticket
+              {t("track_ticket")}
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M5 12h14M12 5l7 7-7 7"/>
               </svg>
             </button>
           ) : (
-            <button
-              onClick={joinQueue}
-              disabled={!selected || joining}
-              style={{
-                padding: "14px 0", borderRadius: 14, border: "none",
-                background: joining ? "var(--color-fg-4)" : "var(--color-primary)",
-                color: "#fff", fontSize: 15, fontWeight: 600, cursor: joining ? "not-allowed" : "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                marginTop: 4,
-              }}
-            >
-              {joining ? "Joining queue…" : "Take ticket · remote"}
-              {!joining && (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M5 12h14M12 5l7 7-7 7"/>
+            <>
+              <button
+                onClick={joinQueue}
+                disabled={!selected || joining}
+                style={{
+                  padding: "14px 0", borderRadius: 14, border: "none",
+                  background: joining ? "var(--color-fg-4)" : "var(--color-primary)",
+                  color: "#fff", fontSize: 15, fontWeight: 600, cursor: joining ? "not-allowed" : "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  marginTop: 4,
+                }}
+              >
+                {joining ? t("joining") : t("take_ticket")}
+                {!joining && (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                  </svg>
+                )}
+              </button>
+              <button
+                onClick={() => router.push(`/book/${id}` as any)}
+                style={{
+                  padding: "12px 0", borderRadius: 14,
+                  border: "1px solid var(--color-border)", background: "var(--color-surface)",
+                  color: "var(--color-fg-2)", fontSize: 14, fontWeight: 500, cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+                  <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
                 </svg>
-              )}
-            </button>
+                Book for later
+              </button>
+            </>
           )}
         </div>
       </div>

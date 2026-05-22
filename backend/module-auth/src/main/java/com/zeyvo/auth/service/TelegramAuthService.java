@@ -38,6 +38,8 @@ public class TelegramAuthService {
             log.warn("[tg-auth] missing hash in initData (len={})", initData == null ? 0 : initData.length());
             throw new IllegalArgumentException("Missing hash in initData");
         }
+        // Telegram ≥ 2024-Q4 also sends "signature" (Ed25519) — exclude it from data_check_string
+        params.remove("signature");
 
         // Build data_check_string: sorted key=value pairs joined by \n
         String dataCheckString = params.entrySet().stream()
@@ -156,7 +158,7 @@ public class TelegramAuthService {
             String key = pair.substring(0, eq);
             // Telegram requires key to be decoded; values stay raw
             String decodedKey = URLDecoder.decode(key, StandardCharsets.UTF_8);
-            if ("hash".equals(decodedKey)) continue;
+            if ("hash".equals(decodedKey) || "signature".equals(decodedKey)) continue;
             String rawValue = pair.substring(eq + 1);
             pairs.add(decodedKey + "=" + rawValue);
         }

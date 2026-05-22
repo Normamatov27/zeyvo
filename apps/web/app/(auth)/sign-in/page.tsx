@@ -2,6 +2,7 @@
 
 import { useState, Suspense, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { apiFetchAnon } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth";
 
@@ -23,6 +24,7 @@ function SignInForm() {
   const params = useSearchParams();
   const redirect = params.get("redirect") ?? "/branches";
   const { setTokens } = useAuthStore();
+  const t = useTranslations("auth");
 
   const [phone, setPhone] = useState("");
   const [phoneLoading, setPhoneLoading] = useState(false);
@@ -39,7 +41,6 @@ function SignInForm() {
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
 
   function normalisePhone(raw: string) {
-    // Strip all non-digits except leading +
     const stripped = raw.replace(/[^\d+]/g, "");
     return stripped.startsWith("+") ? stripped : "+" + stripped;
   }
@@ -48,14 +49,13 @@ function SignInForm() {
     e.preventDefault();
     const norm = normalisePhone(phone);
     if (norm.length < 5) {
-      setPhoneError("Enter a valid phone number");
+      setPhoneError(t("phone_error"));
       return;
     }
     setPhoneLoading(true);
     setPhoneError(null);
     try {
       if (IS_DEV) {
-        // Dev shortcut — backend must run with spring.profiles.active=local
         const res = await apiFetchAnon<AuthApiResponse>(
           `/api/v1/auth/dev-login?phone=${encodeURIComponent(norm)}`,
           { method: "POST" }
@@ -63,7 +63,6 @@ function SignInForm() {
         setTokens(res.accessToken, res.refreshToken, res.userId, res.orgId, res.roles, res.locale);
         router.replace(redirect as any);
       } else {
-        // Production: request OTP via Eskiz SMS, then redirect to OTP verification page
         await apiFetchAnon("/api/v1/auth/otp/request", {
           method: "POST",
           body: JSON.stringify({ phone: norm, channel: "sms" }),
@@ -71,7 +70,14 @@ function SignInForm() {
         router.push(`/otp?phone=${encodeURIComponent(norm)}&channel=sms&redirect=${encodeURIComponent(redirect)}` as any);
       }
     } catch (err: any) {
-      setPhoneError(err?.message ?? "Sign in failed");
+      const code: string = err?.code ?? "";
+      if (code === "request.timeout" || err?.status >= 500) {
+        setPhoneError(t("err_unavailable"));
+      } else if (code === "auth.rate_limited") {
+        setPhoneError(t("err_rate_limited"));
+      } else {
+        setPhoneError(err?.message ?? t("sign_in"));
+      }
       setPhoneLoading(false);
     }
   }
@@ -88,7 +94,6 @@ function SignInForm() {
       setTgBotUrl(data.botUrl);
       setTgStep("pending");
 
-      // Poll every 2s — backend returns 202 while pending, 200 with tokens when confirmed
       pollRef.current = setInterval(async () => {
         try {
           const poll = await apiFetchAnon<AuthApiResponse | undefined>(
@@ -100,19 +105,16 @@ function SignInForm() {
             setTokens(poll.accessToken, poll.refreshToken ?? null, poll.userId, poll.orgId, poll.roles ?? [], poll.locale ?? "uz");
             router.replace(redirect as any);
           }
-          // undefined → 202 still waiting
         } catch (e: any) {
-          // 404 = code expired/invalid
           if (e?.status === 404) {
             if (pollRef.current) clearInterval(pollRef.current);
-            setTgError("Code expired. Please try again.");
+            setTgError(t("tg_expired"));
             setTgStep("idle");
           }
-          // other errors: transient, ignore
         }
       }, 2000);
     } catch (e: any) {
-      setTgError(e?.message ?? "Failed to start Telegram login");
+      setTgError(e?.message ?? t("err_unavailable"));
     } finally {
       setTgLoading(false);
     }
@@ -133,7 +135,6 @@ function SignInForm() {
         `/api/v1/auth/dev-login/confirm-tg-web?code=${tgCode}`,
         { method: "POST" }
       );
-      // Polling will pick it up within 2s — no need to do anything else
     } catch (e: any) {
       setTgError(e?.message ?? "Dev simulation failed");
     } finally {
@@ -145,8 +146,6 @@ function SignInForm() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-
-      {/* ── Phone / dev login ───────────────────────────────── */}
       <form onSubmit={signInPhone} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{
           background: "var(--color-surface)",
@@ -155,15 +154,15 @@ function SignInForm() {
           display: "flex", flexDirection: "column", gap: 14,
         }}>
           <div>
-            <div style={{ fontSize: 17, fontWeight: 600, letterSpacing: -0.3 }}>Sign in</div>
+            <div style={{ fontSize: 17, fontWeight: 600, letterSpacing: -0.3 }}>{t("sign_in")}</div>
             <div style={{ fontSize: 13, color: "var(--color-fg-3)", marginTop: 4 }}>
-              Enter your phone number to continue
+              {t("phone_continue")}
             </div>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <label style={{ fontSize: 12, fontWeight: 500, color: "var(--color-fg-2)" }}>
-              Phone number
+              {t("phone")}
             </label>
             <input
               type="tel"
@@ -173,7 +172,7 @@ function SignInForm() {
                 const v = e.target.value.trim();
                 if (v && !v.startsWith("+")) setPhone("+" + v.replace(/^\+*/, ""));
               }}
-              placeholder="+998 90 123 4567"
+              placeholder={t("phone_placeholder")}
               autoFocus
               autoComplete="tel"
               style={{
@@ -209,18 +208,16 @@ function SignInForm() {
             transition: "background 0.15s",
           }}
         >
-          {phoneLoading ? "Signing in…" : "Sign in →"}
+          {phoneLoading ? t("signing_in") : t("sign_in_cta")}
         </button>
       </form>
 
-      {/* ── Divider ─────────────────────────────────────────── */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "2px 0" }}>
         <div style={{ flex: 1, height: 1, background: "var(--color-hairline)" }}/>
-        <span style={{ fontSize: 12, color: "var(--color-fg-4)", whiteSpace: "nowrap" }}>or</span>
+        <span style={{ fontSize: 12, color: "var(--color-fg-4)", whiteSpace: "nowrap" }}>{t("or")}</span>
         <div style={{ flex: 1, height: 1, background: "var(--color-hairline)" }}/>
       </div>
 
-      {/* ── Telegram flow ─────────────────────────────────── */}
       {tgStep === "idle" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <button
@@ -238,16 +235,12 @@ function SignInForm() {
               transition: "opacity 0.15s",
             }}
           >
-            {tgLoading ? (
-              <Spinner color="#fff" size={16}/>
-            ) : (
-              <TgIcon/>
-            )}
-            {tgLoading ? "Connecting…" : "Sign in via Telegram"}
+            {tgLoading ? <Spinner color="#fff" size={16}/> : <TgIcon/>}
+            {tgLoading ? t("tg_connecting") : t("tg_sign_in")}
           </button>
           {tgError && <ErrorNote>{tgError}</ErrorNote>}
           <span style={{ fontSize: 11, color: "var(--color-fg-4)", textAlign: "center" }}>
-            No phone number needed — opens your Telegram account
+            {t("tg_hint")}
           </span>
         </div>
       )}
@@ -260,10 +253,9 @@ function SignInForm() {
           display: "flex", flexDirection: "column", gap: 16,
         }}>
           <div style={{ fontSize: 15, fontWeight: 600, letterSpacing: -0.2 }}>
-            Open Telegram bot
+            {t("tg_open_bot")}
           </div>
 
-          {/* Code display */}
           <div style={{
             background: "var(--color-surface-2)",
             border: "1.5px solid var(--color-border)",
@@ -275,7 +267,7 @@ function SignInForm() {
               textTransform: "uppercase", letterSpacing: 0.8,
               fontFamily: "var(--font-mono)", marginBottom: 10,
             }}>
-              Your code
+              {t("tg_your_code")}
             </div>
             <div style={{
               fontFamily: "var(--font-mono)",
@@ -286,7 +278,6 @@ function SignInForm() {
             </div>
           </div>
 
-          {/* Open bot */}
           <a
             href={tgBotUrl}
             target="_blank"
@@ -299,24 +290,20 @@ function SignInForm() {
             }}
           >
             <TgIcon size={18}/>
-            Open @zeyvo_bot →
+            {t("tg_open_cta")}
           </a>
 
           <div style={{ fontSize: 12, color: "var(--color-fg-3)", textAlign: "center", lineHeight: 1.5 }}>
-            Send the bot this code, or just tap Open above — it&rsquo;s sent automatically via the link.
+            {t("tg_send_hint")}
           </div>
 
-          {/* Waiting indicator */}
-          <div style={{
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "4px 0",
-          }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "4px 0" }}>
             <Spinner color="#2AABEE" size={14}/>
             <span style={{ fontSize: 13, color: "var(--color-fg-3)" }}>
-              Waiting for Telegram confirmation…
+              {t("tg_waiting")}
             </span>
           </div>
 
-          {/* Dev bypass */}
           {IS_DEV && (
             <div style={{
               padding: "12px 14px", borderRadius: 10,
@@ -363,7 +350,7 @@ function SignInForm() {
               cursor: "pointer",
             }}
           >
-            Cancel
+            {t("cancel")}
           </button>
         </div>
       )}
@@ -406,6 +393,7 @@ function ErrorNote({ children }: { children: React.ReactNode }) {
 }
 
 export default function SignInPage() {
+  const t = useTranslations("auth");
   return (
     <Suspense>
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
@@ -415,19 +403,13 @@ export default function SignInPage() {
             textTransform: "uppercase", color: "var(--color-primary)",
             fontFamily: "var(--font-mono)", marginBottom: 10,
           }}>
-            Sign in
+            {t("sign_in")}
           </div>
-          <h1 style={{
-            fontSize: 30, fontWeight: 600, letterSpacing: -1,
-            lineHeight: 1.1, margin: 0,
-          }}>
-            Welcome back
+          <h1 style={{ fontSize: 30, fontWeight: 600, letterSpacing: -1, lineHeight: 1.1, margin: 0 }}>
+            {t("welcome_back")}
           </h1>
-          <p style={{
-            fontSize: 14, color: "var(--color-fg-2)",
-            marginTop: 8, lineHeight: 1.5,
-          }}>
-            Enter your phone number or sign in with Telegram.
+          <p style={{ fontSize: 14, color: "var(--color-fg-2)", marginTop: 8, lineHeight: 1.5 }}>
+            {t("sign_in_subtitle")}
           </p>
         </div>
         <SignInForm />

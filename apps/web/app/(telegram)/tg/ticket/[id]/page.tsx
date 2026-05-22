@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { apiFetch, ApiError } from "@/lib/api";
 import { Ticket, fmtClock, fmtEta } from "@/lib/types";
 import { FullPageLoader } from "@/components/Loader";
@@ -11,6 +12,7 @@ const ACTIVE = new Set(["waiting", "called", "serving"]);
 export default function TgTicketPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const t = useTranslations("tg");
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -42,7 +44,7 @@ export default function TgTicketPage() {
   }, [ticket?.status]);
 
   if (loading) {
-    return <FullPageLoader variant="dark" label="Loading your ticket" hint="reading the queue · · ·"/>;
+    return <FullPageLoader variant="dark" label={t("loading_ticket")} hint="· · ·"/>;
   }
 
   if (error) {
@@ -62,12 +64,12 @@ export default function TgTicketPage() {
             padding: "10px 18px", borderRadius: 10, border: "1px solid var(--color-border)",
             background: "var(--color-surface)", color: "var(--color-fg)",
             fontSize: 13, fontWeight: 500, cursor: "pointer",
-          }}>Try again</button>
+          }}>{t("try_again")}</button>
           <button onClick={() => router.push("/tg" as any)} style={{
             padding: "10px 18px", borderRadius: 10, border: "none",
             background: "var(--color-primary)", color: "#fff",
             fontSize: 13, fontWeight: 600, cursor: "pointer",
-          }}>Back to home</button>
+          }}>{t("back_home")}</button>
         </div>
       </div>
     );
@@ -90,7 +92,7 @@ export default function TgTicketPage() {
       }}>
         <div style={{ fontSize: 11, opacity: 0.7, textTransform: "uppercase",
           letterSpacing: 0.8, fontFamily: "var(--font-mono)" }}>
-          {isDone ? ticket.status : isServing ? "now serving · you" : "your ticket"}
+          {isDone ? ticket.status : isServing ? t("now_serving") : t("your_ticket")}
         </div>
         <div style={{ fontSize: 72, fontWeight: 500, letterSpacing: -3, lineHeight: 1,
           fontVariantNumeric: "tabular-nums", marginTop: 8 }}>
@@ -100,21 +102,21 @@ export default function TgTicketPage() {
           paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.2)" }}>
           <div>
             <div style={{ fontSize: 10, opacity: 0.6, textTransform: "uppercase",
-              fontFamily: "var(--font-mono)" }}>status</div>
+              fontFamily: "var(--font-mono)" }}>{t("status")}</div>
             <div style={{ fontSize: 14, fontWeight: 600, marginTop: 2 }}>
-              {isServing ? "now" : ticket.status}
+              {isServing ? t("now_serving").split("·")[0]?.trim() ?? "now" : ticket.status}
             </div>
           </div>
           <div>
             <div style={{ fontSize: 10, opacity: 0.6, textTransform: "uppercase",
-              fontFamily: "var(--font-mono)" }}>ETA</div>
+              fontFamily: "var(--font-mono)" }}>{t("eta")}</div>
             <div style={{ fontSize: 14, fontWeight: 600, marginTop: 2 }}>
               {fmtEta(ticket.etaMinutes)}
             </div>
           </div>
           <div>
             <div style={{ fontSize: 10, opacity: 0.6, textTransform: "uppercase",
-              fontFamily: "var(--font-mono)" }}>joined</div>
+              fontFamily: "var(--font-mono)" }}>{t("joined")}</div>
             <div style={{ fontSize: 14, fontWeight: 600, marginTop: 2 }}>
               {fmtClock(ticket.joinedAt)}
             </div>
@@ -128,7 +130,7 @@ export default function TgTicketPage() {
           background: "var(--color-primary)", color: "#fff",
           fontSize: 15, fontWeight: 600, cursor: "pointer",
         }}>
-          Back to home
+          {t("back_home")}
         </button>
       )}
     </div>

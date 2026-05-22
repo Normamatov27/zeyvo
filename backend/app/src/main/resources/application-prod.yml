@@ -32,8 +32,21 @@ server:
 management:
   endpoint:
     health:
-      show-details: never
+      show-details: always
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  health:
+    db:
+      enabled: true
+    redis:
+      enabled: true
+    diskspace:
+      enabled: true
 
 zeyvo:
   rate-limit:
+    enabled: true
+  appointments:
     enabled: true

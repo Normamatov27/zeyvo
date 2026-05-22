@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { apiFetch, ApiError } from "@/lib/api";
 import { Ticket, fmtClock, fmtEta } from "@/lib/types";
 import { getStompClient, subscribeTicket } from "@/lib/realtime";
@@ -59,15 +60,15 @@ function requestBrowserNotification(ticketNumber: string, windowNum: number | nu
   }
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, t }: { status: string; t: ReturnType<typeof useTranslations<"ticket">> }) {
   const cfg =
     status === "serving"
-      ? { label: "Your turn!", color: "var(--color-success)", bg: "var(--color-success-soft)" }
+      ? { label: t("status_badge.your_turn"), color: "var(--color-success)", bg: "var(--color-success-soft)" }
       : status === "served"
-      ? { label: "Served", color: "var(--color-fg-3)", bg: "var(--color-surface-3)" }
+      ? { label: t("status_badge.served"), color: "var(--color-fg-3)", bg: "var(--color-surface-3)" }
       : status === "called"
-      ? { label: "Called!", color: "var(--color-warning)", bg: "var(--color-warning-soft)" }
-      : { label: "Live", color: "var(--color-primary)", bg: "var(--color-primary-soft)" };
+      ? { label: t("status_badge.called"), color: "var(--color-warning)", bg: "var(--color-warning-soft)" }
+      : { label: t("status_badge.live"), color: "var(--color-primary)", bg: "var(--color-primary-soft)" };
   return (
     <span style={{
       display: "flex", alignItems: "center", gap: 5,
@@ -83,7 +84,7 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function QrModal({ ticketId, ticketNumber, onClose }: { ticketId: string; ticketNumber: string; onClose: () => void }) {
+function QrModal({ ticketId, ticketNumber, onClose, t }: { ticketId: string; ticketNumber: string; onClose: () => void; t: ReturnType<typeof useTranslations<"ticket">> }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const url = typeof window !== "undefined" ? `${window.location.origin}/ticket/${ticketId}` : "";
 
@@ -122,7 +123,7 @@ function QrModal({ ticketId, ticketNumber, onClose }: { ticketId: string; ticket
           {ticketNumber}
         </div>
         <div style={{ fontSize: 12, color: "var(--color-fg-3)", textAlign: "center", lineHeight: 1.5 }}>
-          Show this at the kiosk or window to verify your ticket
+          {t("qr.hint")}
         </div>
         <button
           onClick={onClose}
@@ -132,7 +133,7 @@ function QrModal({ ticketId, ticketNumber, onClose }: { ticketId: string; ticket
             fontSize: 14, fontWeight: 500, cursor: "pointer",
           }}
         >
-          Close
+          {t("qr.close")}
         </button>
       </div>
     </div>
@@ -142,6 +143,7 @@ function QrModal({ ticketId, ticketNumber, onClose }: { ticketId: string; ticket
 export default function TicketPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const t = useTranslations("ticket");
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [queueAround, setQueueAround] = useState<QueueTicket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -261,7 +263,7 @@ export default function TicketPage() {
   }
 
   if (loading) {
-    return <FullPageLoader label="Loading your ticket" hint="reading the queue · · ·"/>;
+    return <FullPageLoader label={t("loading")} hint={t("loading_hint")}/>;
   }
 
   if (loadError || !ticket) {
@@ -276,19 +278,19 @@ export default function TicketPage() {
           display: "grid", placeItems: "center", fontSize: 20, fontWeight: 700,
         }}>!</div>
         <div style={{ fontSize: 14, fontWeight: 500, color: "var(--color-fg)" }}>
-          {loadError ?? "Ticket not found"}
+          {loadError ?? t("not_found")}
         </div>
         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
           <button onClick={() => { setLoading(true); setLoadError(null); fetchTicket(true).finally(() => setLoading(false)); }} style={{
             padding: "10px 18px", borderRadius: 10, border: "1px solid var(--color-border)",
             background: "var(--color-surface)", color: "var(--color-fg)",
             fontSize: 13, fontWeight: 500, cursor: "pointer",
-          }}>Try again</button>
+          }}>{t("try_again")}</button>
           <button onClick={() => router.push("/branches")} style={{
             padding: "10px 18px", borderRadius: 10, border: "none",
             background: "var(--color-primary)", color: "#fff",
             fontSize: 13, fontWeight: 600, cursor: "pointer",
-          }}>Find a queue</button>
+          }}>{t("find_queue")}</button>
         </div>
       </div>
     );
@@ -307,12 +309,12 @@ export default function TicketPage() {
     : "linear-gradient(135deg, var(--color-primary) 0%, var(--color-violet) 100%)";
 
   const heroLabel = isDone
-    ? "served · thanks"
+    ? t("hero.served_thanks")
     : isServing
-    ? "now serving · you"
+    ? t("hero.now_serving")
     : isCancelled
     ? ticket.status.replace("_", " ")
-    : "your ticket";
+    : t("hero.your_ticket");
 
   const etaTs = ticket.etaMinutes != null
     ? new Date(Date.now() + ticket.etaMinutes * 60_000).toISOString()
@@ -326,7 +328,7 @@ export default function TicketPage() {
   return (
     <>
       {showQr && (
-        <QrModal ticketId={id} ticketNumber={ticket.number} onClose={() => setShowQr(false)} />
+        <QrModal ticketId={id} ticketNumber={ticket.number} onClose={() => setShowQr(false)} t={t} />
       )}
 
       {showRating && (
@@ -350,10 +352,10 @@ export default function TicketPage() {
             <div style={{ textAlign: "center" }}>
               <div style={{ fontSize: 32, marginBottom: 8 }}>🎉</div>
               <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: -0.4 }}>
-                How was your visit?
+                {t("rating.title")}
               </div>
               <div style={{ fontSize: 13, color: "var(--color-fg-3)", marginTop: 4 }}>
-                Your feedback helps improve the service
+                {t("rating.subtitle")}
               </div>
             </div>
 
@@ -378,13 +380,13 @@ export default function TicketPage() {
 
             {ratingStars > 0 && (
               <div style={{ fontSize: 13, color: "var(--color-fg-3)", textAlign: "center", marginTop: -8 }}>
-                {["", "Poor", "Fair", "Good", "Very good", "Excellent"][ratingStars]}
+                {(t.raw("rating.labels") as string[])[ratingStars]}
               </div>
             )}
 
             {/* Comment */}
             <textarea
-              placeholder="Optional comment…"
+              placeholder={t("rating.placeholder")}
               value={ratingComment}
               onChange={(e) => setRatingComment(e.target.value)}
               rows={2}
@@ -408,7 +410,7 @@ export default function TicketPage() {
                   fontSize: 14, fontWeight: 500, cursor: "pointer",
                 }}
               >
-                Skip
+                {t("rating.skip")}
               </button>
               <button
                 onClick={() => submitRating(ratingStars, ratingComment)}
@@ -421,7 +423,7 @@ export default function TicketPage() {
                   cursor: ratingStars === 0 ? "not-allowed" : "pointer",
                 }}
               >
-                {submittingRating ? "Submitting…" : "Submit"}
+                {submittingRating ? t("rating.submitting") : t("rating.submit")}
               </button>
             </div>
           </div>
@@ -449,7 +451,7 @@ export default function TicketPage() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 15, fontWeight: 600, letterSpacing: -0.3, whiteSpace: "nowrap",
               overflow: "hidden", textOverflow: "ellipsis" }}>
-              {ticket?.branchName || "Your ticket"}
+              {ticket?.branchName || t("your_ticket")}
             </div>
             {ticket?.serviceName && (
               <div style={{ fontSize: 11, color: "var(--color-fg-3)", marginTop: 1,
@@ -474,7 +476,7 @@ export default function TicketPage() {
               <rect x="18" y="18" width="3" height="3" rx="0.5"/>
             </svg>
           </button>
-          <StatusBadge status={ticket.status} />
+          <StatusBadge status={ticket.status} t={t} />
         </div>
 
         <div style={{ maxWidth: 480, margin: "0 auto", width: "100%" }}>
@@ -502,7 +504,7 @@ export default function TicketPage() {
                   fontSize: 11, padding: "4px 8px", borderRadius: 999,
                   background: "rgba(255,255,255,0.18)",
                 }}>
-                  {ticket.source === "kiosk" ? "Walk-in" : "Remote"}
+                  {ticket.source === "kiosk" ? t("source_kiosk") : t("source_remote")}
                 </span>
               </div>
 
@@ -518,26 +520,26 @@ export default function TicketPage() {
                 padding: "12px 0 0", borderTop: "1px solid rgba(255,255,255,0.2)",
               }}>
                 <div>
-                  <div style={{ fontSize: 10, opacity: 0.7, fontFamily: "var(--font-mono)", textTransform: "uppercase" }}>joined</div>
+                  <div style={{ fontSize: 10, opacity: 0.7, fontFamily: "var(--font-mono)", textTransform: "uppercase" }}>{t("hero.joined")}</div>
                   <div style={{ fontSize: 15, fontWeight: 600, marginTop: 2, fontVariantNumeric: "tabular-nums" }}>
                     {fmtClock(ticket.joinedAt)}
                   </div>
                 </div>
                 <div>
                   <div style={{ fontSize: 10, opacity: 0.7, fontFamily: "var(--font-mono)", textTransform: "uppercase" }}>
-                    {isServing ? "window" : "ahead"}
+                    {isServing ? t("hero.window") : t("hero.ahead")}
                   </div>
                   <div style={{ fontSize: 15, fontWeight: 600, marginTop: 2, fontVariantNumeric: "tabular-nums" }}>
                     {isServing
                       ? (ticket.windowNumber != null ? `W${ticket.windowNumber}` : "—")
-                      : isDone ? "done"
+                      : isDone ? t("hero.done")
                       : ticket.queuePosition != null ? ticket.queuePosition : "—"}
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 10, opacity: 0.7, fontFamily: "var(--font-mono)", textTransform: "uppercase" }}>ETA</div>
+                  <div style={{ fontSize: 10, opacity: 0.7, fontFamily: "var(--font-mono)", textTransform: "uppercase" }}>{t("hero.eta")}</div>
                   <div style={{ fontSize: 15, fontWeight: 600, marginTop: 2, fontVariantNumeric: "tabular-nums" }}>
-                    {isDone ? "done" : isServing ? "now" : etaTs ? fmtClock(etaTs) : fmtEta(ticket.etaMinutes)}
+                    {isDone ? t("hero.done") : isServing ? t("hero.now") : etaTs ? fmtClock(etaTs) : fmtEta(ticket.etaMinutes)}
                   </div>
                 </div>
               </div>
@@ -553,10 +555,10 @@ export default function TicketPage() {
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-fg-3)",
                   textTransform: "uppercase", letterSpacing: 0.6, fontFamily: "var(--font-mono)" }}>
-                  Queue position
+                  {t("queue_pos.title")}
                 </div>
                 <span style={{ fontSize: 12, color: "var(--color-fg-3)", fontFamily: "var(--font-mono)" }}>
-                  {ticket.etaMinutes != null ? `~${ticket.etaMinutes} min` : "estimating…"}
+                  {ticket.etaMinutes != null ? `~${ticket.etaMinutes} min` : t("queue_pos.estimating")}
                 </span>
               </div>
               <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
@@ -568,7 +570,7 @@ export default function TicketPage() {
                   {ticket.queuePosition != null ? ticket.queuePosition : "—"}
                 </span>
                 <span style={{ fontSize: 14, color: "var(--color-fg-3)" }}>
-                  {ahead === 1 ? "person ahead" : "people ahead"}
+                  {ahead === 1 ? t("queue_pos.person_ahead") : t("queue_pos.people_ahead")}
                 </span>
               </div>
               <div style={{ height: 6, borderRadius: 3, background: "var(--color-surface-3)", overflow: "hidden" }}>
@@ -595,7 +597,7 @@ export default function TicketPage() {
               <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-fg-3)",
                 textTransform: "uppercase", letterSpacing: 0.6, fontFamily: "var(--font-mono)",
                 marginBottom: 10 }}>
-                Queue timeline
+                {t("timeline.title")}
               </div>
               {queueAround.map((row, i) => {
                 const isMe = row.id === id;
@@ -619,11 +621,11 @@ export default function TicketPage() {
                       {row.number}
                     </span>
                     <span style={{ flex: 1, fontSize: 12.5, color: "var(--color-fg-2)" }}>
-                      {isMe ? "Your ticket" : rowServing ? "Now serving" : "Waiting"}
+                      {isMe ? t("timeline.your_ticket") : rowServing ? t("timeline.now_serving") : t("timeline.waiting")}
                     </span>
                     {rowServing && (
                       <span style={{ fontSize: 11, color: "var(--color-success)", fontFamily: "var(--font-mono)" }}>
-                        serving
+                        {t("timeline.serving")}
                       </span>
                     )}
                   </div>
@@ -641,11 +643,11 @@ export default function TicketPage() {
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontSize: 32, marginBottom: 6 }}>🔔</div>
                 <div style={{ fontSize: 17, fontWeight: 700, color: "var(--color-warning)", letterSpacing: -0.3 }}>
-                  It's your turn!
+                  {t("called.heading")}
                 </div>
                 {ticket.windowNumber != null && (
                   <div style={{ fontSize: 13, color: "var(--color-fg-2)", marginTop: 4 }}>
-                    Please go to <strong>Window {ticket.windowNumber}</strong>
+                    {t("called.go_to_window", { window: ticket.windowNumber })}
                     {ticket.windowLabel && (
                       <span style={{ color: "var(--color-fg-3)" }}> · {ticket.windowLabel}</span>
                     )}
@@ -668,12 +670,12 @@ export default function TicketPage() {
                     <span style={{ width: 14, height: 14, borderRadius: "50%",
                       border: "2px solid rgba(255,255,255,0.4)", borderTopColor: "#fff",
                       animation: "spin 0.7s linear infinite", flex: "none" }}/>
-                    Confirming…
+                    {t("called.confirming")}
                   </>
-                ) : "✋ I'm here"}
+                ) : t("called.im_here")}
               </button>
               <div style={{ fontSize: 11, color: "var(--color-fg-3)", textAlign: "center" }}>
-                Tap to confirm you're present and reset the no-show timer
+                {t("called.hint")}
               </div>
             </div>
           )}
@@ -683,17 +685,17 @@ export default function TicketPage() {
             background: "var(--color-surface)", border: "1px solid var(--color-border)",
             borderRadius: 14, padding: 14, display: "flex", flexDirection: "column", gap: 8,
           }}>
-            <Row label="Ticket" value={ticket.number} mono />
-            {ticket.serviceName && <Row label="Service" value={ticket.serviceName} />}
-            {ticket.branchName && <Row label="Branch" value={ticket.branchName} />}
-            <Row label="Source" value={ticket.source === "kiosk" ? "Walk-in · Kiosk" : "Remote · Online"} />
-            <Row label="Joined" value={fmtClock(ticket.joinedAt)} mono />
-            {ticket.calledAt && <Row label="Called at" value={fmtClock(ticket.calledAt)} mono />}
-            {ticket.servedAt && <Row label="Served at" value={fmtClock(ticket.servedAt)} mono />}
+            <Row label={t("info.ticket")} value={ticket.number} mono />
+            {ticket.serviceName && <Row label={t("info.service")} value={ticket.serviceName} />}
+            {ticket.branchName && <Row label={t("info.branch")} value={ticket.branchName} />}
+            <Row label={t("info.source")} value={ticket.source === "kiosk" ? t("info.source_kiosk") : t("info.source_remote")} />
+            <Row label={t("info.joined")} value={fmtClock(ticket.joinedAt)} mono />
+            {ticket.calledAt && <Row label={t("info.called_at")} value={fmtClock(ticket.calledAt)} mono />}
+            {ticket.servedAt && <Row label={t("info.served_at")} value={fmtClock(ticket.servedAt)} mono />}
             {ticket.windowNumber != null && (
-              <Row label="Window" value={ticket.windowLabel
-                ? `Window ${ticket.windowNumber} · ${ticket.windowLabel}`
-                : `Window ${ticket.windowNumber}`} />
+              <Row label={t("info.window")} value={ticket.windowLabel
+                ? `${t("info.window")} ${ticket.windowNumber} · ${ticket.windowLabel}`
+                : `${t("info.window")} ${ticket.windowNumber}`} />
             )}
           </div>
 
@@ -708,7 +710,7 @@ export default function TicketPage() {
                 fontSize: 14, fontWeight: 500, cursor: cancelling ? "not-allowed" : "pointer",
               }}
             >
-              {cancelling ? "Cancelling…" : "Cancel ticket"}
+              {cancelling ? t("cancelling") : t("cancel")}
             </button>
           )}
 
@@ -727,10 +729,10 @@ export default function TicketPage() {
               <span style={{ fontSize: 22, flex: "none" }}>⭐</span>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: "var(--color-fg)" }}>
-                  Rate your visit
+                  {t("rating.cta")}
                 </div>
                 <div style={{ fontSize: 12, color: "var(--color-fg-3)", marginTop: 2 }}>
-                  Takes 5 seconds · helps improve service
+                  {t("rating.cta_sub")}
                 </div>
               </div>
               <svg style={{ marginLeft: "auto", flex: "none", color: "var(--color-fg-3)" }}
@@ -748,7 +750,7 @@ export default function TicketPage() {
               fontSize: 13, color: "var(--color-success)",
               display: "flex", alignItems: "center", gap: 8,
             }}>
-              <span>✓</span> Thanks for your feedback!
+              <span>✓</span> {t("rating.thanks")}
             </div>
           )}
 
@@ -761,7 +763,7 @@ export default function TicketPage() {
                 fontSize: 15, fontWeight: 600, cursor: "pointer",
               }}
             >
-              Find another queue
+              {t("find_another")}
             </button>
           )}
         </div>
