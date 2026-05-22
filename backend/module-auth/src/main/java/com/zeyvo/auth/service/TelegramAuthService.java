@@ -35,6 +35,7 @@ public class TelegramAuthService {
 
         String receivedHash = params.remove("hash");
         if (receivedHash == null) {
+            log.warn("[tg-auth] missing hash in initData (len={})", initData == null ? 0 : initData.length());
             throw new IllegalArgumentException("Missing hash in initData");
         }
 
@@ -54,7 +55,24 @@ public class TelegramAuthService {
         String expectedHash = toHex(expectedHashBytes);
 
         if (!constantTimeEquals(expectedHash, receivedHash)) {
-            throw new IllegalArgumentException("initData HMAC validation failed");
+            // Fallback: some clients send '+' (form-encoded space) inside values that we
+            // must NOT collapse to space when building the data_check_string. Try a
+            // raw-values variant where we keep the wire bytes between '&' separators
+            // as-is. If that matches, accept it.
+            String rawDataCheckString = buildRawDataCheckString(initData);
+            byte[] rawHashBytes = hmacSha256(rawDataCheckString.getBytes(StandardCharsets.UTF_8), secretKey);
+            String rawHash = toHex(rawHashBytes);
+            if (constantTimeEquals(rawHash, receivedHash)) {
+                log.info("[tg-auth] HMAC matched on raw-values fallback");
+            } else {
+                // Diagnose: log lengths + first/last 6 chars of hashes + sorted keys present
+                log.warn("[tg-auth] HMAC mismatch. tokenLen={}, initDataLen={}, keys={}, decodedHash={}…{}, rawHash={}…{}, recv={}…{}",
+                        botToken.length(), initData.length(), params.keySet(),
+                        head(expectedHash), tail(expectedHash),
+                        head(rawHash), tail(rawHash),
+                        head(receivedHash), tail(receivedHash));
+                throw new IllegalArgumentException("initData HMAC validation failed");
+            }
         }
 
         // Reject initData older than 5 minutes (prevents replay attacks)
@@ -128,6 +146,26 @@ public class TelegramAuthService {
             throw new RuntimeException("SHA-256 failed", e);
         }
     }
+
+    /** Build data_check_string from raw initData without URL-decoding values — fallback for clients that don't form-encode. */
+    private String buildRawDataCheckString(String initData) {
+        List<String> pairs = new ArrayList<>();
+        for (String pair : initData.split("&")) {
+            int eq = pair.indexOf('=');
+            if (eq <= 0) continue;
+            String key = pair.substring(0, eq);
+            // Telegram requires key to be decoded; values stay raw
+            String decodedKey = URLDecoder.decode(key, StandardCharsets.UTF_8);
+            if ("hash".equals(decodedKey)) continue;
+            String rawValue = pair.substring(eq + 1);
+            pairs.add(decodedKey + "=" + rawValue);
+        }
+        Collections.sort(pairs);
+        return String.join("\n", pairs);
+    }
+
+    private static String head(String s) { return s == null ? "" : s.substring(0, Math.min(6, s.length())); }
+    private static String tail(String s) { return s == null || s.length() < 6 ? "" : s.substring(s.length() - 6); }
 
     private Map<String, String> parseQuery(String query) {
         Map<String, String> params = new LinkedHashMap<>();
