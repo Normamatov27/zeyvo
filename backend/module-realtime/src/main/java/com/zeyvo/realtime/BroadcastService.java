@@ -44,4 +44,15 @@ public class BroadcastService {
     public void notifyUser(String userId, Map<String, Object> payload) {
         stomp.convertAndSendToUser(userId, "/queue/notifications", payload);
     }
+
+    public void broadcastToChat(String type, UUID orgId, Map<String, Object> payload) {
+        String topic = "support".equals(type)
+            ? "/topic/chat/support"
+            : "/topic/chat/org/" + orgId;
+        stomp.convertAndSend(topic, payload);
+    }
+
+    public void notifyUserChat(String userId, Map<String, Object> payload) {
+        stomp.convertAndSendToUser(userId, "/queue/chat", payload);
+    }
 }

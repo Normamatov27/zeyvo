@@ -10,6 +10,7 @@ import { useAuthStore } from "@/stores/auth";
 import { Ticket } from "@/lib/types";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { ChatWidget } from "@/components/ChatWidget";
 
 function CustomerTopBar() {
   return (
@@ -155,6 +156,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100svh", maxWidth: 680, margin: "0 auto" }}>
       <CustomerTopBar/>
       <main style={{ flex: 1, overflowY: "auto" }}>{children}</main>
+      <ChatWidget/>
       <nav style={{
         position: "sticky", bottom: 0, height: 64,
         background: "var(--color-surface)",

@@ -24,7 +24,8 @@
       "users": "Users",
       "analytics": "Analytics",
       "predictions": "Predictions",
-      "appointments": "Appointments"
+      "appointments": "Appointments",
+      "chat": "Chat"
     },
     "platformAdmin": "Platform admin",
     "signOut": "Sign out",

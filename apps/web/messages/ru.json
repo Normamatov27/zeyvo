@@ -24,7 +24,8 @@
       "users": "Пользователи",
       "analytics": "Аналитика",
       "predictions": "Прогнозы",
-      "appointments": "Записи"
+      "appointments": "Записи",
+      "chat": "Чат"
     },
     "platformAdmin": "Платформа",
     "signOut": "Выйти",

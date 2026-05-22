@@ -4,6 +4,146 @@ import { useEffect, useState, useCallback } from "react";
 import { apiFetch } from "@/lib/api";
 import { BranchDetail, WindowDesk } from "@/lib/types";
 
+interface StaffUser {
+  id: string;
+  fullName: string | null;
+  phone: string | null;
+  roles: string[];
+}
+
+function AssignOperatorModal({ win, onClose, onSaved }: {
+  win: WindowDesk; onClose: () => void; onSaved: () => void;
+}) {
+  const [users, setUsers] = useState<StaffUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [assigning, setAssigning] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    apiFetch<StaffUser[]>("/api/v1/admin/users")
+      .then((all) => setUsers(all.filter((u) => u.roles.includes("operator"))))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function assign(userId: string) {
+    setAssigning(true); setErr(null);
+    try {
+      await apiFetch(`/api/v1/windows/${win.id}/assign?userId=${userId}`, { method: "POST" });
+      onSaved();
+      onClose();
+    } catch (e: any) {
+      setErr(e?.message ?? "Assign failed");
+      setAssigning(false);
+    }
+  }
+
+  async function unassign() {
+    setAssigning(true); setErr(null);
+    try {
+      await apiFetch(`/api/v1/windows/${win.id}/assign`, { method: "DELETE" });
+      onSaved();
+      onClose();
+    } catch (e: any) {
+      setErr(e?.message ?? "Unassign failed");
+      setAssigning(false);
+    }
+  }
+
+  const filtered = users.filter((u) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return (u.fullName ?? "").toLowerCase().includes(q) || (u.phone ?? "").includes(q);
+  });
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)",
+      display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50,
+    }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        background: "var(--color-surface)", borderRadius: 16, padding: 24,
+        width: 400, maxHeight: "80vh", display: "flex", flexDirection: "column", gap: 14,
+        boxShadow: "var(--shadow-4)",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: -0.3 }}>Assign operator</div>
+            <div style={{ fontSize: 12, color: "var(--color-fg-3)", marginTop: 2 }}>Window #{win.number}</div>
+          </div>
+          <button onClick={onClose} style={{
+            width: 28, height: 28, borderRadius: 7, border: "1px solid var(--color-border)",
+            background: "var(--color-surface-2)", cursor: "pointer", color: "var(--color-fg-3)",
+            display: "grid", placeItems: "center",
+          }}>✕</button>
+        </div>
+
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by name or phone…"
+          style={{
+            padding: "9px 12px", borderRadius: 8,
+            border: "1px solid var(--color-border)", background: "var(--color-surface-2)",
+            fontSize: 13, color: "var(--color-fg)", outline: "none",
+          }}
+        />
+
+        {err && (
+          <div style={{ fontSize: 12, color: "var(--color-danger)", background: "var(--color-danger-soft)",
+            padding: "8px 10px", borderRadius: 7 }}>{err}</div>
+        )}
+
+        <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
+          {loading && <div style={{ fontSize: 13, color: "var(--color-fg-3)", textAlign: "center", padding: 20 }}>Loading operators…</div>}
+          {!loading && filtered.length === 0 && <div style={{ fontSize: 13, color: "var(--color-fg-3)", textAlign: "center", padding: 20 }}>No operators found</div>}
+          {filtered.map((u) => {
+            const isAssigned = win.operatorId === u.id;
+            return (
+              <div key={u.id} style={{
+                display: "flex", alignItems: "center", gap: 10,
+                padding: "10px 12px", borderRadius: 10,
+                border: `1.5px solid ${isAssigned ? "var(--color-primary)" : "var(--color-border)"}`,
+                background: isAssigned ? "var(--color-primary-soft)" : "var(--color-surface-2)",
+              }}>
+                <div style={{
+                  width: 30, height: 30, borderRadius: 8, flex: "none",
+                  background: "var(--color-primary-soft)", color: "var(--color-primary)",
+                  display: "grid", placeItems: "center",
+                  fontSize: 13, fontWeight: 700,
+                }}>
+                  {(u.fullName ?? u.phone ?? "?").charAt(0).toUpperCase()}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {u.fullName ?? u.phone ?? u.id.slice(0, 8)}
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--color-fg-4)", fontFamily: "var(--font-mono)" }}>
+                    {u.phone ?? u.id.slice(0, 12)}
+                  </div>
+                </div>
+                <button
+                  onClick={() => isAssigned ? unassign() : assign(u.id)}
+                  disabled={assigning}
+                  style={{
+                    padding: "5px 12px", borderRadius: 7, border: "none",
+                    background: isAssigned ? "var(--color-danger)" : "var(--color-primary)",
+                    color: "#fff", fontSize: 11, fontWeight: 600, cursor: assigning ? "not-allowed" : "pointer",
+                    flex: "none",
+                  }}
+                >
+                  {isAssigned ? "Remove" : "Assign"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const STATUS_COLOR: Record<string, string> = {
   open: "var(--color-success)",
   idle: "var(--color-warning)",
@@ -149,11 +289,13 @@ function WindowRow({
   branchWindowCount,
   onStatusChange,
   onEdit,
+  onAssign,
 }: {
   window: WindowDesk;
   branchWindowCount: number;
   onStatusChange: (windowId: string, status: string) => Promise<void>;
   onEdit: (win: WindowDesk) => void;
+  onAssign: (win: WindowDesk) => void;
 }) {
   const [busy, setBusy] = useState(false);
 
@@ -168,7 +310,7 @@ function WindowRow({
 
   return (
     <div style={{
-      display: "grid", gridTemplateColumns: "52px 1fr 110px 90px minmax(100px,1fr) 200px",
+      display: "grid", gridTemplateColumns: "52px 1fr 130px 110px minmax(80px,1fr) 230px",
       padding: "10px 18px", alignItems: "center",
       borderBottom: "1px solid var(--color-hairline)",
       opacity: busy ? 0.6 : 1, transition: "opacity 0.15s",
@@ -179,6 +321,14 @@ function WindowRow({
       <div style={{ fontSize: 13, color: "var(--color-fg)", fontWeight: 500 }}>
         {w.label ?? `Window ${w.number}`}
       </div>
+      {/* Operator column */}
+      <div style={{ fontSize: 12, color: "var(--color-fg-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {w.operatorId ? (
+          <span style={{ color: "var(--color-success)", fontFamily: "var(--font-mono)", fontSize: 11 }}>assigned</span>
+        ) : (
+          <span style={{ color: "var(--color-fg-4)", fontSize: 11 }}>—</span>
+        )}
+      </div>
       <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
         <span style={{
           width: 6, height: 6, borderRadius: "50%", flex: "none",
@@ -188,17 +338,15 @@ function WindowRow({
           {STATUS_LABEL[w.status]}
         </span>
       </div>
-      <div style={{ fontSize: 12, fontFamily: "var(--font-mono)" }}>
-        {w.servingTicket ? (
-          <span style={{ color: "var(--color-success)", fontWeight: 600 }}>Serving</span>
-        ) : (
-          <span style={{ color: "var(--color-fg-4)" }}>—</span>
-        )}
-      </div>
       <div style={{ fontSize: 11, color: "var(--color-fg-3)", fontFamily: "var(--font-mono)" }}>
-        {w.serviceCodes.length > 0 ? w.serviceCodes.join(", ") : "All services"}
+        {w.serviceCodes.length > 0 ? w.serviceCodes.join(", ") : "All"}
       </div>
       <div style={{ display: "flex", gap: 5, justifyContent: "flex-end" }}>
+        <button onClick={() => onAssign(w)} style={{
+          padding: "5px 10px", borderRadius: 7, fontSize: 11, fontWeight: 600,
+          border: "1.5px solid var(--color-primary)", color: "var(--color-primary)",
+          background: "var(--color-primary-soft)", cursor: "pointer",
+        }}>Assign</button>
         <button onClick={() => onEdit(w)} style={{
           padding: "5px 10px", borderRadius: 7, fontSize: 11, fontWeight: 600,
           border: "1.5px solid var(--color-border)", color: "var(--color-fg-2)",
@@ -234,6 +382,7 @@ export default function StaffPage() {
   const [branches, setBranches] = useState<BranchDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [editWindow, setEditWindow] = useState<WindowDesk | null>(null);
+  const [assignWindow, setAssignWindow] = useState<WindowDesk | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -346,7 +495,7 @@ export default function StaffPage() {
               {/* Column header */}
               {sorted.length > 0 && (
                 <div style={{
-                  display: "grid", gridTemplateColumns: "52px 1fr 110px 90px minmax(100px,1fr) 160px",
+                  display: "grid", gridTemplateColumns: "52px 1fr 130px 110px minmax(80px,1fr) 230px",
                   padding: "7px 18px",
                   fontSize: 10, fontFamily: "var(--font-mono)", textTransform: "uppercase",
                   letterSpacing: 0.5, color: "var(--color-fg-4)", fontWeight: 600,
@@ -354,8 +503,8 @@ export default function StaffPage() {
                 }}>
                   <span>#</span>
                   <span>Label</span>
+                  <span>Operator</span>
                   <span>Status</span>
-                  <span>Serving</span>
                   <span>Services</span>
                   <span style={{ textAlign: "right" }}>Actions</span>
                 </div>
@@ -368,6 +517,7 @@ export default function StaffPage() {
                   branchWindowCount={b.windows.length}
                   onStatusChange={handleStatusChange}
                   onEdit={setEditWindow}
+                  onAssign={setAssignWindow}
                 />
               ))}
 
@@ -391,6 +541,13 @@ export default function StaffPage() {
         <EditWindowModal
           win={editWindow}
           onClose={() => setEditWindow(null)}
+          onSaved={load}
+        />
+      )}
+      {assignWindow && (
+        <AssignOperatorModal
+          win={assignWindow}
+          onClose={() => setAssignWindow(null)}
           onSaved={load}
         />
       )}
