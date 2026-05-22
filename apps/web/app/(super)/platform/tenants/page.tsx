@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 
 interface Tenant {
@@ -23,6 +24,7 @@ const PLAN_COLOR: Record<string, string> = {
 export default function TenantsPage() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     apiFetch<Tenant[]>("/api/v1/platform/tenants")
@@ -77,11 +79,17 @@ export default function TenantsPage() {
               No tenants yet. The first organization is created when a user signs up.
             </div>
           ) : tenants.map((t, idx) => (
-            <div key={t.id} style={{
-              display: "grid", gridTemplateColumns: "1fr 120px 80px 120px 100px",
-              padding: "12px 18px", alignItems: "center",
-              borderBottom: idx < tenants.length - 1 ? "1px solid var(--color-hairline)" : "none",
-            }}>
+            <div key={t.id}
+              onClick={() => router.push(`/platform/tenants/${t.id}` as any)}
+              style={{
+                display: "grid", gridTemplateColumns: "1fr 120px 80px 120px 100px",
+                padding: "12px 18px", alignItems: "center",
+                borderBottom: idx < tenants.length - 1 ? "1px solid var(--color-hairline)" : "none",
+                cursor: "pointer", transition: "background 0.1s",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--color-surface-2)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "")}
+            >
               <div>
                 <div style={{ fontSize: 13, fontWeight: 500 }}>{t.name}</div>
                 {t.branchCount != null && (
