@@ -125,6 +125,64 @@ public class TelegramNotificationService {
         }
     }
 
+    /** Send a message with a reply keyboard that has a single "share contact" button. */
+    public void sendContactRequest(long chatId, String text, String buttonLabel) {
+        if (!enabled) return;
+        try {
+            restClient.post()
+                    .uri("/bot{token}/sendMessage", botToken)
+                    .body(Map.of(
+                            "chat_id", chatId,
+                            "text", text,
+                            "parse_mode", "Markdown",
+                            "reply_markup", Map.of(
+                                    "keyboard", new Object[] { new Object[] {
+                                            Map.of("text", buttonLabel, "request_contact", true)
+                                    }},
+                                    "resize_keyboard", true,
+                                    "one_time_keyboard", true
+                            )
+                    ))
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (Exception e) {
+            log.error("Telegram contact-request send error: {}", e.getMessage());
+        }
+    }
+
+    /** Remove the reply keyboard while delivering a message. */
+    public void removeReplyKeyboard(long chatId, String text) {
+        if (!enabled) return;
+        try {
+            restClient.post()
+                    .uri("/bot{token}/sendMessage", botToken)
+                    .body(Map.of(
+                            "chat_id", chatId,
+                            "text", text,
+                            "parse_mode", "Markdown",
+                            "reply_markup", Map.of("remove_keyboard", true)
+                    ))
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (Exception e) {
+            log.error("Telegram remove-keyboard error: {}", e.getMessage());
+        }
+    }
+
+    /** Acknowledge a callback_query (stops the spinner on the user's button). */
+    public void answerCallback(String callbackQueryId) {
+        if (!enabled) return;
+        try {
+            restClient.post()
+                    .uri("/bot{token}/answerCallbackQuery", botToken)
+                    .body(Map.of("callback_query_id", callbackQueryId))
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (Exception e) {
+            log.debug("Telegram answerCallback error: {}", e.getMessage());
+        }
+    }
+
     private void send(long chatId, String text) {
         if (!enabled) return;
         try {
