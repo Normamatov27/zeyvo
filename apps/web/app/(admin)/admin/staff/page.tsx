@@ -2,13 +2,221 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { apiFetch } from "@/lib/api";
-import { BranchDetail, WindowDesk } from "@/lib/types";
+import { Branch, BranchDetail, WindowDesk } from "@/lib/types";
 
 interface StaffUser {
   id: string;
   fullName: string | null;
   phone: string | null;
   roles: string[];
+}
+
+function AddStaffModal({ branches, onClose, onSaved }: {
+  branches: BranchDetail[]; onClose: () => void; onSaved: () => void;
+}) {
+  const [selectedBranchId, setSelectedBranchId] = useState(branches[0]?.id ?? "");
+  const [phone, setPhone] = useState("");
+  const [role, setRole] = useState<"operator" | "manager">("operator");
+  const [foundUser, setFoundUser] = useState<{ id: string; fullName: string | null; phone: string | null } | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  async function lookup() {
+    if (!phone.trim()) return;
+    setSearching(true); setErr(null); setFoundUser(null);
+    try {
+      const user = await apiFetch<{ id: string; fullName: string | null; phone: string | null }>(
+        `/api/v1/admin/users/lookup?phone=${encodeURIComponent(phone.trim())}`
+      );
+      setFoundUser(user);
+    } catch (e: any) {
+      setErr(e?.code === "user.not_found" ? "No account found with that phone number." : (e?.message ?? "Lookup failed"));
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  async function save() {
+    if (!foundUser) return;
+    setSaving(true); setErr(null);
+    try {
+      await apiFetch(`/api/v1/admin/users/${foundUser.id}/roles/add?role=${role}`, { method: "POST" });
+      setDone(true);
+      onSaved();
+    } catch (e: any) {
+      setErr(e?.message ?? "Failed to assign role");
+      setSaving(false);
+    }
+  }
+
+  const selectedBranch = branches.find((b) => b.id === selectedBranchId);
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)",
+      display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50,
+    }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        background: "var(--color-surface)", borderRadius: 16, padding: 24,
+        width: 420, display: "flex", flexDirection: "column", gap: 16,
+        boxShadow: "var(--shadow-4)",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: -0.3 }}>Add staff member</div>
+            <div style={{ fontSize: 12, color: "var(--color-fg-3)", marginTop: 2 }}>
+              Find by phone and assign a role
+            </div>
+          </div>
+          <button onClick={onClose} style={{
+            width: 28, height: 28, borderRadius: 7, border: "1px solid var(--color-border)",
+            background: "var(--color-surface-2)", cursor: "pointer", color: "var(--color-fg-3)",
+            display: "grid", placeItems: "center",
+          }}>✕</button>
+        </div>
+
+        {done ? (
+          <div style={{ textAlign: "center", padding: "16px 0", display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{
+              width: 48, height: 48, borderRadius: 14, margin: "0 auto",
+              background: "var(--color-success-soft)", color: "var(--color-success)",
+              display: "grid", placeItems: "center", fontSize: 22,
+            }}>✓</div>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>
+              {foundUser?.fullName ?? foundUser?.phone} added as {role}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--color-fg-3)" }}>
+              You can now assign them to a window in{" "}
+              <strong>{selectedBranch?.name}</strong>.
+            </div>
+            <button onClick={onClose} style={{
+              padding: "10px 0", borderRadius: 10, border: "none",
+              background: "var(--color-primary)", color: "#fff",
+              fontSize: 14, fontWeight: 600, cursor: "pointer", marginTop: 4,
+            }}>Done</button>
+          </div>
+        ) : (
+          <>
+            {/* Branch selector */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: "var(--color-fg-3)", textTransform: "uppercase", letterSpacing: 0.4 }}>Branch</span>
+              <select
+                value={selectedBranchId}
+                onChange={(e) => setSelectedBranchId(e.target.value)}
+                style={{
+                  padding: "9px 12px", borderRadius: 8,
+                  border: "1px solid var(--color-border)", background: "var(--color-surface-2)",
+                  fontSize: 13, color: "var(--color-fg)", cursor: "pointer",
+                }}
+              >
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Phone lookup */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: "var(--color-fg-3)", textTransform: "uppercase", letterSpacing: 0.4 }}>Phone number</span>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  value={phone}
+                  onChange={(e) => { setPhone(e.target.value); setFoundUser(null); setErr(null); }}
+                  onKeyDown={(e) => { if (e.key === "Enter") lookup(); }}
+                  placeholder="+998 90 123 4567"
+                  style={{
+                    flex: 1, padding: "9px 12px", borderRadius: 8,
+                    border: "1px solid var(--color-border)", background: "var(--color-surface-2)",
+                    fontSize: 13, color: "var(--color-fg)", outline: "none",
+                  }}
+                />
+                <button onClick={lookup} disabled={!phone.trim() || searching} style={{
+                  padding: "9px 14px", borderRadius: 8, border: "none",
+                  background: phone.trim() ? "var(--color-primary)" : "var(--color-surface-3)",
+                  color: "#fff", fontSize: 13, fontWeight: 600,
+                  cursor: phone.trim() && !searching ? "pointer" : "not-allowed",
+                  flex: "none",
+                }}>
+                  {searching ? "…" : "Find"}
+                </button>
+              </div>
+            </div>
+
+            {/* Found user */}
+            {foundUser && (
+              <div style={{
+                display: "flex", alignItems: "center", gap: 10,
+                padding: "10px 12px", borderRadius: 10,
+                border: "1.5px solid var(--color-success)",
+                background: "var(--color-success-soft)",
+              }}>
+                <div style={{
+                  width: 32, height: 32, borderRadius: 8, flex: "none",
+                  background: "var(--color-success)", color: "#fff",
+                  display: "grid", placeItems: "center", fontSize: 14, fontWeight: 700,
+                }}>
+                  {(foundUser.fullName ?? foundUser.phone ?? "?").charAt(0).toUpperCase()}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-fg)" }}>
+                    {foundUser.fullName ?? "No name set"}
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--color-fg-3)", fontFamily: "var(--font-mono)" }}>
+                    {foundUser.phone}
+                  </div>
+                </div>
+                <span style={{ fontSize: 11, fontWeight: 600, color: "var(--color-success)" }}>Found ✓</span>
+              </div>
+            )}
+
+            {/* Role selector */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: "var(--color-fg-3)", textTransform: "uppercase", letterSpacing: 0.4 }}>Role</span>
+              <div style={{ display: "flex", gap: 8 }}>
+                {(["operator", "manager"] as const).map((r) => (
+                  <button key={r} onClick={() => setRole(r)} style={{
+                    flex: 1, padding: "9px 0", borderRadius: 8,
+                    border: `1.5px solid ${role === r ? "var(--color-primary)" : "var(--color-border)"}`,
+                    background: role === r ? "var(--color-primary-soft)" : "var(--color-surface-2)",
+                    color: role === r ? "var(--color-primary)" : "var(--color-fg-2)",
+                    fontSize: 13, fontWeight: role === r ? 600 : 400, cursor: "pointer",
+                    textTransform: "capitalize",
+                  }}>
+                    {r}
+                  </button>
+                ))}
+              </div>
+              <span style={{ fontSize: 10.5, color: "var(--color-fg-4)" }}>
+                {role === "operator"
+                  ? "Can serve tickets at their assigned window"
+                  : "Can manage branches, windows, and services"}
+              </span>
+            </div>
+
+            {err && (
+              <div style={{ fontSize: 12, color: "var(--color-danger)", background: "var(--color-danger-soft)",
+                padding: "8px 10px", borderRadius: 7 }}>{err}</div>
+            )}
+
+            <button
+              onClick={save}
+              disabled={!foundUser || saving}
+              style={{
+                padding: "11px 0", borderRadius: 10, border: "none",
+                background: foundUser && !saving ? "var(--color-primary)" : "var(--color-fg-4)",
+                color: "#fff", fontSize: 14, fontWeight: 600,
+                cursor: foundUser && !saving ? "pointer" : "not-allowed",
+              }}
+            >
+              {saving ? "Adding…" : `Add as ${role}`}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function AssignOperatorModal({ win, onClose, onSaved }: {
@@ -383,6 +591,7 @@ export default function StaffPage() {
   const [loading, setLoading] = useState(true);
   const [editWindow, setEditWindow] = useState<WindowDesk | null>(null);
   const [assignWindow, setAssignWindow] = useState<WindowDesk | null>(null);
+  const [showAddStaff, setShowAddStaff] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -433,6 +642,13 @@ export default function StaffPage() {
         <span style={{ fontSize: 11, color: "var(--color-fg-3)", fontFamily: "var(--font-mono)" }}>
           {totalOpen} open · {totalWindows} windows · live
         </span>
+        <button onClick={() => setShowAddStaff(true)} style={{
+          padding: "6px 14px", borderRadius: 8, border: "none",
+          background: "var(--color-primary)", color: "#fff",
+          fontSize: 12, fontWeight: 600, cursor: "pointer",
+        }}>
+          + Add staff
+        </button>
       </div>
 
       <div style={{ flex: 1, padding: 24, overflow: "auto", display: "flex", flexDirection: "column", gap: 16 }}>
@@ -537,6 +753,13 @@ export default function StaffPage() {
         )}
       </div>
 
+      {showAddStaff && branches.length > 0 && (
+        <AddStaffModal
+          branches={branches}
+          onClose={() => setShowAddStaff(false)}
+          onSaved={load}
+        />
+      )}
       {editWindow && (
         <EditWindowModal
           win={editWindow}
