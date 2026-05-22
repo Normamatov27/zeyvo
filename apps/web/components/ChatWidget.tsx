@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth";
+import { useUiStore } from "@/stores/ui";
 import { getStompClient } from "@/lib/realtime";
 
 interface ChatMsg {
@@ -29,8 +30,9 @@ const CloseIcon = () => (
   </svg>
 );
 
-export function ChatWidget({ orgId, orgName }: { orgId?: string; orgName?: string }) {
+export function ChatWidget() {
   const { userId, accessToken, _hydrated } = useAuthStore();
+  const { browsingOrgId: orgId, browsingOrgName: orgName } = useUiStore();
   const [view, setView] = useState<View>("closed");
   const [channel, setChannel] = useState<Channel>("support");
   const [messages, setMessages] = useState<ChatMsg[]>([]);

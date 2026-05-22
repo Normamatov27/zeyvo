@@ -8,6 +8,10 @@ interface UiState {
   locale: "en" | "ru" | "uz";
   setTheme: (t: Theme) => void;
   setLocale: (l: "en" | "ru" | "uz") => void;
+  browsingOrgId: string | null;
+  browsingOrgName: string | null;
+  setCurrentOrg: (orgId: string, orgName: string) => void;
+  clearCurrentOrg: () => void;
 }
 
 export const useUiStore = create<UiState>()(
@@ -20,6 +24,10 @@ export const useUiStore = create<UiState>()(
         applyTheme(theme);
       },
       setLocale: (locale) => set({ locale }),
+      browsingOrgId: null,
+      browsingOrgName: null,
+      setCurrentOrg: (orgId, orgName) => set({ browsingOrgId: orgId, browsingOrgName: orgName }),
+      clearCurrentOrg: () => set({ browsingOrgId: null, browsingOrgName: null }),
     }),
     { name: "zeyvo-ui" }
   )

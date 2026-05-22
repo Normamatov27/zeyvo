@@ -32,7 +32,7 @@ const ROLE_COLOR: Record<string, string> = {
 };
 
 export default function AdminChatPage() {
-  const { roles, accessToken } = useAuthStore();
+  const { roles, accessToken, orgId } = useAuthStore();
   const isSuper = roles.includes("super_admin");
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -57,7 +57,9 @@ export default function AdminChatPage() {
   // Subscribe to relevant STOMP topic
   useEffect(() => {
     const stomp = getStompClient(accessToken ?? undefined);
-    const topic = isSuper ? "/topic/chat/support" : null;
+    const topic = isSuper
+      ? "/topic/chat/support"
+      : orgId ? `/topic/chat/org/${orgId}` : null;
     if (!topic) return;
     const subscribe = () => {
       subRef.current = stomp.subscribe(topic!, (msg) => {
@@ -80,7 +82,7 @@ export default function AdminChatPage() {
     if (stomp.connected) subscribe();
     else stomp.onConnect = subscribe;
     return () => { subRef.current?.unsubscribe(); };
-  }, [accessToken, isSuper, selected?.id, loadConversations]);
+  }, [accessToken, isSuper, orgId, selected?.id, loadConversations]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });

@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api";
 import { ApiError } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth";
+import { useUiStore } from "@/stores/ui";
 import { BranchDetail, Ticket, branchLoadLevel, estimateWaitMin } from "@/lib/types";
 
 const ACTIVE = new Set(["waiting", "called", "serving"]);
@@ -15,6 +16,7 @@ export default function BranchPage() {
   const router = useRouter();
   const t = useTranslations("branch");
   const { userId, _hydrated } = useAuthStore();
+  const { setCurrentOrg, clearCurrentOrg } = useUiStore();
   const [branch, setBranch] = useState<BranchDetail | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [existingTicket, setExistingTicket] = useState<Ticket | null>(null);
@@ -40,8 +42,10 @@ export default function BranchPage() {
       if (b.services.length > 0) setSelected(b.services[0]!.id);
       const active = myTickets.find((t) => t.branchId === id && ACTIVE.has(t.status));
       if (active) setExistingTicket(active);
+      if (b.organizationId) setCurrentOrg(b.organizationId, b.orgName ?? b.name);
     }).catch(() => setError("Branch not found"))
       .finally(() => setLoading(false));
+    return () => clearCurrentOrg();
   }, [id, userId]);
 
   async function joinQueue() {

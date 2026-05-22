@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
@@ -164,19 +165,28 @@ public class AppointmentService {
 
     @Transactional(readOnly = true)
     public List<SlotInfo> getAvailability(UUID branchId, String dateStr, UUID serviceId) {
-        // Parse date as UTC day boundaries
         java.time.LocalDate date = java.time.LocalDate.parse(dateStr);
-        Instant dayStart = date.atStartOfDay(ZoneOffset.UTC).toInstant();
-        Instant dayEnd = date.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+
+        // Fetch branch timezone; fall back to Tashkent (the primary market)
+        String tz = "Asia/Tashkent";
+        try {
+            Object tzRow = em.createNativeQuery("SELECT timezone FROM app.branch WHERE id = :id")
+                    .setParameter("id", branchId).getSingleResult();
+            if (tzRow instanceof String s && !s.isBlank()) tz = s;
+        } catch (Exception ignored) {}
+
+        ZoneId zone = ZoneId.of(tz);
+        Instant dayStart = date.atStartOfDay(zone).toInstant();
+        Instant dayEnd   = date.plusDays(1).atStartOfDay(zone).toInstant();
 
         // Get booked slots for the day
         Set<Instant> booked = new HashSet<>(repo.findBookedSlots(branchId, dayStart, dayEnd, AppointmentStatus.BOOKED));
 
-        // Generate 15-min slots from 09:00 to 18:00 UTC
+        // Generate 15-min slots from 09:00 to 18:00 in branch local time
         List<SlotInfo> slots = new ArrayList<>();
-        Instant cursor = date.atTime(9, 0).toInstant(ZoneOffset.UTC);
-        Instant end = date.atTime(18, 0).toInstant(ZoneOffset.UTC);
-        Instant now = Instant.now().plus(5, ChronoUnit.MINUTES);
+        Instant cursor = date.atTime(9, 0).atZone(zone).toInstant();
+        Instant end    = date.atTime(18, 0).atZone(zone).toInstant();
+        Instant now    = Instant.now().plus(5, ChronoUnit.MINUTES);
 
         while (cursor.isBefore(end)) {
             boolean available = !booked.contains(cursor) && cursor.isAfter(now);
