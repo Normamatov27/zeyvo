@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 
@@ -14,6 +14,7 @@ interface Tenant {
   branchCount?: number;
 }
 
+const PLANS = ["trial", "starter", "growth", "enterprise"];
 const PLAN_COLOR: Record<string, string> = {
   trial: "var(--color-warning)",
   starter: "var(--color-primary)",
@@ -21,17 +22,143 @@ const PLAN_COLOR: Record<string, string> = {
   enterprise: "var(--color-success)",
 };
 
+function CreateTenantModal({ onClose, onCreated }: {
+  onClose: () => void;
+  onCreated: (t: Tenant) => void;
+}) {
+  const [name, setName] = useState("");
+  const [slug, setSlug] = useState("");
+  const [plan, setPlan] = useState("trial");
+  const [country, setCountry] = useState("UZ");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) { setErr("Name is required"); return; }
+    setSaving(true); setErr(null);
+    try {
+      const body: Record<string, string> = { name: name.trim(), plan, country: country.toUpperCase() };
+      if (slug.trim()) body.slug = slug.trim();
+      const created = await apiFetch<Tenant>("/api/v1/platform/tenants", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      onCreated(created);
+      onClose();
+    } catch (e: any) {
+      setErr(e?.message ?? "Failed to create tenant");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
+      display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50,
+    }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        background: "var(--color-surface)", borderRadius: 16, padding: 24,
+        width: 420, display: "flex", flexDirection: "column", gap: 16,
+        boxShadow: "var(--shadow-4)",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: -0.3 }}>New tenant</div>
+            <div style={{ fontSize: 12, color: "var(--color-fg-3)", marginTop: 2 }}>
+              Creates an organization immediately — no OTP required
+            </div>
+          </div>
+          <button onClick={onClose} style={{
+            width: 28, height: 28, borderRadius: 7, border: "1px solid var(--color-border)",
+            background: "var(--color-surface-2)", cursor: "pointer", color: "var(--color-fg-3)",
+            display: "grid", placeItems: "center",
+          }}>✕</button>
+        </div>
+
+        <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {[
+            { label: "Organization name", value: name, onChange: setName, placeholder: "Asaka Bank", required: true },
+            { label: "Slug (auto-generated if blank)", value: slug, onChange: setSlug, placeholder: "asaka-bank" },
+            { label: "Country code", value: country, onChange: setCountry, placeholder: "UZ" },
+          ].map(({ label, value, onChange, placeholder, required }) => (
+            <label key={label} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: "var(--color-fg-3)", textTransform: "uppercase", letterSpacing: 0.4 }}>
+                {label}
+              </span>
+              <input
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                placeholder={placeholder}
+                required={required}
+                style={{
+                  padding: "9px 12px", borderRadius: 8,
+                  border: "1px solid var(--color-border)", background: "var(--color-surface-2)",
+                  fontSize: 13, color: "var(--color-fg)", outline: "none",
+                }}
+              />
+            </label>
+          ))}
+
+          <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: "var(--color-fg-3)", textTransform: "uppercase", letterSpacing: 0.4 }}>
+              Plan
+            </span>
+            <div style={{ display: "flex", gap: 6 }}>
+              {PLANS.map((p) => (
+                <button key={p} type="button" onClick={() => setPlan(p)} style={{
+                  flex: 1, padding: "7px 0", borderRadius: 7, cursor: "pointer",
+                  border: `1.5px solid ${plan === p ? (PLAN_COLOR[p] ?? "var(--color-primary)") : "var(--color-border)"}`,
+                  background: plan === p ? `color-mix(in oklch, ${PLAN_COLOR[p]} 15%, transparent)` : "var(--color-surface-2)",
+                  color: plan === p ? (PLAN_COLOR[p] ?? "var(--color-primary)") : "var(--color-fg-3)",
+                  fontSize: 11, fontWeight: plan === p ? 700 : 400,
+                  fontFamily: "var(--font-mono)",
+                }}>
+                  {p}
+                </button>
+              ))}
+            </div>
+          </label>
+
+          {err && (
+            <div style={{ fontSize: 12, color: "var(--color-danger)", background: "var(--color-danger-soft)", padding: "8px 10px", borderRadius: 7 }}>
+              {err}
+            </div>
+          )}
+
+          <button type="submit" disabled={saving} style={{
+            padding: "11px 0", borderRadius: 10, border: "none",
+            background: saving ? "var(--color-fg-4)" : "oklch(0.3 0.08 25)",
+            color: "#fff", fontSize: 14, fontWeight: 600,
+            cursor: saving ? "not-allowed" : "pointer", marginTop: 4,
+          }}>
+            {saving ? "Creating…" : "Create tenant"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function TenantsPage() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
   const router = useRouter();
 
-  useEffect(() => {
-    apiFetch<Tenant[]>("/api/v1/platform/tenants")
-      .then(setTenants)
-      .catch(() => setTenants([]))
-      .finally(() => setLoading(false));
+  const load = useCallback(async () => {
+    try {
+      const data = await apiFetch<Tenant[]>("/api/v1/platform/tenants");
+      setTenants(data);
+    } catch {
+      setTenants([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -45,6 +172,13 @@ export default function TenantsPage() {
         <span style={{ fontSize: 11, color: "var(--color-fg-3)", fontFamily: "var(--font-mono)" }}>
           {tenants.length} organizations
         </span>
+        <button onClick={() => setShowCreate(true)} style={{
+          padding: "6px 14px", borderRadius: 8, border: "none",
+          background: "oklch(0.3 0.08 25)", color: "#fff",
+          fontSize: 12, fontWeight: 600, cursor: "pointer",
+        }}>
+          + New tenant
+        </button>
       </div>
 
       <div style={{ flex: 1, padding: 24, overflow: "auto" }}>
@@ -52,7 +186,6 @@ export default function TenantsPage() {
           background: "var(--color-surface)", border: "1px solid var(--color-border)",
           borderRadius: 14, overflow: "hidden",
         }}>
-          {/* Header */}
           <div style={{
             display: "grid", gridTemplateColumns: "1fr 120px 80px 120px 100px",
             padding: "8px 18px",
@@ -76,7 +209,13 @@ export default function TenantsPage() {
             ))
           ) : tenants.length === 0 ? (
             <div style={{ padding: "40px 18px", textAlign: "center", color: "var(--color-fg-3)", fontSize: 13 }}>
-              No tenants yet. The first organization is created when a user signs up.
+              No tenants yet.{" "}
+              <button onClick={() => setShowCreate(true)} style={{
+                color: "oklch(0.58 0.2 25)", background: "none", border: "none",
+                cursor: "pointer", fontSize: 13, fontWeight: 500,
+              }}>
+                Create the first one →
+              </button>
             </div>
           ) : tenants.map((t, idx) => (
             <div key={t.id}
@@ -119,6 +258,13 @@ export default function TenantsPage() {
           ))}
         </div>
       </div>
+
+      {showCreate && (
+        <CreateTenantModal
+          onClose={() => setShowCreate(false)}
+          onCreated={(t) => setTenants((prev) => [t, ...prev])}
+        />
+      )}
     </div>
   );
 }

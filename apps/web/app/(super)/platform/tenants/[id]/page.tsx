@@ -76,6 +76,10 @@ export default function TenantDetailPage() {
   const [loadingTenant, setLoadingTenant] = useState(true);
   const [loadingStaff, setLoadingStaff] = useState(true);
 
+  // Delete state
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   // Edit state
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState("");
@@ -129,6 +133,17 @@ export default function TenantDetailPage() {
       setSaveErr(e?.message ?? "Save failed");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function deleteTenant() {
+    setDeleting(true);
+    try {
+      await apiFetch(`/api/v1/platform/tenants/${id}`, { method: "DELETE" });
+      router.replace("/platform/tenants" as any);
+    } catch {
+      setDeleting(false);
+      setConfirmDelete(false);
     }
   }
 
@@ -238,6 +253,13 @@ export default function TenantDetailPage() {
           fontSize: 12, fontWeight: 600, cursor: "pointer",
         }}>
           Edit
+        </button>
+        <button onClick={() => setConfirmDelete(true)} style={{
+          padding: "6px 14px", borderRadius: 8,
+          border: "1.5px solid var(--color-danger)", background: "transparent",
+          color: "var(--color-danger)", fontSize: 12, fontWeight: 600, cursor: "pointer",
+        }}>
+          Delete org
         </button>
       </div>
 
@@ -458,6 +480,53 @@ export default function TenantDetailPage() {
           )}
         </Section>
       </div>
+
+      {/* Delete confirmation modal */}
+      {confirmDelete && (
+        <div style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
+          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50,
+        }} onClick={() => !deleting && setConfirmDelete(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{
+            background: "var(--color-surface)", borderRadius: 16, padding: 28,
+            width: 400, display: "flex", flexDirection: "column", gap: 16,
+            boxShadow: "var(--shadow-4)",
+          }}>
+            <div style={{
+              width: 44, height: 44, borderRadius: 12,
+              background: "var(--color-danger-soft)", color: "var(--color-danger)",
+              display: "grid", placeItems: "center", fontSize: 20,
+            }}>⚠</div>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: -0.3 }}>
+                Delete "{tenant?.name}"?
+              </div>
+              <div style={{ fontSize: 13, color: "var(--color-fg-3)", marginTop: 6, lineHeight: 1.5 }}>
+                This permanently deletes the organization and all its branches, staff assignments,
+                services, windows, appointments, and tickets. This cannot be undone.
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setConfirmDelete(false)} disabled={deleting} style={{
+                flex: 1, padding: "10px 0", borderRadius: 10,
+                border: "1px solid var(--color-border)", background: "transparent",
+                color: "var(--color-fg-3)", fontSize: 13, fontWeight: 500,
+                cursor: deleting ? "not-allowed" : "pointer",
+              }}>
+                Cancel
+              </button>
+              <button onClick={deleteTenant} disabled={deleting} style={{
+                flex: 1, padding: "10px 0", borderRadius: 10, border: "none",
+                background: "var(--color-danger)", color: "#fff",
+                fontSize: 13, fontWeight: 700,
+                cursor: deleting ? "not-allowed" : "pointer",
+              }}>
+                {deleting ? "Deleting…" : "Delete permanently"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

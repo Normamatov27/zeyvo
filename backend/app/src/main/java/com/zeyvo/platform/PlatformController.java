@@ -55,6 +55,57 @@ public class PlatformController {
         );
     }
 
+    @PostMapping("/tenants")
+    @Transactional
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Create a new tenant organization")
+    public Map<String, Object> createTenant(@RequestBody Map<String, Object> body) {
+        String name = (String) body.getOrDefault("name", "");
+        if (name.isBlank())
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "name is required");
+
+        String slug = body.containsKey("slug") && !((String) body.get("slug")).isBlank()
+                ? (String) body.get("slug")
+                : deriveSlug(name);
+
+        if (orgRepo.findBySlug(slug).isPresent())
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Slug already taken — try a different one");
+
+        String plan    = body.containsKey("plan")    ? (String) body.get("plan")    : "trial";
+        String country = body.containsKey("country") ? ((String) body.get("country")).toUpperCase() : "UZ";
+
+        Organization org = Organization.builder()
+                .slug(slug)
+                .name(name)
+                .country(country)
+                .locale("uz")
+                .plan(plan)
+                .active(true)
+                .build();
+        org = orgRepo.save(org);
+
+        var m = new java.util.LinkedHashMap<String, Object>();
+        m.put("id", org.getId().toString());
+        m.put("slug", org.getSlug());
+        m.put("name", org.getName());
+        m.put("plan", org.getPlan());
+        m.put("country", org.getCountry());
+        m.put("active", org.isActive());
+        m.put("createdAt", org.getCreatedAt().toString());
+        m.put("branchCount", 0);
+        return m;
+    }
+
+    @DeleteMapping("/tenants/{id}")
+    @Transactional
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Permanently delete a tenant and all its data")
+    public void deleteTenant(@PathVariable UUID id) {
+        if (!orgRepo.existsById(id))
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Tenant not found");
+        orgRepo.deleteById(id);
+    }
+
     @GetMapping("/tenants")
     @Transactional(readOnly = true)
     @Operation(summary = "List all organizations")
@@ -235,5 +286,14 @@ public class PlatformController {
             map.put("ip", r[8]);
             return (Map<String, Object>) map;
         }).toList();
+    }
+
+    private static String deriveSlug(String name) {
+        String slug = name.toLowerCase()
+                .replaceAll("[^a-z0-9]+", "-")
+                .replaceAll("^-+|-+$", "");
+        if (slug.length() > 40) slug = slug.substring(0, 40).replaceAll("-+$", "");
+        if (slug.length() < 3) slug = slug + "-" + UUID.randomUUID().toString().substring(0, 6);
+        return slug;
     }
 }
