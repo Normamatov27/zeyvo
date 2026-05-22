@@ -2,32 +2,42 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useTranslations, useLocale } from "next-intl";
 import { apiFetch } from "@/lib/api";
 import { Ticket, fmtClock } from "@/lib/types";
 
-const STATUS_CFG: Record<string, { label: string; color: string; bg: string }> = {
-  served:    { label: "Served",    color: "var(--color-success)",  bg: "var(--color-success-soft)" },
-  waiting:   { label: "Waiting",   color: "var(--color-primary)",  bg: "var(--color-primary-soft)" },
-  called:    { label: "Called",    color: "var(--color-warning)",  bg: "var(--color-warning-soft)" },
-  serving:   { label: "Serving",   color: "var(--color-success)",  bg: "var(--color-success-soft)" },
-  no_show:   { label: "No-show",   color: "var(--color-warning)",  bg: "var(--color-warning-soft)" },
-  cancelled: { label: "Cancelled", color: "var(--color-fg-3)",     bg: "var(--color-surface-3)" },
-  expired:   { label: "Expired",   color: "var(--color-fg-4)",     bg: "var(--color-surface-3)" },
-  transferred: { label: "Transferred", color: "var(--color-accent)", bg: "var(--color-accent-soft)" },
+const STATUS_COLOR: Record<string, { color: string; bg: string }> = {
+  served:    { color: "var(--color-success)", bg: "var(--color-success-soft)" },
+  waiting:   { color: "var(--color-primary)", bg: "var(--color-primary-soft)" },
+  called:    { color: "var(--color-warning)", bg: "var(--color-warning-soft)" },
+  serving:   { color: "var(--color-success)", bg: "var(--color-success-soft)" },
+  no_show:   { color: "var(--color-warning)", bg: "var(--color-warning-soft)" },
+  cancelled: { color: "var(--color-fg-3)",    bg: "var(--color-surface-3)" },
+  expired:   { color: "var(--color-fg-4)",    bg: "var(--color-surface-3)" },
+  transferred:{ color: "var(--color-accent)", bg: "var(--color-accent-soft)" },
 };
 
-function fmtDate(ts: string) {
-  const d = new Date(ts);
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
+const LOCALE_FMT: Record<string, string> = { en: "en-GB", ru: "ru-RU", uz: "uz-UZ" };
 
-  if (d.toDateString() === today.toDateString()) return "Today";
-  if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+function useFmtDate() {
+  const t = useTranslations("history");
+  const locale = useLocale();
+  return (ts: string) => {
+    const d = new Date(ts);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (d.toDateString() === today.toDateString()) return t("today");
+    if (d.toDateString() === yesterday.toDateString()) return t("yesterday");
+    return d.toLocaleDateString(LOCALE_FMT[locale] ?? "en-GB", { day: "numeric", month: "short", year: "numeric" });
+  };
 }
 
 export default function HistoryPage() {
+  const t = useTranslations("history");
+  const tAuth = useTranslations("auth");
+  const tQueue = useTranslations("queue");
+  const fmtDate = useFmtDate();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -41,11 +51,11 @@ export default function HistoryPage() {
 
   // Group by date
   const grouped: { date: string; tickets: Ticket[] }[] = [];
-  for (const t of tickets) {
-    const date = fmtDate(t.joinedAt);
+  for (const ticket of tickets) {
+    const date = fmtDate(ticket.joinedAt);
     const last = grouped[grouped.length - 1];
-    if (last && last.date === date) last.tickets.push(t);
-    else grouped.push({ date, tickets: [t] });
+    if (last && last.date === date) last.tickets.push(ticket);
+    else grouped.push({ date, tickets: [ticket] });
   }
 
   return (
@@ -56,9 +66,9 @@ export default function HistoryPage() {
         background: "var(--color-bg)",
         position: "sticky", top: 0, zIndex: 5,
       }}>
-        <div style={{ fontSize: 17, fontWeight: 600, letterSpacing: -0.3 }}>History</div>
+        <div style={{ fontSize: 17, fontWeight: 600, letterSpacing: -0.3 }}>{t("title")}</div>
         <div style={{ fontSize: 11.5, color: "var(--color-fg-3)", marginTop: 1 }}>
-          {loading ? "Loading…" : `${tickets.length} tickets`}
+          {loading ? t("loading") : t("ticket_count", { count: tickets.length })}
         </div>
       </div>
 
@@ -74,27 +84,27 @@ export default function HistoryPage() {
 
         {!loading && error && (
           <div style={{ textAlign: "center", padding: "40px 0", color: "var(--color-fg-3)" }}>
-            <div style={{ fontSize: 13 }}>Sign in to see your history</div>
+            <div style={{ fontSize: 13 }}>{t("sign_in_prompt")}</div>
             <Link href="/sign-in" style={{
               display: "inline-block", marginTop: 12, padding: "8px 20px",
               borderRadius: 10, background: "var(--color-primary)", color: "#fff",
               fontSize: 13, fontWeight: 500, textDecoration: "none",
-            }}>Sign in</Link>
+            }}>{tAuth("sign_in")}</Link>
           </div>
         )}
 
         {!loading && !error && tickets.length === 0 && (
           <div style={{ textAlign: "center", padding: "60px 0" }}>
             <div style={{ fontSize: 32, marginBottom: 10 }}>🎫</div>
-            <div style={{ fontSize: 14, fontWeight: 500, color: "var(--color-fg)" }}>No tickets yet</div>
+            <div style={{ fontSize: 14, fontWeight: 500, color: "var(--color-fg)" }}>{t("empty_title")}</div>
             <div style={{ fontSize: 13, color: "var(--color-fg-3)", marginTop: 4 }}>
-              Join a queue and it'll appear here
+              {t("empty_sub")}
             </div>
-            <Link href="/" style={{
+            <Link href="/branches" style={{
               display: "inline-block", marginTop: 16, padding: "10px 22px",
               borderRadius: 12, background: "var(--color-primary)", color: "#fff",
               fontSize: 13, fontWeight: 600, textDecoration: "none",
-            }}>Find a queue</Link>
+            }}>{tQueue("find")}</Link>
           </div>
         )}
 
@@ -108,11 +118,11 @@ export default function HistoryPage() {
               {date}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {group.map((t) => {
-                const cfg = STATUS_CFG[t.status] ?? STATUS_CFG.cancelled!;
-                const isActive = ["waiting", "called", "serving"].includes(t.status);
+              {group.map((tk) => {
+                const cfg = STATUS_COLOR[tk.status] ?? STATUS_COLOR.cancelled!;
+                const isActive = ["waiting", "called", "serving"].includes(tk.status);
                 return (
-                  <Link key={t.id} href={`/ticket/${t.id}`} style={{ textDecoration: "none", color: "inherit" }}>
+                  <Link key={tk.id} href={`/ticket/${tk.id}`} style={{ textDecoration: "none", color: "inherit" }}>
                     <div style={{
                       background: "var(--color-surface)", border: "1px solid var(--color-border)",
                       borderRadius: 12, padding: "12px 14px",
@@ -127,19 +137,19 @@ export default function HistoryPage() {
                         fontFamily: "var(--font-mono)", fontSize: 16, fontWeight: 700,
                         color: "var(--color-fg)",
                       }}>
-                        {t.number}
+                        {tk.number}
                       </div>
 
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-fg)",
                           whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {t.branchName ?? "Branch"}
+                          {tk.branchName ?? ""}
                         </div>
                         <div style={{ fontSize: 11.5, color: "var(--color-fg-3)", marginTop: 2,
                           fontFamily: "var(--font-mono)" }}>
-                          {t.serviceName && <span style={{ marginRight: 4 }}>{t.serviceName} ·</span>}
-                          {t.source === "kiosk" ? "walk-in" : "remote"} · {fmtClock(t.joinedAt)}
-                          {t.servedAt && ` → ${fmtClock(t.servedAt)}`}
+                          {tk.serviceName && <span style={{ marginRight: 4 }}>{tk.serviceName} ·</span>}
+                          {tk.source === "kiosk" ? t("source_kiosk") : t("source_remote")} · {fmtClock(tk.joinedAt)}
+                          {tk.servedAt && ` → ${fmtClock(tk.servedAt)}`}
                         </div>
                       </div>
 
@@ -153,7 +163,7 @@ export default function HistoryPage() {
                             <span style={{ width: 5, height: 5, borderRadius: "50%",
                               background: cfg.color, flex: "none" }}/>
                           )}
-                          {cfg.label}
+                          {t(`status.${tk.status}` as any)}
                         </span>
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
                           stroke="var(--color-fg-4)" strokeWidth="2">

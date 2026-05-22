@@ -43,6 +43,28 @@
     },
     "backToAdmin": "Админ-панель"
   },
+  "history": {
+    "title": "История",
+    "ticket_count": "{count, plural, =0 {Нет талонов} one {# талон} few {# талона} other {# талонов}}",
+    "loading": "Загрузка…",
+    "sign_in_prompt": "Войдите, чтобы увидеть историю",
+    "empty_title": "Талонов пока нет",
+    "empty_sub": "Встаньте в очередь — талон появится здесь",
+    "today": "Сегодня",
+    "yesterday": "Вчера",
+    "source_kiosk": "очно",
+    "source_remote": "удалённо",
+    "status": {
+      "served": "Обслужен",
+      "waiting": "Ожидает",
+      "called": "Вызван",
+      "serving": "Обслуживается",
+      "no_show": "Пропустил",
+      "cancelled": "Отменён",
+      "expired": "Истёк",
+      "transferred": "Передан"
+    }
+  },
   "queue": {
     "find": "Найти очередь",
     "near_you": "{count} филиалов рядом",
