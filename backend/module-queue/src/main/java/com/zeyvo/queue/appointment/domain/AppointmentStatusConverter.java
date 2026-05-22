@@ -15,11 +15,14 @@ public class AppointmentStatusConverter implements AttributeConverter<Appointmen
     public AppointmentStatus convertToEntityAttribute(String col) {
         if (col == null) return null;
         return switch (col) {
-            case "booked"    -> AppointmentStatus.BOOKED;
-            case "cancelled" -> AppointmentStatus.CANCELLED;
-            case "no_show"   -> AppointmentStatus.NO_SHOW;
-            case "served"    -> AppointmentStatus.SERVED;
-            default          -> throw new IllegalArgumentException("Unknown appointment status: " + col);
+            case "booked"      -> AppointmentStatus.BOOKED;
+            case "confirmed"   -> AppointmentStatus.CONFIRMED;
+            case "checked_in"  -> AppointmentStatus.CHECKED_IN;
+            case "in_progress" -> AppointmentStatus.IN_PROGRESS;
+            case "no_show"     -> AppointmentStatus.NO_SHOW;
+            case "served"      -> AppointmentStatus.SERVED;
+            case "cancelled"   -> AppointmentStatus.CANCELLED;
+            default            -> throw new IllegalArgumentException("Unknown appointment status: " + col);
         };
     }
 }
