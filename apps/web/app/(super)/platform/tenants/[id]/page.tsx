@@ -79,6 +79,7 @@ export default function TenantDetailPage() {
   // Delete state
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteErr, setDeleteErr] = useState<string | null>(null);
 
   // Edit state
   const [editing, setEditing] = useState(false);
@@ -138,12 +139,13 @@ export default function TenantDetailPage() {
 
   async function deleteTenant() {
     setDeleting(true);
+    setDeleteErr(null);
     try {
       await apiFetch(`/api/v1/platform/tenants/${id}`, { method: "DELETE" });
       router.replace("/platform/tenants" as any);
-    } catch {
+    } catch (e: any) {
+      setDeleteErr(e?.message ?? "Delete failed. Try again.");
       setDeleting(false);
-      setConfirmDelete(false);
     }
   }
 
@@ -506,8 +508,17 @@ export default function TenantDetailPage() {
                 services, windows, appointments, and tickets. This cannot be undone.
               </div>
             </div>
+            {deleteErr && (
+              <div style={{
+                fontSize: 12, color: "var(--color-danger)",
+                background: "var(--color-danger-soft)",
+                padding: "8px 12px", borderRadius: 8,
+              }}>
+                {deleteErr}
+              </div>
+            )}
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => setConfirmDelete(false)} disabled={deleting} style={{
+              <button onClick={() => { setConfirmDelete(false); setDeleteErr(null); }} disabled={deleting} style={{
                 flex: 1, padding: "10px 0", borderRadius: 10,
                 border: "1px solid var(--color-border)", background: "transparent",
                 color: "var(--color-fg-3)", fontSize: 13, fontWeight: 500,

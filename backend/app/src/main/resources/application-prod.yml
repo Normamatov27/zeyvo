@@ -50,3 +50,5 @@ zeyvo:
     enabled: true
   appointments:
     enabled: true
+  telegram:
+    use-polling: true

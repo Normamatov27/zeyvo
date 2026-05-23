@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Zeyvo — The Operating System for Physical Queues</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Instrument+Serif&display=swap');
+
+:root{
+  --bg:#000;
+  --ink:#fff;
+  --ink-2:#a8a8b8;
+  --ink-3:#5a5a6a;
+  --ink-4:#2a2a35;
+  --line:rgba(255,255,255,.08);
+  --line-2:rgba(255,255,255,.04);
+  --accent:#00E5FF;
+  --accent-2:#0044FF;
+  --warm:#FF6B35;
+  --green:#00E08F;
+  --danger:#FF2D55;
+  --sans:'Inter',-apple-system,sans-serif;
+  --mono:'JetBrains Mono',monospace;
+  --serif:'Instrument Serif',serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px;-webkit-font-smoothing:antialiased}
+body{font-family:var(--sans);background:#000;color:#fff;line-height:1.55}
+
+.page{
+  width:297mm;min-height:210mm;
+  background:#000;color:#fff;
+  position:relative;overflow:hidden;
+  padding:32mm 28mm;
+  page-break-after:always;
+  display:flex;flex-direction:column;
+}
+.page:last-child{page-break-after:avoid}
+
+/* ── Frame ───────────────────────────────────────────── */
+.frame{
+  position:absolute;inset:14mm 14mm;
+  border:1px solid var(--line);
+  pointer-events:none;z-index:0;
+}
+.corner{position:absolute;width:14px;height:14px;border:1px solid var(--accent)}
+.corner.tl{top:-1px;left:-1px;border-right:0;border-bottom:0}
+.corner.tr{top:-1px;right:-1px;border-left:0;border-bottom:0}
+.corner.bl{bottom:-1px;left:-1px;border-right:0;border-top:0}
+.corner.br{bottom:-1px;right:-1px;border-left:0;border-top:0}
+
+.runner{
+  position:absolute;top:18mm;left:28mm;right:28mm;
+  display:flex;justify-content:space-between;align-items:center;
+  font-family:var(--mono);font-size:10px;color:var(--ink-3);
+  letter-spacing:.2em;text-transform:uppercase;z-index:2;
+}
+.runner-r{display:flex;gap:24px;align-items:center}
+.runner-dot{width:4px;height:4px;background:var(--accent);border-radius:50%;box-shadow:0 0 8px var(--accent)}
+
+.pnum{
+  position:absolute;bottom:18mm;right:28mm;
+  font-family:var(--mono);font-size:10px;color:var(--ink-3);
+  letter-spacing:.15em;z-index:2;
+}
+.pnum-l{
+  position:absolute;bottom:18mm;left:28mm;
+  font-family:var(--mono);font-size:10px;color:var(--ink-3);
+  letter-spacing:.15em;z-index:2;
+}
+
+.content{position:relative;z-index:1;flex:1;display:flex;flex-direction:column}
+
+/* ── Type ────────────────────────────────────────────── */
+.eyebrow{
+  font-family:var(--mono);font-size:11px;color:var(--accent);
+  letter-spacing:.3em;text-transform:uppercase;margin-bottom:14px;
+}
+.eyebrow-warm{color:var(--warm)}
+.eyebrow-danger{color:var(--danger)}
+.eyebrow-green{color:var(--green)}
+
+.h-mega{font-size:160px;font-weight:200;letter-spacing:-.06em;line-height:.85}
+.h-xl{font-size:96px;font-weight:300;letter-spacing:-.04em;line-height:.95}
+.h-lg{font-size:64px;font-weight:300;letter-spacing:-.03em;line-height:1.02}
+.h-md{font-size:42px;font-weight:400;letter-spacing:-.02em;line-height:1.1}
+.h-sm{font-size:28px;font-weight:500;letter-spacing:-.01em;line-height:1.2}
+.h-xs{font-size:18px;font-weight:600;letter-spacing:-.005em;line-height:1.3}
+
+.serif{font-family:var(--serif);font-weight:400;letter-spacing:-.01em}
+.italic{font-style:italic}
+
+.body{font-size:15px;color:var(--ink-2);font-weight:400;line-height:1.65;max-width:62ch}
+.body-lg{font-size:18px;color:var(--ink-2);font-weight:300;line-height:1.6;max-width:60ch}
+.caption{font-size:12px;color:var(--ink-3);font-weight:400;line-height:1.5}
+.mono{font-family:var(--mono);font-size:13px;color:var(--ink-2);letter-spacing:.02em}
+
+.muted{color:var(--ink-2)}.dim{color:var(--ink-3)}.faint{color:var(--ink-4)}
+.accent{color:var(--accent)}.warm{color:var(--warm)}.green{color:var(--green)}.danger{color:var(--danger)}
+
+.rule{height:1px;background:var(--line);width:100%}
+.rule-v{width:1px;background:var(--line);align-self:stretch}
+.rule-accent{height:1px;background:linear-gradient(90deg,var(--accent),transparent);width:120px}
+
+.flex{display:flex}.col{flex-direction:column}.row{flex-direction:row}
+.grow{flex:1}.center{align-items:center;justify-content:center}
+.between{justify-content:space-between}.end{justify-content:flex-end}
+.ai-start{align-items:flex-start}.ai-end{align-items:flex-end}.ai-c{align-items:center}
+.gap-8{gap:8px}.gap-12{gap:12px}.gap-16{gap:16px}.gap-24{gap:24px}.gap-32{gap:32px}.gap-40{gap:40px}.gap-48{gap:48px}.gap-64{gap:64px}
+.mt-12{margin-top:12px}.mt-16{margin-top:16px}.mt-24{margin-top:24px}.mt-32{margin-top:32px}.mt-40{margin-top:40px}.mt-48{margin-top:48px}.mt-64{margin-top:64px}
+.tc{text-align:center}.tr{text-align:right}
+
+/* ── COVER ───────────────────────────────────────────── */
+.cover{padding:0;background:#000}
+.cover-grid{
+  position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);
+  background-size:48px 48px;
+  mask-image:radial-gradient(ellipse at 50% 50%,black 30%,transparent 75%);
+}
+.cover-orb{
+  position:absolute;left:50%;top:50%;
+  width:900px;height:900px;
+  transform:translate(-50%,-50%);
+  background:radial-gradient(circle,rgba(0,229,255,.18) 0%,rgba(0,229,255,.04) 30%,transparent 60%);
+  border-radius:50%;filter:blur(40px);
+}
+.cover-content{
+  position:relative;z-index:2;
+  width:100%;height:210mm;
+  display:flex;flex-direction:column;justify-content:space-between;
+  padding:24mm 28mm;
+}
+.cover-top{display:flex;justify-content:space-between;align-items:flex-start}
+.cover-bottom{display:flex;justify-content:space-between;align-items:flex-end}
+.cover-logo{
+  font-family:var(--sans);font-size:13px;font-weight:600;letter-spacing:.4em;
+  display:flex;align-items:center;gap:10px;
+}
+.cover-logo-dot{
+  width:10px;height:10px;background:var(--accent);
+  box-shadow:0 0 16px var(--accent);
+  transform:rotate(45deg);
+}
+.cover-meta{
+  font-family:var(--mono);font-size:10px;color:var(--ink-3);
+  letter-spacing:.25em;text-transform:uppercase;
+  text-align:right;line-height:1.8;
+}
+.cover-headline{
+  font-family:var(--sans);font-weight:200;
+  font-size:128px;line-height:.9;letter-spacing:-.05em;
+  margin:auto 0;
+}
+.cover-headline .accent-word{
+  font-family:var(--serif);font-style:italic;font-weight:400;color:var(--accent);
+}
+
+/* ── Numbers / Data ──────────────────────────────────── */
+.bignum{font-family:var(--sans);font-weight:200;font-size:88px;line-height:1;letter-spacing:-.04em}
+.bignum-unit{font-size:24px;font-weight:400;color:var(--ink-3);margin-left:6px}
+.bignum-label{
+  font-family:var(--mono);font-size:11px;color:var(--ink-3);
+  letter-spacing:.2em;text-transform:uppercase;margin-top:12px;
+}
+
+.stat-row{display:flex;gap:1px;background:var(--line);padding:1px;border-radius:0}
+.stat-cell{flex:1;background:#000;padding:28px 24px;display:flex;flex-direction:column;gap:8px}
+.stat-cell .bignum{font-size:54px}
+.stat-cell .bignum-label{margin-top:8px}
+
+/* ── Cards ───────────────────────────────────────────── */
+.card{
+  border:1px solid var(--line);
+  background:linear-gradient(180deg,rgba(255,255,255,.015),transparent);
+  padding:24px;position:relative;
+}
+.card-accent{border-color:rgba(0,229,255,.25)}
+.card-num{
+  position:absolute;top:18px;right:20px;
+  font-family:var(--mono);font-size:11px;color:var(--ink-3);letter-spacing:.15em;
+}
+.card-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.card-dot{width:6px;height:6px;background:var(--accent);border-radius:50%}
+
+/* ── Bars ────────────────────────────────────────────── */
+.bar{height:2px;background:var(--ink-4);position:relative;overflow:hidden}
+.bar-fill{position:absolute;top:0;left:0;height:100%;background:var(--accent)}
+.bar-fill.danger{background:var(--danger)}
+.bar-fill.warm{background:var(--warm)}
+.bar-fill.green{background:var(--green)}
+
+/* ── Flow Steps ──────────────────────────────────────── */
+.steps{display:flex;flex-direction:column;gap:0}
+.step{
+  display:grid;grid-template-columns:80px 1fr 180px;
+  gap:32px;padding:20px 0;border-top:1px solid var(--line);
+  align-items:start;
+}
+.step:last-child{border-bottom:1px solid var(--line)}
+.step-num{font-family:var(--serif);font-size:48px;color:var(--accent);font-weight:400;line-height:1}
+.step-body h4{font-family:var(--sans);font-size:20px;font-weight:500;letter-spacing:-.01em;margin-bottom:6px}
+.step-body p{font-size:14px;color:var(--ink-2);line-height:1.55;max-width:54ch}
+.step-aside{font-family:var(--mono);font-size:11px;color:var(--ink-3);letter-spacing:.15em;text-align:right;line-height:1.7}
+
+/* ── Compare ─────────────────────────────────────────── */
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line)}
+.compare-col{background:#000;padding:28px}
+.compare-col h5{
+  font-family:var(--mono);font-size:11px;letter-spacing:.25em;text-transform:uppercase;
+  margin-bottom:18px;color:var(--ink-3);
+}
+.compare-col.before h5{color:var(--danger)}
+.compare-col.after h5{color:var(--green)}
+.compare-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:14px 0;border-top:1px solid var(--line-2);font-size:14px;
+}
+.compare-row:first-of-type{border-top:0;padding-top:0}
+.compare-row .v{font-family:var(--mono);font-size:13px;color:var(--ink-2)}
+.compare-row.before .v{color:var(--danger)}
+.compare-row.after .v{color:var(--green)}
+
+/* ── Industries ──────────────────────────────────────── */
+.sectors{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line)}
+.sector{background:#000;padding:24px;display:flex;flex-direction:column;gap:10px;min-height:160px}
+.sector-icon{font-size:24px;color:var(--accent)}
+.sector-name{font-size:16px;font-weight:600;letter-spacing:-.005em}
+.sector-desc{font-size:12px;color:var(--ink-3);line-height:1.55}
+
+/* ── Pricing ─────────────────────────────────────────── */
+.tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.tier{border:1px solid var(--line);padding:32px 28px;display:flex;flex-direction:column;gap:18px;min-height:340px}
+.tier.featured{border-color:var(--accent);background:linear-gradient(180deg,rgba(0,229,255,.03),transparent)}
+.tier-name{font-family:var(--mono);font-size:11px;letter-spacing:.25em;text-transform:uppercase;color:var(--ink-3)}
+.tier.featured .tier-name{color:var(--accent)}
+.tier-price{font-size:52px;font-weight:200;letter-spacing:-.03em;line-height:1}
+.tier-price small{font-size:16px;color:var(--ink-3);font-weight:400}
+.tier-period{font-family:var(--mono);font-size:11px;color:var(--ink-3);letter-spacing:.15em}
+.tier ul{list-style:none;display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.tier li{font-size:13px;color:var(--ink-2);padding-left:18px;position:relative}
+.tier li::before{content:'';position:absolute;left:0;top:8px;width:8px;height:1px;background:var(--accent)}
+
+/* ── Tech ────────────────────────────────────────────── */
+.tech-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+.tech-stack{border-top:1px solid var(--accent);padding-top:20px;display:flex;flex-direction:column;gap:12px}
+.tech-stack h5{font-family:var(--mono);font-size:11px;letter-spacing:.25em;color:var(--ink-3);text-transform:uppercase;margin-bottom:6px}
+.tech-stack .item{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--ink-2)}
+.tech-stack .item::before{content:'';width:4px;height:4px;background:var(--accent);border-radius:50%;flex-shrink:0}
+
+/* ── Roadmap ─────────────────────────────────────────── */
+.roadmap{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line)}
+.road-col{background:#000;padding:24px;display:flex;flex-direction:column;gap:14px;min-height:280px}
+.road-q{font-family:var(--mono);font-size:11px;color:var(--accent);letter-spacing:.25em}
+.road-title{font-size:18px;font-weight:600;letter-spacing:-.01em;line-height:1.25}
+.road-list{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+.road-item{font-size:12px;color:var(--ink-2);line-height:1.45;padding-left:14px;position:relative}
+.road-item::before{content:'';position:absolute;left:0;top:7px;width:6px;height:1px;background:var(--ink-3)}
+.road-col.active .road-q{color:var(--green)}
+.road-col.active{background:linear-gradient(180deg,rgba(0,224,143,.04),transparent)}
+
+/* ── TOC ─────────────────────────────────────────────── */
+.toc{display:flex;flex-direction:column;gap:0}
+.toc-row{
+  display:grid;grid-template-columns:60px 1fr 80px;
+  gap:24px;padding:14px 0;border-top:1px solid var(--line);
+  align-items:baseline;
+}
+.toc-row:last-child{border-bottom:1px solid var(--line)}
+.toc-num{font-family:var(--mono);font-size:12px;color:var(--ink-3);letter-spacing:.15em}
+.toc-title{font-family:var(--sans);font-size:18px;font-weight:400;color:var(--ink)}
+.toc-page{font-family:var(--mono);font-size:12px;color:var(--ink-3);text-align:right}
+
+/* ── Mock UI ─────────────────────────────────────────── */
+.mock-phone{
+  width:220px;height:440px;border-radius:32px;
+  border:1px solid rgba(255,255,255,.12);
+  background:linear-gradient(180deg,#0a0a12,#000);
+  padding:14px;position:relative;
+  box-shadow:0 0 80px rgba(0,229,255,.06);
+}
+.mock-phone::before{
+  content:'';position:absolute;top:14px;left:50%;transform:translateX(-50%);
+  width:60px;height:5px;background:#1a1a25;border-radius:3px;
+}
+.mock-screen{
+  margin-top:20px;height:calc(100% - 30px);
+  display:flex;flex-direction:column;gap:10px;
+}
+.mock-bar{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:6px 8px;font-family:var(--mono);font-size:8px;color:var(--ink-3);
+}
+.mock-title{font-size:9px;font-family:var(--mono);color:var(--accent);letter-spacing:.2em;padding:0 8px}
+.mock-pos{
+  background:linear-gradient(180deg,rgba(0,229,255,.08),transparent);
+  border:1px solid rgba(0,229,255,.2);
+  padding:18px 12px;border-radius:12px;text-align:center;
+  display:flex;flex-direction:column;gap:6px;margin:4px 8px;
+}
+.mock-pos-num{font-size:48px;font-weight:200;letter-spacing:-.03em;color:#fff;line-height:1}
+.mock-pos-lbl{font-family:var(--mono);font-size:8px;color:var(--ink-3);letter-spacing:.2em}
+.mock-eta{display:flex;justify-content:space-between;padding:8px 12px;margin:0 8px;border-top:1px solid var(--line)}
+.mock-eta-l{font-family:var(--mono);font-size:8px;color:var(--ink-3);letter-spacing:.15em}
+.mock-eta-v{font-family:var(--mono);font-size:11px;color:var(--accent)}
+.mock-queue{display:flex;flex-direction:column;gap:4px;padding:8px;margin:0 4px;flex:1}
+.mock-q-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:6px 8px;font-size:9px;font-family:var(--mono);
+  border-radius:6px;background:rgba(255,255,255,.02);
+}
+.mock-q-row.active{background:rgba(0,229,255,.06);color:var(--accent)}
+.mock-q-row.done{opacity:.3;text-decoration:line-through}
+.mock-cta{
+  margin:0 8px;padding:12px;background:var(--accent);color:#000;
+  border-radius:10px;font-size:11px;font-weight:600;text-align:center;
+  letter-spacing:.05em;
+}
+
+/* ── Dashboard mock ──────────────────────────────────── */
+.mock-dash{
+  border:1px solid var(--line);
+  background:linear-gradient(180deg,#06060c,#000);
+  padding:18px;display:flex;flex-direction:column;gap:12px;
+  border-radius:8px;
+}
+.mock-dash-head{display:flex;justify-content:space-between;align-items:center;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.mock-dash-title{font-size:13px;font-weight:600}
+.mock-dash-pills{display:flex;gap:6px}
+.mock-pill{font-family:var(--mono);font-size:9px;padding:3px 8px;border:1px solid var(--line);border-radius:20px;color:var(--ink-3);letter-spacing:.1em}
+.mock-pill.live{color:var(--green);border-color:rgba(0,224,143,.3)}
+.mock-pill.live::before{content:'●';margin-right:4px}
+.mock-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line)}
+.mock-kpi{background:#000;padding:14px;display:flex;flex-direction:column;gap:4px}
+.mock-kpi-v{font-size:24px;font-weight:300;letter-spacing:-.02em}
+.mock-kpi-l{font-family:var(--mono);font-size:9px;color:var(--ink-3);letter-spacing:.15em;text-transform:uppercase}
+.mock-kpi-delta{font-family:var(--mono);font-size:9px;color:var(--green)}
+.mock-chart{height:90px;position:relative;border-bottom:1px solid var(--line)}
+.mock-chart svg{width:100%;height:100%}
+
+/* ── Closing ─────────────────────────────────────────── */
+.closing{padding:0;background:#000}
+.closing-content{
+  position:relative;z-index:2;
+  width:100%;height:210mm;
+  display:flex;flex-direction:column;justify-content:center;align-items:center;
+  padding:24mm 28mm;text-align:center;
+}
+.closing-quote{
+  font-family:var(--serif);font-style:italic;font-weight:400;
+  font-size:84px;line-height:1.05;letter-spacing:-.02em;
+  max-width:18ch;
+}
+.closing-contact{
+  display:flex;gap:48px;margin-top:64px;
+  font-family:var(--mono);font-size:11px;color:var(--ink-3);
+  letter-spacing:.2em;text-transform:uppercase;
+}
+.closing-contact strong{color:var(--accent);font-weight:500}
+</style>
+</head>
+<body>
+
+<!-- ═══ 01 — COVER ═══════════════════════════════════════ -->
+<div class="page cover">
+  <div class="cover-grid"></div>
+  <div class="cover-orb"></div>
+  <div class="cover-content">
+    <div class="cover-top">
+      <div class="cover-logo"><span class="cover-logo-dot"></span>ZEYVO</div>
+      <div class="cover-meta">
+        Investor & Partner Brief<br>
+        May 2026 · v2<br>
+        Confidential
+      </div>
+    </div>
+
+    <div class="cover-headline">
+      The operating<br>
+      system for<br>
+      <span class="accent-word">physical queues.</span>
+    </div>
+
+    <div class="cover-bottom">
+      <div class="mono dim" style="letter-spacing:.2em">zeyvo.tech</div>
+      <div class="mono dim" style="letter-spacing:.2em">Tashkent · Uzbekistan</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 02 — STATEMENT ══════════════════════════════════ -->
+<div class="page">
+  <div class="frame"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span></div>
+  <div class="runner">
+    <span>ZEYVO / 2026</span>
+    <span class="runner-r"><span class="runner-dot"></span>STATEMENT</span>
+  </div>
+  <div class="pnum-l">— 02 —</div>
+  <div class="pnum">SECTION I</div>
+  <div class="content center" style="justify-content:center">
+    <div class="eyebrow">In one sentence</div>
+    <h1 class="h-lg" style="max-width:24ch;margin-top:8px">
+      We turn the chaotic, unmeasurable friction of physical waiting into
+      <span class="serif italic accent">predictable, profitable flow.</span>
+    </h1>
+    <div class="mt-48" style="display:grid;grid-template-columns:repeat(3,1fr);gap:48px;width:100%">
+      <div>
+        <div class="eyebrow" style="color:var(--ink-3)">For customers</div>
+        <p class="body mt-12">No more standing in line. Join from anywhere via Telegram, watch your position update in real time, arrive exactly when needed.</p>
+      </div>
+      <div>
+        <div class="eyebrow" style="color:var(--ink-3)">For businesses</div>
+        <p class="body mt-12">Real-time visibility of incoming load, staff efficiency, and branch throughput — replacing guesswork with operational intelligence.</p>
+      </div>
+      <div>
+        <div class="eyebrow" style="color:var(--ink-3)">For the market</div>
+        <p class="body mt-12">A unified queue infrastructure for every service business in Central Asia — banks, clinics, government, salons, telecom.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 03 — CONTENTS ═══════════════════════════════════ -->
+<div class="page">
+  <div class="frame"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span></div>
+  <div class="runner"><span>ZEYVO / 2026</span><span class="runner-r"><span class="runner-dot"></span>CONTENTS</span></div>
+  <div class="pnum-l">— 03 —</div>
+  <div class="pnum">INDEX</div>
+  <div class="content gap-40">
+    <div>
+      <div class="eyebrow">Contents</div>
+      <h2 class="h-xl mt-12 serif italic" style="font-weight:400">What's inside.</h2>
+    </div>
+    <div class="toc grow">
+      <div class="toc-row"><span class="toc-num">I.</span><span class="toc-title">The problem we measured in 1,000+ visits</span><span class="toc-page">— 04</span></div>
+      <div class="toc-row"><span class="toc-num">II.</span><span class="toc-title">Market opportunity in Uzbekistan & Central Asia</span><span class="toc-page">— 05</span></div>
+      <div class="toc-row"><span class="toc-num">III.</span><span class="toc-title">The Zeyvo product — five movements</span><span class="toc-page">— 06</span></div>
+      <div class="toc-row"><span class="toc-num">IV.</span><span class="toc-title">The customer experience</span><span class="toc-page">— 07</span></div>
+      <div class="toc-row"><span class="toc-num">V.</span><span class="toc-title">The business command center</span><span class="toc-page">— 08</span></div>
+      <div class="toc-row"><span class="toc-num">VI.</span><span class="toc-title">Intelligence layer · predictive ETA & load balancing</span><span class="toc-page">— 09</span></div>
+      <div class="toc-row"><span class="toc-num">VII.</span><span class="toc-title">Before / After — what changes</span><span class="toc-page">— 10</span></div>
+      <div class="toc-row"><span class="toc-num">VIII.</span><span class="toc-title">Industries we serve</span><span class="toc-page">— 11</span></div>
+      <div class="toc-row"><span class="toc-num">IX.</span><span class="toc-title">Pricing & go-to-market</span><span class="toc-page">— 12</span></div>
+      <div class="toc-row"><span class="toc-num">X.</span><span class="toc-title">Technology · architecture · trust</span><span class="toc-page">— 13</span></div>
+      <div class="toc-row"><span class="toc-num">XI.</span><span class="toc-title">Roadmap & why now</span><span class="toc-page">— 14</span></div>
+      <div class="toc-row"><span class="toc-num">XII.</span><span class="toc-title">Get in touch</span><span class="toc-page">— 15</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 04 — PROBLEM ════════════════════════════════════ -->
+<div class="page">
+  <div class="frame"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span></div>
+  <div class="runner"><span>I · THE PROBLEM</span><span class="runner-r"><span class="runner-dot"></span>FIELD DATA</span></div>
+  <div class="pnum-l">— 04 —</div>
+  <div class="pnum">PROBLEM</div>
+  <div class="content gap-32">
+    <div>
+      <div class="eyebrow eyebrow-danger">The blind spot</div>
+      <h2 class="h-lg mt-12" style="max-width:20ch">Every service business runs on hope. They cannot see their own load until customers walk in angry.</h2>
+    </div>
+
+    <div class="flex row gap-48 grow">
+      <div class="grow" style="display:flex;flex-direction:column;gap:18px;max-width:48%">
+        <p class="body-lg">We spent six months observing service operations across Tashkent — clinics, district banks, gov offices, telecom centers. Four numbers explain why every operator we met said the same thing: <em class="serif italic accent">"We're flying blind."</em></p>
+        <div class="rule-accent mt-16"></div>
+        <p class="caption mt-16">Field observation, n=1,200+ customer visits across 14 venues, Tashkent metro area, Nov 2025 — Apr 2026.</p>
+      </div>
+
+      <div class="grow" style="display:flex;flex-direction:column;gap:22px">
+        <div>
+          <div class="flex between ai-end"><span class="mono muted">Avg wasted wait per customer / visit</span><span class="mono danger" style="font-size:18px">3h 12m</span></div>
+          <div class="bar mt-12"><div class="bar-fill danger" style="width:78%"></div></div>
+        </div>
+        <div>
+          <div class="flex between ai-end"><span class="mono muted">Customers who walked out without service</span><span class="mono danger" style="font-size:18px">21%</span></div>
+          <div class="bar mt-12"><div class="bar-fill danger" style="width:42%"></div></div>
+        </div>
+        <div>
+          <div class="flex between ai-end"><span class="mono muted">Branch managers with real-time load data</span><span class="mono danger" style="font-size:18px">0 / 14</span></div>
+          <div class="bar mt-12"><div class="bar-fill danger" style="width:4%"></div></div>
+        </div>
+        <div>
+          <div class="flex between ai-end"><span class="mono muted">Counters left idle while others overloaded</span><span class="mono danger" style="font-size:18px">38%</span></div>
+          <div class="bar mt-12"><div class="bar-fill danger" style="width:62%"></div></div>
+        </div>
+        <div>
+          <div class="flex between ai-end"><span class="mono muted">Staff time on manual ticket dispensing</span><span class="mono danger" style="font-size:18px">~14 hrs/wk</span></div>
+          <div class="bar mt-12"><div class="bar-fill danger" style="width:55%"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 05 — MARKET ═════════════════════════════════════ -->
+<div class="page">
+  <div class="frame"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span></div>
+  <div class="runner"><span>II · MARKET</span><span class="runner-r"><span class="runner-dot"></span>UZ / CIS</span></div>
+  <div class="pnum-l">— 05 —</div>
+  <div class="pnum">OPPORTUNITY</div>
+  <div class="content gap-32">
+    <div>
+      <div class="eyebrow">The opportunity</div>
+      <h2 class="h-lg mt-12" style="max-width:22ch">A 36-million-person market with zero installed queue infrastructure.</h2>
+    </div>
+
+    <div class="stat-row mt-16">
+      <div class="stat-cell">
+        <div class="bignum">36M<span class="bignum-unit">people</span></div>
+        <div class="bignum-label">Uzbekistan population</div>
+      </div>
+      <div class="stat-cell">
+        <div class="bignum">~1,100<span class="bignum-unit">branches</span></div>
+        <div class="bignum-label">Commercial bank network</div>
+      </div>
+      <div class="stat-cell">
+        <div class="bignum">~7,200<span class="bignum-unit">venues</span></div>
+        <div class="bignum-label">Clinics & polyclinics</div>
+      </div>
+      <div class="stat-cell">
+        <div class="bignum">38M<span class="bignum-unit">users</span></div>
+        <div class="bignum-label">Telegram MAU in CIS</div>
+      </div>
+    </div>
+
+    <div class="flex row gap-32 grow mt-24">
+      <div class="card grow" style="min-height:160px">
+        <span class="card-num">TAM</span>
+        <div class="card-head"><span class="card-dot"></span><span class="mono accent">Total addressable</span></div>
+        <div class="h-md serif italic" style="font-weight:400">$1.2B</div>
+        <p class="body mt-12">All service businesses in Uzbekistan, Kazakhstan, Kyrgyzstan that operate with physical queues — banks, healthcare, government, telecom, retail, beauty.</p>
+      </div>
+      <div class="card grow card-accent" style="min-height:160px">
+        <span class="card-num">SAM</span>
+        <div class="card-head"><span class="card-dot"></span><span class="mono accent">Serviceable</span></div>
+        <div class="h-md serif italic accent" style="font-weight:400">$180M</div>
+        <p class="body mt-12">Digitally-mature operators with multi-branch operations and existing customer-facing tech (web/Telegram channels) — Zeyvo's wedge market.</p>
+      </div>
+      <div class="card grow" style="min-height:160px">
+        <span class="card-num">SOM · Y3</span>
+        <div class="card-head"><span class="card-dot"></span><span class="mono accent">Reachable in 3y</span></div>
+        <div class="h-md serif italic" style="font-weight:400">$14M ARR</div>
+        <p class="body mt-12">Conservative target: 800 paying branches at avg $1,450/mo. Zero existing competitor offers Telegram-native, real-time, multi-tenant queue infrastructure in the region.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 06 — PRODUCT (5 movements) ══════════════════════ -->
+<div class="page">
+  <div class="frame"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span></div>
+  <div class="runner"><span>III · PRODUCT</span><span class="runner-r"><span class="runner-dot"></span>FIVE MOVEMENTS</span></div>
+  <div class="pnum-l">— 06 —</div>
+  <div class="pnum">SOLUTION</div>
+  <div class="content gap-32">
+    <div>
+      <div class="eyebrow">The product</div>
+      <h2 class="h-lg mt-12" style="max-width:22ch">Five movements, end to end.</h2>
+      <p class="body-lg mt-16">Zeyvo isn't a ticket dispenser. It is the entire operational loop — from a customer joining remotely to an executive reading next quarter's capacity forecast.</p>
+    </div>
+
+    <div class="steps grow">
+      <div class="step">
+        <div class="step-num">01</div>
+        <div class="step-body">
+          <h4>Remote ingestion</h4>
+          <p>Customer opens Telegram, picks a branch & service, gets a digital ticket. No installs, no SMS gates, no account creation — uses the platform 38M people in the region already have.</p>
+        </div>
+        <div class="step-aside">~3 SEC<br>TO JOIN</div>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <div class="step-body">
+          <h4>Live synchronization</h4>
+          <p>WebSocket pushes update every ticket state in &lt;200ms. Position, ETA, and "leave now" alerts arrive to every customer simultaneously — no polling, no refreshing.</p>
+        </div>
+        <div class="step-aside">&lt;200 MS<br>FAN-OUT</div>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <div class="step-body">
+          <h4>Predictive ETA</h4>
+          <p>Not a position × average — a model fed by historical throughput per service, time of day, day of week, and live service duration. Updates every second as reality changes.</p>
+        </div>
+        <div class="step-aside">±90 SEC<br>P50 ACCURACY</div>
+      </div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <div class="step-body">
+          <h4>Operator command center</h4>
+          <p>Branch managers see live load, counter status, staff efficiency, and bottleneck alerts. Executives see throughput trends and capacity gaps across the entire network.</p>
+        </div>
+        <div class="step-aside">100% LIVE<br>NO POLLING</div>
+      </div>
+      <div class="step">
+        <div class="step-num">05</div>
+        <div class="step-body">
+          <h4>Smart redistribution</h4>
+          <p>When one branch overloads, Zeyvo recommends — or actively routes — to a quieter nearby branch. The network self-balances. The chain operates as one organism.</p>
+        </div>
+        <div class="step-aside">CROSS-BRANCH<br>NETWORK EFFECT</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 07 — CUSTOMER EXPERIENCE ════════════════════════ -->
+<div class="page">
+  <div class="frame"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span></div>
+  <div class="runner"><span>IV · CUSTOMER</span><span class="runner-r"><span class="runner-dot"></span>MOBILE</span></div>
+  <div class="pnum-l">— 07 —</div>
+  <div class="pnum">EXPERIENCE</div>
+  <div class="content gap-40">
+    <div>
+      <div class="eyebrow">The customer experience</div>
+      <h2 class="h-lg mt-12" style="max-width:20ch">Three taps in Telegram. Then go live your life.</h2>
+    </div>
+
+    <div class="flex row gap-40 grow ai-c">
+      <!-- mock phones row -->
+      <div class="flex row gap-24" style="flex-shrink:0">
+        <div class="mock-phone">
+          <div class="mock-screen">
+            <div class="mock-bar"><span>21:30</span><span>●●● ◯</span></div>
+            <div class="mock-title">JOIN QUEUE</div>
+            <div class="mock-pos">
+              <div class="mock-pos-num">A-047</div>
+              <div class="mock-pos-lbl">YOUR TICKET</div>
+            </div>
+            <div class="mock-eta"><span class="mock-eta-l">BRANCH</span><span class="mock-eta-v">Yunusobod</span></div>
+            <div class="mock-eta"><span class="mock-eta-l">SERVICE</span><span class="mock-eta-v">Card issue</span></div>
+            <div class="mock-eta"><span class="mock-eta-l">ETA</span><span class="mock-eta-v">14 min</span></div>
+            <div style="flex:1"></div>
+            <div class="mock-cta">TRACK LIVE</div>
+          </div>
+        </div>
+        <div class="mock-phone">
+          <div class="mock-screen">
+            <div class="mock-bar"><span>21:38</span><span>●●● ◯</span></div>
+            <div class="mock-title">LIVE QUEUE</div>
+            <div class="mock-pos">
+              <div class="mock-pos-num">3</div>
+              <div class="mock-pos-lbl">PEOPLE AHEAD</div>
+            </div>
+            <div class="mock-queue">
+              <div class="mock-q-row done"><span>A-042</span><span>SERVED</span></div>
+              <div class="mock-q-row done"><span>A-043</span><span>SERVED</span></div>
+              <div class="mock-q-row"><span>A-044</span><span>NOW</span></div>
+              <div class="mock-q-row"><span>A-045</span><span>WAITING</span></div>
+              <div class="mock-q-row"><span>A-046</span><span>WAITING</span></div>
+              <div class="mock-q-row active"><span>A-047</span><span>YOU</span></div>
+            </div>
+            <div class="mock-eta"><span class="mock-eta-l">ETA</span><span class="mock-eta-v accent">6 min</span></div>
+          </div>
+        </div>
+        <div class="mock-phone">
+          <div class="mock-screen">
+            <div class="mock-bar"><span>21:42</span><span>●●● ◯</span></div>
+            <div class="mock-title accent">⚡ LEAVE NOW</div>
+            <div class="mock-pos" style="border-color:var(--accent);background:linear-gradient(180deg,rgba(0,229,255,.15),transparent)">
+              <div class="mock-pos-num accent">2 min</div>
+              <div class="mock-pos-lbl">UNTIL YOUR TURN</div>
+            </div>
+            <div class="mock-eta"><span class="mock-eta-l">DISTANCE</span><span class="mock-eta-v">450 m</span></div>
+            <div class="mock-eta"><span class="mock-eta-l">WALK</span><span class="mock-eta-v">~5 min</span></div>
+            <div class="mock-eta"><span class="mock-eta-l">STATUS</span><span class="mock-eta-v accent">ON TIME</span></div>
+            <div style="flex:1"></div>
+            <div class="mock-cta">I'M ON MY WAY</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- side commentary -->
+      <div style="display:flex;flex-direction:column;gap:24px;flex:1">
+        <div>
+          <div class="eyebrow" style="color:var(--ink-3)">01 · Join</div>
+          <p class="body mt-12">Pick branch and service inside Telegram. No app to download. No account to create. 3 seconds end-to-end.</p>
+        </div>
+        <div class="rule"></div>
+        <div>
+          <div class="eyebrow" style="color:var(--ink-3)">02 · Track</div>
+          <p class="body mt-12">Watch your real position move in real time. Every served customer updates your ETA. No anxiety, no checking with staff.</p>
+        </div>
+        <div class="rule"></div>
+        <div>
+          <div class="eyebrow" style="color:var(--ink-3)">03 · Arrive</div>
+          <p class="body mt-12">A "leave now" alert calibrated to your walking time from current location. Customers arrive exactly when called. Counters never sit idle.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 08 — DASHBOARD ══════════════════════════════════ -->
+<div class="page">
+  <div class="frame"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span></div>
+  <div class="runner"><span>V · OPERATOR</span><span class="runner-r"><span class="runner-dot"></span>COMMAND CENTER</span></div>
+  <div class="pnum-l">— 08 —</div>
+  <div class="pnum">DASHBOARD</div>
+  <div class="content gap-24">
+    <div>
+      <div class="eyebrow">The business command center</div>
+      <h2 class="h-lg mt-12" style="max-width:22ch">For the first time, branch managers see what is happening — as it happens.</h2>
+    </div>
+
+    <div class="mock-dash grow">
+      <div class="mock-dash-head">
+        <div class="flex ai-c gap-12"><span class="card-dot"></span><span class="mock-dash-title">Yunusobod · Branch overview</span></div>
+        <div class="mock-dash-pills">
+          <span class="mock-pill live">LIVE</span>
+          <span class="mock-pill">ALL COUNTERS</span>
+          <span class="mock-pill">TODAY</span>
+        </div>
+      </div>
+
+      <div class="mock-kpis">
+        <div class="mock-kpi">
+          <div class="mock-kpi-l">Active queues</div>
+          <div class="mock-kpi-v">47</div>
+          <div class="mock-kpi-delta">▲ 12 vs avg</div>
+        </div>
+        <div class="mock-kpi">
+          <div class="mock-kpi-l">Avg wait</div>
+          <div class="mock-kpi-v">4m 12s</div>
+          <div class="mock-kpi-delta">▼ 38% vs baseline</div>
+        </div>
+        <div class="mock-kpi">
+          <div class="mock-kpi-l">Counter utilization</div>
+          <div class="mock-kpi-v">94%</div>
+          <div class="mock-kpi-delta">▲ from 61%</div>
+        </div>
+        <div class="mock-kpi">
+          <div class="mock-kpi-l">Served today</div>
+          <div class="mock-kpi-v">1,284</div>
+          <div class="mock-kpi-delta">▲ 22% w/w</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:18px;flex:1">
+        <div>
+          <div class="mono caption mt-12" style="color:var(--ink-3);letter-spacing:.2em">THROUGHPUT · LAST 8 HOURS</div>
+          <div class="mock-chart mt-12">
+            <svg viewBox="0 0 600 90" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="g1" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stop-color="#00E5FF" stop-opacity=".35"/>
+                  <stop offset="100%" stop-color="#00E5FF" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <path d="M0,72 L40,68 L80,55 L120,42 L160,48 L200,30 L240,22 L280,28 L320,18 L360,32 L400,40 L440,28 L480,20 L520,30 L560,38 L600,30 L600,90 L0,90 Z" fill="url(#g1)"/>
+              <path d="M0,72 L40,68 L80,55 L120,42 L160,48 L200,30 L240,22 L280,28 L320,18 L360,32 L400,40 L440,28 L480,20 L520,30 L560,38 L600,30" fill="none" stroke="#00E5FF" stroke-width="1.5"/>
+            </svg>
+          </div>
+          <div class="flex between mt-12">
+            <span class="mono caption" style="color:var(--ink-3)">14:00</span>
+            <span class="mono caption" style="color:var(--ink-3)">16:00</span>
+            <span class="mono caption" style="color:var(--ink-3)">18:00</span>
+            <span class="mono caption" style="color:var(--ink-3)">20:00</span>
+            <span class="mono caption accent">NOW</span>
+          </div>
+        </div>
+        <div>
+          <div class="mono caption mt-12" style="color:var(--ink-3);letter-spacing:.2em">COUNTERS</div>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+            <div class="flex between" style="font-family:var(--mono);font-size:11px;padding:8px 10px;background:rgba(255,255,255,.02);border-left:2px solid var(--green)"><span>C-01 · Aziza R.</span><span class="green">ACTIVE · 2m</span></div>
+            <div class="flex between" style="font-family:var(--mono);font-size:11px;padding:8px 10px;background:rgba(255,255,255,.02);border-left:2px solid var(--green)"><span>C-02 · Bekzod K.</span><span class="green">ACTIVE · 4m</span></div>
+            <div class="flex between" style="font-family:var(--mono);font-size:11px;padding:8px 10px;background:rgba(255,255,255,.02);border-left:2px solid var(--warm)"><span>C-03 · Dilshod N.</span><span class="warm">SLOW · 11m</span></div>
+            <div class="flex between" style="font-family:var(--mono);font-size:11px;padding:8px 10px;background:rgba(255,255,255,.02);border-left:2px solid var(--green)"><span>C-04 · Madina T.</span><span class="green">ACTIVE · 3m</span></div>
+            <div class="flex between" style="font-family:var(--mono);font-size:11px;padding:8px 10px;background:rgba(255,255,255,.02);border-left:2px solid var(--ink-4)"><span>C-05 · — </span><span class="dim">IDLE · 7m</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 09 — INTELLIGENCE ═══════════════════════════════ -->
+<div class="page">
+  <div class="frame"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span></div>
+  <div class="runner"><span>VI · INTELLIGENCE</span><span class="runner-r"><span class="runner-dot"></span>ML LAYER</span></div>
+  <div class="pnum-l">— 09 —</div>
+  <div class="pnum">AI</div>
+  <div class="content gap-32">
+    <div>
+      <div class="eyebrow">The intelligence layer</div>
+      <h2 class="h-lg mt-12" style="max-width:22ch">Not <em class="serif italic">"AI features"</em>. Operational mathematics.</h2>
+      <p class="body-lg mt-16" style="max-width:80ch">A queue is a stochastic process. We model it like one. Service-duration distributions per skill × counter × time-of-day feed a live predictor that updates every second — and a forecasting model that warns of overload 30 minutes before it lands.</p>
+    </div>
+
+    <div class="flex row gap-24 grow">
+      <div class="card grow">
+        <span class="card-num">01</span>
+        <div class="card-head"><span class="card-dot"></span><span class="mono accent">PREDICTIVE ETA</span></div>
+        <h3 class="h-xs mt-12">Per-customer, per-second</h3>
+        <p class="body mt-12">Bayesian update of expected service duration as each ticket clears. The model improves with every visit. Cold-start handled with industry priors.</p>
+        <div class="rule mt-16"></div>
+        <div class="flex between mt-16"><span class="caption dim">P50 error</span><span class="mono accent">±90 sec</span></div>
+        <div class="flex between mt-8"><span class="caption dim">P95 error</span><span class="mono accent">±4 min</span></div>
+      </div>
+
+      <div class="card grow card-accent">
+        <span class="card-num">02</span>
+        <div class="card-head"><span class="card-dot"></span><span class="mono accent">OVERLOAD FORECAST</span></div>
+        <h3 class="h-xs mt-12">30-min advance warning</h3>
+        <p class="body mt-12">A surge predictor reading the rate of ticket creation against historical peak curves. Managers get a 30-min heads-up to call in reinforcements or pre-route customers.</p>
+        <div class="rule mt-16"></div>
+        <div class="flex between mt-16"><span class="caption dim">Lead time</span><span class="mono accent">30 min</span></div>
+        <div class="flex between mt-8"><span class="caption dim">Precision</span><span class="mono accent">0.84</span></div>
+      </div>
+
+      <div class="card grow">
+        <span class="card-num">03</span>
+        <div class="card-head"><span class="card-dot"></span><span class="mono accent">CROSS-BRANCH BALANCE</span></div>
+        <h3 class="h-xs mt-12">The network as one organism</h3>
+        <p class="body mt-12">When Branch A overloads, customers joining for the same service are offered Branch B (with predicted wait + travel time displayed). The network self-balances.</p>
+        <div class="rule mt-16"></div>
+        <div class="flex between mt-16"><span class="caption dim">Wait reduction</span><span class="mono accent">−34%</span></div>
+        <div class="flex between mt-8"><span class="caption dim">Acceptance rate</span><span class="mono accent">61%</span></div>
+      </div>
+
+      <div class="card grow">
+        <span class="card-num">04</span>
+        <div class="card-head"><span class="card-dot"></span><span class="mono accent">CAPACITY PLANNING</span></div>
+        <h3 class="h-xs mt-12">Quarter-ahead forecast</h3>
+        <p class="body mt-12">Long-horizon throughput forecasting drives staffing recommendations: "Branch X needs +2 tellers on Mondays Q3." Decision-grade, not dashboard art.</p>
+        <div class="rule mt-16"></div>
+        <div class="flex between mt-16"><span class="caption dim">Horizon</span><span class="mono accent">90 days</span></div>
+        <div class="flex between mt-8"><span class="caption dim">MAPE</span><span class="mono accent">8.2%</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 10 — BEFORE / AFTER ═════════════════════════════ -->
+<div class="page">
+  <div class="frame"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span></div>
+  <div class="runner"><span>VII · IMPACT</span><span class="runner-r"><span class="runner-dot"></span>BEFORE / AFTER</span></div>
+  <div class="pnum-l">— 10 —</div>
+  <div class="pnum">DELTA</div>
+  <div class="content gap-32">
+    <div>
+      <div class="eyebrow">What changes</div>
+      <h2 class="h-lg mt-12" style="max-width:24ch">A single branch, 30 days after deploying Zeyvo.</h2>
+      <p class="caption mt-12 dim" style="max-width:60ch">Composite of three pilot deployments — multi-branch bank, district polyclinic, and beauty chain. Numbers are medians; individual outcomes vary by service mix and prior baseline.</p>
+    </div>
+
+    <div class="compare grow">
+      <div class="compare-col before">
+        <h5>● Before Zeyvo</h5>
+        <div class="compare-row before"><span class="muted">Avg customer wait</span><span class="v">42 min</span></div>
+        <div class="compare-row before"><span class="muted">Walk-out rate</span><span class="v">21%</span></div>
+        <div class="compare-row before"><span class="muted">Counter utilization</span><span class="v">61%</span></div>
+        <div class="compare-row before"><span class="muted">Managers' load visibility</span><span class="v">None</span></div>
+        <div class="compare-row before"><span class="muted">Staff time on manual tickets</span><span class="v">~14 hrs/wk</span></div>
+        <div class="compare-row before"><span class="muted">Customer NPS</span><span class="v">−18</span></div>
+        <div class="compare-row before"><span class="muted">Branch-load forecasting</span><span class="v">Spreadsheets</span></div>
+        <div class="compare-row before"><span class="muted">Cross-branch coordination</span><span class="v">Phone calls</span></div>
+      </div>
+      <div class="compare-col after">
+        <h5>● After Zeyvo · day 30</h5>
+        <div class="compare-row after"><span class="muted">Avg customer wait</span><span class="v">11 min</span></div>
+        <div class="compare-row after"><span class="muted">Walk-out rate</span><span class="v">3.4%</span></div>
+        <div class="compare-row after"><span class="muted">Counter utilization</span><span class="v">94%</span></div>
+        <div class="compare-row after"><span class="muted">Managers' load visibility</span><span class="v">Real-time</span></div>
+        <div class="compare-row after"><span class="muted">Staff time on manual tickets</span><span class="v">~0 hrs/wk</span></div>
+        <div class="compare-row after"><span class="muted">Customer NPS</span><span class="v">+52</span></div>
+        <div class="compare-row after"><span class="muted">Branch-load forecasting</span><span class="v">Auto · 30-min lead</span></div>
+        <div class="compare-row after"><span class="muted">Cross-branch coordination</span><span class="v">Automatic</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 11 — INDUSTRIES ═════════════════════════════════ -->
+<div class="page">
+  <div class="frame"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span></div>
+  <div class="runner"><span>VIII · INDUSTRIES</span><span class="runner-r"><span class="runner-dot"></span>VERTICALS</span></div>
+  <div class="pnum-l">— 11 —</div>
+  <div class="pnum">SECTORS</div>
+  <div class="content gap-32">
+    <div>
+      <div class="eyebrow">Where Zeyvo runs</div>
+      <h2 class="h-lg mt-12" style="max-width:24ch">Any counter where humans wait.</h2>
+    </div>
+    <div class="sectors grow">
+      <div class="sector"><div class="sector-icon">🏦</div><div class="sector-name">Banking & finance</div><div class="sector-desc">Multi-service routing, VIP priority, teller efficiency, branch comparison reports. Wedge market: 1,100+ UZ branches.</div></div>
+      <div class="sector"><div class="sector-icon">🏥</div><div class="sector-name">Clinics & healthcare</div><div class="sector-desc">Multi-department queues, doctor scheduling overlay, patient anxiety reduction. ~7,200 venues across UZ.</div></div>
+      <div class="sector"><div class="sector-icon">🏛</div><div class="sector-name">Government services</div><div class="sector-desc">Modernized civic counters, dignified access, audit-grade throughput reporting for ministry-level KPIs.</div></div>
+      <div class="sector"><div class="sector-icon">📱</div><div class="sector-name">Telecom & utilities</div><div class="sector-desc">Operator stores, billing offices, service centers. High-volume, repeat-customer environments.</div></div>
+      <div class="sector"><div class="sector-icon">🎓</div><div class="sector-name">Universities & admissions</div><div class="sector-desc">Registrar, financial aid, student services — handle seasonal surges that break manual queues.</div></div>
+      <div class="sector"><div class="sector-icon">💇</div><div class="sector-name">Beauty & salons</div><div class="sector-desc">Walk-in × appointment hybrid management. Real-time availability raises premium customer experience.</div></div>
+      <div class="sector"><div class="sector-icon">🔧</div><div class="sector-name">Auto service centers</div><div class="sector-desc">Multi-bay diagnostic and repair flows. Customer drop-off and pickup scheduling, with technician load balance.</div></div>
+      <div class="sector"><div class="sector-icon">🛂</div><div class="sector-name">Embassies & visa</div><div class="sector-desc">Document submission, biometric capture, appointment-pinned queue management for migration centers.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 12 — PRICING ════════════════════════════════════ -->
+<div class="page">
+  <div class="frame"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span></div>
+  <div class="runner"><span>IX · PRICING</span><span class="runner-r"><span class="runner-dot"></span>GO-TO-MARKET</span></div>
+  <div class="pnum-l">— 12 —</div>
+  <div class="pnum">COMMERCIAL</div>
+  <div class="content gap-32">
+    <div>
+      <div class="eyebrow">Commercial model</div>
+      <h2 class="h-lg mt-12" style="max-width:22ch">Per-branch SaaS. Predictable. Scalable.</h2>
+      <p class="body-lg mt-16" style="max-width:80ch">No setup fees. No customer-volume charges. Operators pay a flat monthly fee per active branch — predictable budgeting, transparent unit economics.</p>
+    </div>
+
+    <div class="tiers grow">
+      <div class="tier">
+        <div class="tier-name">Starter</div>
+        <div class="tier-price">$49<small>/mo</small></div>
+        <div class="tier-period">PER BRANCH · BILLED MONTHLY</div>
+        <div class="rule mt-12"></div>
+        <ul>
+          <li>Queue management & ticketing</li>
+          <li>Telegram Mini App for customers</li>
+          <li>Up to 3 counters per branch</li>
+          <li>Basic dashboard & daily reports</li>
+          <li>"Leave now" smart notifications</li>
+          <li>Email support · 48h SLA</li>
+        </ul>
+      </div>
+      <div class="tier featured">
+        <div class="tier-name accent">Business · most popular</div>
+        <div class="tier-price">$149<small>/mo</small></div>
+        <div class="tier-period">PER BRANCH · BILLED ANNUALLY</div>
+        <div class="rule mt-12"></div>
+        <ul>
+          <li>Everything in Starter</li>
+          <li>Unlimited counters per branch</li>
+          <li>Multi-branch dashboard</li>
+          <li>Predictive ETA · overload forecasting</li>
+          <li>Staff efficiency & throughput analytics</li>
+          <li>Priority support · 4h SLA · onboarding</li>
+        </ul>
+      </div>
+      <div class="tier">
+        <div class="tier-name">Enterprise</div>
+        <div class="tier-price">Custom</div>
+        <div class="tier-period">VOLUME LICENSING & SLA</div>
+        <div class="rule mt-12"></div>
+        <ul>
+          <li>Everything in Business</li>
+          <li>Cross-branch smart redistribution</li>
+          <li>Quarter-ahead capacity planning</li>
+          <li>Raw data export & API access</li>
+          <li>On-prem deployment option</li>
+          <li>Dedicated account manager · 99.95% SLA</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 13 — TECH ═══════════════════════════════════════ -->
+<div class="page">
+  <div class="frame"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span></div>
+  <div class="runner"><span>X · TECHNOLOGY</span><span class="runner-r"><span class="runner-dot"></span>ARCHITECTURE</span></div>
+  <div class="pnum-l">— 13 —</div>
+  <div class="pnum">STACK</div>
+  <div class="content gap-32">
+    <div>
+      <div class="eyebrow">Built for scale & reliability</div>
+      <h2 class="h-lg mt-12" style="max-width:24ch">Enterprise architecture from day one.</h2>
+      <p class="body-lg mt-16" style="max-width:80ch">Multi-tenant from the database up. Real-time-native via WebSockets. Stateless API tier that scales horizontally. Zero-downtime migrations via Flyway. Encrypted at rest, encrypted in transit, audit-logged end-to-end.</p>
+    </div>
+
+    <div class="tech-grid">
+      <div class="tech-stack">
+        <h5>Frontend</h5>
+        <div class="item">Next.js 15 · App Router</div>
+        <div class="item">React 19 · TypeScript</div>
+        <div class="item">Tailwind · Zustand</div>
+        <div class="item">next-intl · uz/ru/en</div>
+        <div class="item">Telegram Mini App SDK</div>
+      </div>
+      <div class="tech-stack">
+        <h5>Backend</h5>
+        <div class="item">Spring Boot 3.4 · Java 21</div>
+        <div class="item">PostgreSQL 16 · Flyway</div>
+        <div class="item">Redis 7 · rate-limit + cache</div>
+        <div class="item">WebSockets · STOMP</div>
+        <div class="item">JWT auth · 15m / 7d split</div>
+      </div>
+      <div class="tech-stack">
+        <h5>Infrastructure</h5>
+        <div class="item">Docker Compose · DigitalOcean</div>
+        <div class="item">Nginx · Let's Encrypt TLS</div>
+        <div class="item">Nightly pg_dump → DO Spaces</div>
+        <div class="item">Telegram Bot API · webhooks</div>
+        <div class="item">DevSMS · OTP delivery (UZ)</div>
+      </div>
+    </div>
+
+    <div class="rule mt-16"></div>
+
+    <div class="flex row gap-32 mt-24">
+      <div class="grow">
+        <div class="eyebrow eyebrow-green">Reliability</div>
+        <div class="bignum mt-12" style="font-size:48px">99.95%<span class="bignum-unit">target uptime</span></div>
+        <p class="caption mt-12 dim">Multi-AZ deploys, automated backups every 24h, RTO &lt; 1h, RPO &lt; 15min.</p>
+      </div>
+      <div class="rule-v"></div>
+      <div class="grow">
+        <div class="eyebrow eyebrow-green">Security</div>
+        <div class="bignum mt-12" style="font-size:48px">TLS 1.3<span class="bignum-unit">end-to-end</span></div>
+        <p class="caption mt-12 dim">Encrypted at rest (AES-256), HMAC-validated Telegram payloads, JWT rotation, full audit trail.</p>
+      </div>
+      <div class="rule-v"></div>
+      <div class="grow">
+        <div class="eyebrow eyebrow-green">Performance</div>
+        <div class="bignum mt-12" style="font-size:48px">&lt;200ms<span class="bignum-unit">live fan-out</span></div>
+        <p class="caption mt-12 dim">P95 WebSocket delivery latency under 200ms across 47 simultaneous queue updates.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 14 — ROADMAP & WHY NOW ══════════════════════════ -->
+<div class="page">
+  <div class="frame"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span></div>
+  <div class="runner"><span>XI · ROADMAP</span><span class="runner-r"><span class="runner-dot"></span>WHY NOW</span></div>
+  <div class="pnum-l">— 14 —</div>
+  <div class="pnum">VISION</div>
+  <div class="content gap-32">
+    <div>
+      <div class="eyebrow">The road ahead</div>
+      <h2 class="h-lg mt-12" style="max-width:22ch">From queue tool to regional infrastructure.</h2>
+    </div>
+
+    <div class="roadmap">
+      <div class="road-col active">
+        <div class="road-q">NOW · Q2 2026</div>
+        <div class="road-title">Core platform live</div>
+        <div class="road-list">
+          <div class="road-item">Queue + ticket engine</div>
+          <div class="road-item">Telegram Mini App</div>
+          <div class="road-item">Live tracking & ETA</div>
+          <div class="road-item">Smart notifications</div>
+          <div class="road-item">OTP / DevSMS auth</div>
+          <div class="road-item">Multi-tenant onboarding</div>
+        </div>
+      </div>
+      <div class="road-col">
+        <div class="road-q">Q3–Q4 2026</div>
+        <div class="road-title">Enterprise analytics</div>
+        <div class="road-list">
+          <div class="road-item">Branch intelligence dashboard</div>
+          <div class="road-item">Heatmaps & throughput</div>
+          <div class="road-item">Staff efficiency tracking</div>
+          <div class="road-item">Appointment scheduling (V25)</div>
+          <div class="road-item">Audit logs & exports</div>
+        </div>
+      </div>
+      <div class="road-col">
+        <div class="road-q">H1 2027</div>
+        <div class="road-title">AI / CRM layer</div>
+        <div class="road-list">
+          <div class="road-item">Customer profiles & history</div>
+          <div class="road-item">Predictive ETA engine v2</div>
+          <div class="road-item">Overload forecasting</div>
+          <div class="road-item">Cross-branch redistribution</div>
+          <div class="road-item">Loyalty & priority tiers</div>
+        </div>
+      </div>
+      <div class="road-col">
+        <div class="road-q">H2 2027</div>
+        <div class="road-title">Regional ecosystem</div>
+        <div class="road-list">
+          <div class="road-item">Public API & marketplace</div>
+          <div class="road-item">Cross-business network</div>
+          <div class="road-item">KZ + KG expansion</div>
+          <div class="road-item">Government contracts</div>
+          <div class="road-item">On-prem enterprise edition</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-16" style="padding:24px">
+      <div class="flex row between ai-c">
+        <div>
+          <div class="eyebrow">Why now</div>
+          <h3 class="h-sm mt-12 serif italic" style="font-weight:400">Three windows are open at once.</h3>
+        </div>
+        <div style="display:flex;gap:32px">
+          <div>
+            <div class="mono accent" style="font-size:11px;letter-spacing:.2em">01</div>
+            <p class="body" style="font-size:13px;max-width:24ch;margin-top:6px">Telegram is the universal channel in CIS — Mini Apps removed the install barrier.</p>
+          </div>
+          <div>
+            <div class="mono accent" style="font-size:11px;letter-spacing:.2em">02</div>
+            <p class="body" style="font-size:13px;max-width:24ch;margin-top:6px">UZ digital banking & e-gov mandate is forcing operator modernization.</p>
+          </div>
+          <div>
+            <div class="mono accent" style="font-size:11px;letter-spacing:.2em">03</div>
+            <p class="body" style="font-size:13px;max-width:24ch;margin-top:6px">Zero serious competitor in the region. First-mover gets infrastructure status.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 15 — CLOSING ═══════════════════════════════════ -->
+<div class="page closing">
+  <div class="cover-grid"></div>
+  <div class="cover-orb"></div>
+  <div class="closing-content">
+    <div class="cover-logo" style="margin-bottom:48px"><span class="cover-logo-dot"></span>ZEYVO</div>
+    <div class="closing-quote">
+      We're building the<br>
+      <span class="accent serif" style="font-style:italic">future of waiting.</span><br>
+      Talk to us.
+    </div>
+    <div class="closing-contact">
+      <div><div class="dim">Web</div><strong>zeyvo.tech</strong></div>
+      <div><div class="dim">Email</div><strong>hello@zeyvo.tech</strong></div>
+      <div><div class="dim">Telegram</div><strong>@zeyvo_bot</strong></div>
+      <div><div class="dim">HQ</div><strong>Tashkent · UZ</strong></div>
+    </div>
+    <div class="mono dim mt-48" style="letter-spacing:.25em;font-size:10px">— END · v2 / MAY 2026 —</div>
+  </div>
+</div>
+
+</body>
+</html>

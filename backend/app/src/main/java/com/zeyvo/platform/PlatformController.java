@@ -111,6 +111,21 @@ public class PlatformController {
     public void deleteTenant(@PathVariable UUID id) {
         if (!orgRepo.existsById(id))
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Tenant not found");
+
+        // ticket.organization_id and ticket.branch_id have no ON DELETE CASCADE —
+        // must delete tickets before branches and the org.
+        em.createNativeQuery("DELETE FROM app.ticket WHERE organization_id = :oid")
+                .setParameter("oid", id)
+                .executeUpdate();
+
+        // branch.organization_id also has no CASCADE; deleting branches cascades
+        // window_desk, service, operating_hours, device, appointment, provider* tables.
+        em.createNativeQuery("DELETE FROM app.branch WHERE organization_id = :oid")
+                .setParameter("oid", id)
+                .executeUpdate();
+
+        // org deletion cascades: user_role, payment_request, chat_conversation,
+        // and sets user_account.organization_id = NULL.
         orgRepo.deleteById(id);
     }
 
