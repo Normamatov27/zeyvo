@@ -148,12 +148,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           borderBottom: "1px solid var(--color-hairline)",
           marginBottom: 10,
         }}>
-          <span style={{
-            fontSize: 15, fontWeight: 700, letterSpacing: -0.5,
-            color: "var(--color-primary)",
-          }}>zeyvo</span>
-          <span style={{ fontSize: 11, color: "var(--color-fg-3)", marginLeft: 6,
-            fontFamily: "var(--font-mono)" }}>admin</span>
+          <img src="/logo.jpg" alt="" className="logo-brand" style={{ width: 22, height: 22, borderRadius: 5, objectFit: "cover" }}/>
+          <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: -0.4 }}>zeyvo</span>
+          <span style={{ fontSize: 10, color: "var(--color-fg-3)", marginLeft: 2, fontFamily: "var(--font-mono)" }}>admin</span>
         </div>
 
         {/* User pill */}

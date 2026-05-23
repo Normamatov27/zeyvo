@@ -483,7 +483,7 @@ const Hero = ({ t }: { t: ReturnType<typeof useTranslations<"landing">> }) => (
             {t("hero.startTrial")} <Icon name="arrow" size={15}/>
           </Link>
           <a
-            href="https://t.me/zeyvo_bot"
+            href="https://t.me/zeyvo_app"
             target="_blank" rel="noopener noreferrer"
             style={{
               padding: "14px 22px", borderRadius: 10,
@@ -726,7 +726,7 @@ const Footer = ({ t }: { t: ReturnType<typeof useTranslations<"landing">> }) => 
         { label: t("footer.links.liveMonitor"),   href: "#features" },
         { label: t("footer.links.analytics"),     href: "#console" },
         { label: t("footer.links.kiosks"),        href: "#features" },
-        { label: t("footer.links.telegramBot"),   href: "https://t.me/zeyvo_bot", external: true },
+        { label: t("footer.links.telegramBot"),   href: "https://t.me/zeyvo_app", external: true },
       ],
     },
     {
@@ -744,6 +744,7 @@ const Footer = ({ t }: { t: ReturnType<typeof useTranslations<"landing">> }) => 
       links: [
         { label: t("footer.links.earlyAccess"),   href: "#early-access" },
         { label: t("footer.links.contact"),       href: "mailto:uzgamer.uz27@gmail.com", external: true },
+        { label: t("footer.links.instagram"),     href: "https://instagram.com/zeyvo.app", external: true },
         { label: t("footer.links.github"),        href: "https://github.com/Normamatov27/zeyvo", external: true },
         { label: t("footer.links.privacy"),       href: "/privacy" },
         { label: t("footer.links.terms"),         href: "/terms" },

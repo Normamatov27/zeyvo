@@ -49,11 +49,7 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
           display: "flex", alignItems: "center", gap: 8,
           borderBottom: "1px solid var(--color-hairline)",
         }}>
-          <div style={{
-            width: 28, height: 28, borderRadius: 8,
-            background: "oklch(0.3 0.08 25)", display: "grid", placeItems: "center",
-            fontSize: 14, fontWeight: 800, color: "#fff", letterSpacing: -0.5,
-          }}>Z</div>
+          <img src="/logo.jpg" alt="" className="logo-brand" style={{ width: 28, height: 28, borderRadius: 8, objectFit: "cover" }}/>
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: -0.3 }}>zeyvo</div>
             <div style={{ fontSize: 9, color: "oklch(0.58 0.2 25)", fontFamily: "var(--font-mono)",

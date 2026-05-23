@@ -9,11 +9,8 @@ export const metadata: Metadata = {
   description: "A navigation system for real-world waiting.",
   manifest: "/manifest.json",
   icons: {
-    icon: [
-      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
-    ],
-    apple: "/icon-192.png",
+    icon: { url: "/logo.jpg", type: "image/jpeg" },
+    apple: "/logo.jpg",
   },
 };
 

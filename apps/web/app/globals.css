@@ -131,6 +131,10 @@ html, body {
   50% { opacity: 0.5; }
 }
 
+/* Brand logo: black-on-white JPG, inverts cleanly in dark mode */
+.logo-brand { display: block; }
+.dark .logo-brand { filter: invert(1); }
+
 /* Skeleton shimmer */
 @keyframes z-shimmer {
   0% { background-position: -200% 0; }
