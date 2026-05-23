@@ -362,5 +362,114 @@
     "your_turn_body": "{window}-oyna sizni chaqirmoqda.",
     "served": "Tugatildi · {number}",
     "served_body": "zeyvo'dan foydalanganingiz uchun rahmat. Baholaysizmi?"
+  },
+  "landing": {
+    "nav": {
+      "product": "Mahsulot",
+      "industries": "Sohalar",
+      "console": "Konsol",
+      "earlyAccess": "Dastlabki kirish",
+      "signIn": "Kirish",
+      "requestDemo": "Demo so'rash",
+      "openApp": "Ilovani ochish"
+    },
+    "hero": {
+      "badge": "SUN'IY INTELLEKT ASOSIDA NAVBAT INFRATUZILMASI",
+      "line1": "Kelajakni quramiz",
+      "line2": "kutish bilan.",
+      "desc": "Zamonaviy xizmat korxonalari uchun sun'iy intellekt asosida navbat va uchrashuv infratuzilmasi. Mijozlar masofadan qo'shiladi. Operatorlar aqlliroq ishlaydi. Navbatlar yo'qoladi.",
+      "startTrial": "Bepul sinashni boshlash",
+      "openTelegram": "Telegramda ochish",
+      "statChannels": "qo'llab-quvvatlanadigan kanallar",
+      "statLatency": "p95 API kechikishi",
+      "statNative": "telegram-native"
+    },
+    "problem": {
+      "eyebrow": "Muammo",
+      "title": "Kutish — zamonaviy kun uchun soliq.",
+      "sub": "Retseptsionistlar haddan tashqari yuklanadi. Mijozlar ketib qoladi. Operatorlar taxmin qiladi. Ko'pchilik xizmat korxonalari hali ham navbatlarini Excel va qog'ozda yuritadi.",
+      "s1": "odatiy klinikada jumagundagi o'rtacha kutish",
+      "s2": "navbatni tark etuvchi mijozlar",
+      "s3": "filialda chiqib ketishdan yo'qolgan daromad",
+      "s4": "xodim vaqti navbat boshqaruviga sarflanadi"
+    },
+    "solution": {
+      "eyebrow": "Yechim",
+      "title": "Mijozlar oqimi uchun jonli operatsion tizim.",
+      "f1t": "Masofaviy navbat",
+      "f1d": "Uydan raqam oling. Veb, ilova yoki Telegram orqali qo'shiling. Faqat chaqirilganda keling.",
+      "f2t": "Uchrashuvlar",
+      "f2d": "Istalgan vaqtda bron qiling. Uyachani saqlaymiz, eslatmalar yuboramiz, walk-inlardan himoyalaymiz.",
+      "f3t": "Jonli ETA",
+      "f3d": "Navbat tezligi, xizmat muddati va xodimlardan aqlli bashoratlar. Har soniyada yangilanadi.",
+      "f4t": "Bildirishnomalar",
+      "f4d": "Push, Telegram, SMS. Mijoz qachon chiqib ketishni aniq biladi.",
+      "f5t": "Tahlillar",
+      "f5d": "Eng gavjum soatlar, ko'rsatmaslik darajasi, xizmat bo'yicha kutish vaqti. Haqiqiy ma'lumot, darhol.",
+      "f6t": "Operator konsoli",
+      "f6d": "Keyingisini chaqiring, o'tkazing, xizmat ko'rsatildi deb belgilang. Bitta ekran, hech qanday to'siq."
+    },
+    "console": {
+      "eyebrow": "Operatsion konsol",
+      "title": "Infratuzilma kabi his qiladigan boshqaruv paneli.",
+      "sub": "Bir nechta filialni boshqaradigan va ortiqcha narsalarga vaqti yo'q menejerlar uchun yaratilgan."
+    },
+    "industries": {
+      "eyebrow": "Yaratilgan",
+      "title": "Kutish foyda yeyayadigan sohalar.",
+      "i1t": "Klinikalar",
+      "i1d": "Oilaviy shifokorlar, mutaxassislar",
+      "i2t": "Diagnostika",
+      "i2d": "Tasvirlash, laboratoriya sinovlari",
+      "i3t": "Salonlar",
+      "i3d": "Soch, go'zallik, spa",
+      "i4t": "Stomatologiya",
+      "i4d": "Muntazam + uchrashuvlar",
+      "i5t": "Servis markazlar",
+      "i5d": "Avto, elektronika, ta'mirlash"
+    },
+    "early": {
+      "eyebrow": "Dastlabki kirish",
+      "title": "O'zbekiston uchun qurilgan, filialingiz uchun tayyor.",
+      "sub": "zeyvo yopiq dastlabki kirishda. Biz hozir birinchi filiallarni — Toshkentdagi banklar, klinikalar va davlat xizmatlarini ulamoqdamiz. Agar navbatli joyingiz bo'lsa, murojaat qiling.",
+      "c1t": "Banklar va moliya xizmatlari",
+      "c1d": "Ko'p oynali, ko'p filiallik boshqaruv. Mavjud Innomax kiosklari bilan ishlaydi — almashtirish shart emas.",
+      "c2t": "Klinikalar va poliklinikalar",
+      "c2d": "Bir tizimda walk-in va uchrashuvlar navbati. Bemorlar navbat kelganda Telegram orqali xabardor bo'ladi.",
+      "c3t": "Davlat va ommaviy xizmatlar",
+      "c3d": "Yuqori hajmli hisoblagichlar, audit jurnali, eksport qilinadigan hisobotlar. O'zbekiston shaxsiy ma'lumotlar qoidalariga mos."
+    },
+    "cta": {
+      "title": "Mijozlaringizning kunini yashashiga ruxsat bering.",
+      "sub": "Bitta filial sinovi. Karta kerak emas. Farqni ko'ring, keyin kengaytiring.",
+      "requestDemo": "Demo so'rash",
+      "openDemo": "Jonli demoni ochish"
+    },
+    "footer": {
+      "desc": "Zamonaviy xizmat korxonalari uchun sun'iy intellekt asosida navbat va uchrashuv infratuzilmasi. Toshkentda qurilgan · hamma joyda ishlatiladi.",
+      "allOperational": "barcha tizimlar ishlayapti",
+      "col1": "Mahsulot",
+      "col2": "Kim uchun",
+      "col3": "Kompaniya",
+      "links": {
+        "remoteQueue": "Masofaviy navbat",
+        "liveMonitor": "Jonli monitor",
+        "analytics": "Tahlillar",
+        "kiosks": "Kiosklar",
+        "telegramBot": "Telegram bot",
+        "clinics": "Klinikalar",
+        "diagnostics": "Diagnostika",
+        "salons": "Salonlar",
+        "dental": "Stomatologiya",
+        "serviceCenters": "Servis markazlar",
+        "earlyAccess": "Dastlabki kirish",
+        "contact": "Murojaat",
+        "github": "GitHub",
+        "privacy": "Maxfiylik siyosati",
+        "terms": "Foydalanish shartlari",
+        "privacyShort": "Maxfiylik",
+        "termsShort": "Shartlar"
+      }
+    }
   }
 }

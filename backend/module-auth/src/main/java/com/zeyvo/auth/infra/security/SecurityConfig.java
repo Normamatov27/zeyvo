@@ -49,6 +49,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/v1/signage/**").permitAll()
                         // Self-service org onboarding (anonymous; OTP gates actual access)
                         .requestMatchers(HttpMethod.POST, "/v1/onboarding/**").permitAll()
+                        // Public analytics — page view tracking, no PII beyond IP
+                        .requestMatchers(HttpMethod.POST, "/v1/public/pageview").permitAll()
                         // Anonymous ticket join — no login required (QR/kiosk flow)
                         .requestMatchers(HttpMethod.POST, "/v1/tickets").permitAll()
                         // Device webhook secured by API token at adapter layer, not JWT

@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useTranslations, useLocale } from "next-intl";
 import { useAuthStore } from "@/stores/auth";
 
 // ─── Inline SVG icons ────────────────────────────────────────────────────────
@@ -23,7 +25,7 @@ const Icon = ({ name, size = 18, stroke = 1.7, style }: { name: IconName; size?:
     eye: <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>,
     sparkles: <><path d="M12 3l1.88 5.76L20 10l-5.76 1.88L12 18l-1.88-5.76L4 10l5.76-1.88z"/><path d="M5 3l.88 2.76L9 7l-2.76.88L5 11l-.88-2.76L1 7l2.76-.88z" opacity=".5"/></>,
     user: <><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>,
-    settings: <><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></>,
+    settings: <><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></>,
     building: <><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></>,
     users: <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>,
     shield: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>,
@@ -48,6 +50,49 @@ const Logo = ({ size = 20, stroke = 1.8, color = "currentColor" }: { size?: numb
     <path d="M8 9h8l-8 6h8"/>
   </svg>
 );
+
+// ─── Language switcher styled for dark background ─────────────────────────────
+const LangSwitch = () => {
+  const router = useRouter();
+  const active = useLocale();
+  const [pending, startTransition] = useTransition();
+
+  function change(code: "en" | "uz" | "ru") {
+    if (code === (active as string)) return;
+    document.cookie = `NEXT_LOCALE=${code}; path=/; max-age=31536000; SameSite=Lax`;
+    startTransition(() => router.refresh());
+  }
+
+  return (
+    <div style={{
+      display: "flex", gap: 2, padding: 3, borderRadius: 8,
+      background: "rgba(255,255,255,0.06)",
+    }}>
+      {(["en", "uz", "ru"] as const).map((code) => {
+        const isActive = (active as string) === code;
+        return (
+          <button
+            key={code}
+            onClick={() => change(code)}
+            disabled={pending}
+            style={{
+              padding: "4px 9px", borderRadius: 6, border: "none",
+              background: isActive ? "rgba(255,255,255,0.12)" : "transparent",
+              color: isActive ? "#fff" : "rgba(255,255,255,0.5)",
+              fontSize: 11, fontWeight: isActive ? 700 : 400,
+              cursor: pending ? "wait" : "pointer",
+              fontFamily: "var(--font-mono)",
+              letterSpacing: 0.5,
+              transition: "background 0.15s, color 0.15s",
+            }}
+          >
+            {code.toUpperCase()}
+          </button>
+        );
+      })}
+    </div>
+  );
+};
 
 // ─── Cinematic animated background ───────────────────────────────────────────
 const HeroBackdrop = () => {
@@ -318,14 +363,7 @@ const DashboardPreview = () => (
 );
 
 // ─── Top nav (auth-aware) ────────────────────────────────────────────────────
-const NAV_LINKS: { label: string; href: string }[] = [
-  { label: "Product", href: "#features" },
-  { label: "Industries", href: "#industries" },
-  { label: "Console", href: "#console" },
-  { label: "Early access", href: "#early-access" },
-];
-
-const TopNav = ({ authed }: { authed: boolean }) => (
+const TopNav = ({ authed, t }: { authed: boolean; t: ReturnType<typeof useTranslations<"landing">> }) => (
   <div className="lp-topnav" style={{
     height: 64, padding: "0 40px",
     borderBottom: "1px solid rgba(255,255,255,0.06)",
@@ -347,8 +385,13 @@ const TopNav = ({ authed }: { authed: boolean }) => (
           <span style={{ marginLeft: -2 }}>zeyvo</span>
         </a>
         <nav className="lp-nav" style={{ display: "flex", gap: 28, fontSize: 13.5 }}>
-          {NAV_LINKS.map((n) => (
-            <a key={n.label} href={n.href} style={{
+          {[
+            { label: t("nav.product"),     href: "#features" },
+            { label: t("nav.industries"),  href: "#industries" },
+            { label: t("nav.console"),     href: "#console" },
+            { label: t("nav.earlyAccess"), href: "#early-access" },
+          ].map((n) => (
+            <a key={n.href} href={n.href} style={{
               color: "rgba(255,255,255,0.65)", textDecoration: "none",
               transition: "color 0.15s",
             }}>{n.label}</a>
@@ -356,7 +399,7 @@ const TopNav = ({ authed }: { authed: boolean }) => (
         </nav>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <span className="lp-lang-hint" style={{ fontSize: 11.5, color: "rgba(255,255,255,0.5)", fontFamily: "var(--font-mono)" }}>EN · RU · UZ</span>
+        <LangSwitch/>
         {authed ? (
           <Link href="/branches" style={{
             padding: "8px 14px", borderRadius: 8,
@@ -364,7 +407,7 @@ const TopNav = ({ authed }: { authed: boolean }) => (
             fontSize: 13, fontWeight: 600, textDecoration: "none",
             display: "inline-flex", alignItems: "center", gap: 6,
           }}>
-            Open app <Icon name="arrow" size={13}/>
+            {t("nav.openApp")} <Icon name="arrow" size={13}/>
           </Link>
         ) : (
           <>
@@ -372,13 +415,13 @@ const TopNav = ({ authed }: { authed: boolean }) => (
               padding: "8px 14px", borderRadius: 8,
               background: "transparent", border: "1px solid rgba(255,255,255,0.18)",
               color: "#fff", fontSize: 13, fontWeight: 500, textDecoration: "none",
-            }}>Sign in</Link>
+            }}>{t("nav.signIn")}</Link>
             <a href="mailto:uzgamer.uz27@gmail.com?subject=zeyvo%20%E2%80%94%20Request%20demo" style={{
               padding: "8px 14px", borderRadius: 8,
               background: "#fff", color: "#0a0e15",
               fontSize: 13, fontWeight: 600, textDecoration: "none",
               display: "inline-flex", alignItems: "center", gap: 6,
-            }}>Request demo <Icon name="arrow" size={13}/></a>
+            }}>{t("nav.requestDemo")} <Icon name="arrow" size={13}/></a>
           </>
         )}
       </div>
@@ -387,7 +430,7 @@ const TopNav = ({ authed }: { authed: boolean }) => (
 );
 
 // ─── Hero ────────────────────────────────────────────────────────────────────
-const Hero = () => (
+const Hero = ({ t }: { t: ReturnType<typeof useTranslations<"landing">> }) => (
   <div style={{ position: "relative", overflow: "hidden" }}>
     <HeroBackdrop/>
     <div className="lp-hero-grid" style={{
@@ -408,7 +451,7 @@ const Hero = () => (
             background: "oklch(0.78 0.14 220)", color: "oklch(0.78 0.14 220)",
             position: "relative",
           }}/>
-          AI-POWERED QUEUE INFRASTRUCTURE
+          {t("hero.badge")}
         </span>
 
         <h1 style={{
@@ -416,19 +459,18 @@ const Hero = () => (
           background: "linear-gradient(180deg, #fff 0%, rgba(255,255,255,0.7) 100%)",
           WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent",
         }}>
-          Building the future<br/>
-          of <span style={{
+          {t("hero.line1")}<br/>
+          <span style={{
             background: "linear-gradient(90deg, oklch(0.78 0.14 220), oklch(0.65 0.18 262))",
             WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent",
-          }}>waiting.</span>
+          }}>{t("hero.line2")}</span>
         </h1>
 
         <p style={{
           fontSize: 18, lineHeight: 1.5, color: "rgba(255,255,255,0.65)",
           margin: 0, maxWidth: 540, letterSpacing: -0.2,
         }}>
-          AI-powered queue & appointment infrastructure for modern service businesses.
-          Customers join remotely. Operators serve smarter. Lines disappear.
+          {t("hero.desc")}
         </p>
 
         <div style={{ display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
@@ -438,7 +480,7 @@ const Hero = () => (
             fontSize: 14, fontWeight: 600, textDecoration: "none",
             display: "inline-flex", alignItems: "center", gap: 8,
           }}>
-            Start free trial <Icon name="arrow" size={15}/>
+            {t("hero.startTrial")} <Icon name="arrow" size={15}/>
           </Link>
           <a
             href="https://t.me/zeyvo_bot"
@@ -453,7 +495,7 @@ const Hero = () => (
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}>
               <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.088 13.81l-2.96-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.834.836z"/>
             </svg>
-            Open in Telegram
+            {t("hero.openTelegram")}
           </a>
         </div>
 
@@ -463,9 +505,9 @@ const Hero = () => (
           flexWrap: "wrap",
         }}>
           {[
-            { v: "Web + TG", l: "channels supported" },
-            { v: "< 200ms", l: "p95 API latency" },
-            { v: "UZ-first", l: "telegram-native" },
+            { v: "Web + TG", l: t("hero.statChannels") },
+            { v: "< 200ms", l: t("hero.statLatency") },
+            { v: "UZ-first", l: t("hero.statNative") },
           ].map((s) => (
             <div key={s.l}>
               <div style={{ fontSize: 26, fontWeight: 500, letterSpacing: -0.8, fontVariantNumeric: "tabular-nums", color: "#fff" }}>{s.v}</div>
@@ -483,20 +525,20 @@ const Hero = () => (
 );
 
 // ─── Problem section ─────────────────────────────────────────────────────────
-const Problem = () => (
+const Problem = ({ t }: { t: ReturnType<typeof useTranslations<"landing">> }) => (
   <Section
-    eyebrow="The problem"
-    title="Waiting is a tax on the modern day."
-    sub="Receptionists overload. Customers leave. Operators guess. Most service businesses still run their queues on Excel and a clipboard."
+    eyebrow={t("problem.eyebrow")}
+    title={t("problem.title")}
+    sub={t("problem.sub")}
   >
     <div className="lp-grid-stats" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginTop: 40, maxWidth: 1280 }}>
       {[
-        { v: "47m", l: "avg wait at a typical clinic on Friday" },
-        { v: "23%", l: "customers who leave the line" },
-        { v: "$1.4k/d", l: "lost revenue from churn per branch" },
-        { v: "3.8 hr", l: "staff time wasted on queue admin" },
+        { v: "47m", l: t("problem.s1") },
+        { v: "23%", l: t("problem.s2") },
+        { v: "$1.4k/d", l: t("problem.s3") },
+        { v: "3.8 hr", l: t("problem.s4") },
       ].map((p) => (
-        <div key={p.l} style={{
+        <div key={p.v} style={{
           padding: 22, borderRadius: 14,
           background: "rgba(255,255,255,0.025)",
           border: "1px solid rgba(255,255,255,0.06)",
@@ -514,18 +556,18 @@ const Problem = () => (
 );
 
 // ─── Solution / features ─────────────────────────────────────────────────────
-const Solution = () => (
-  <Section id="features" eyebrow="The solution" title="A live operating system for customer flow.">
+const Solution = ({ t }: { t: ReturnType<typeof useTranslations<"landing">> }) => (
+  <Section id="features" eyebrow={t("solution.eyebrow")} title={t("solution.title")}>
     <div className="lp-grid-features" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginTop: 36, maxWidth: 1280 }}>
-      {[
-        { i: "phone" as const,    t: "Remote queue",     d: "Take a number from home. Join via web, app or Telegram. Walk in only when called." },
-        { i: "calendar" as const, t: "Appointments",     d: "Book any time. We pin your slot, send reminders, hold it against walk-ins." },
-        { i: "activity" as const, t: "Live ETA",         d: "Smart predictions from queue speed, service duration and staffing. Updated every second." },
-        { i: "bell" as const,     t: "Notifications",    d: "Push, Telegram, SMS. The customer knows exactly when to leave." },
-        { i: "chart" as const,    t: "Analytics",        d: "Peak hours, no-show rate, wait time per service. Real data, instant." },
-        { i: "flow" as const,     t: "Operator console", d: "Call next, transfer, mark served. One screen, no friction." },
-      ].map((f) => (
-        <div key={f.t} style={{
+      {([
+        { i: "phone" as const,    tk: "f1t", dk: "f1d" },
+        { i: "calendar" as const, tk: "f2t", dk: "f2d" },
+        { i: "activity" as const, tk: "f3t", dk: "f3d" },
+        { i: "bell" as const,     tk: "f4t", dk: "f4d" },
+        { i: "chart" as const,    tk: "f5t", dk: "f5d" },
+        { i: "flow" as const,     tk: "f6t", dk: "f6d" },
+      ] as const).map((f) => (
+        <div key={f.tk} style={{
           padding: 24, borderRadius: 16,
           background: "rgba(255,255,255,0.025)",
           border: "1px solid rgba(255,255,255,0.06)",
@@ -538,8 +580,12 @@ const Solution = () => (
           }}>
             <Icon name={f.i} size={20} stroke={1.6}/>
           </div>
-          <div style={{ fontSize: 16, fontWeight: 600, letterSpacing: -0.3, color: "#fff" }}>{f.t}</div>
-          <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", lineHeight: 1.55 }}>{f.d}</div>
+          <div style={{ fontSize: 16, fontWeight: 600, letterSpacing: -0.3, color: "#fff" }}>
+            {t(`solution.${f.tk}` as Parameters<typeof t>[0])}
+          </div>
+          <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", lineHeight: 1.55 }}>
+            {t(`solution.${f.dk}` as Parameters<typeof t>[0])}
+          </div>
         </div>
       ))}
     </div>
@@ -547,12 +593,12 @@ const Solution = () => (
 );
 
 // ─── Console preview ─────────────────────────────────────────────────────────
-const Console = () => (
+const Console = ({ t }: { t: ReturnType<typeof useTranslations<"landing">> }) => (
   <Section
     id="console"
-    eyebrow="Operational console"
-    title="A dashboard that feels like infrastructure."
-    sub="Built for managers who run multiple branches and don't have time for clutter."
+    eyebrow={t("console.eyebrow")}
+    title={t("console.title")}
+    sub={t("console.sub")}
   >
     <div className="lp-console-wrap" style={{
       marginTop: 40, position: "relative",
@@ -569,17 +615,17 @@ const Console = () => (
 );
 
 // ─── Industries ──────────────────────────────────────────────────────────────
-const Industries = () => (
-  <Section id="industries" eyebrow="Built for" title="Industries where waiting eats profit.">
+const Industries = ({ t }: { t: ReturnType<typeof useTranslations<"landing">> }) => (
+  <Section id="industries" eyebrow={t("industries.eyebrow")} title={t("industries.title")}>
     <div className="lp-grid-industries" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 14, marginTop: 36, maxWidth: 1280 }}>
-      {[
-        { i: "heart" as const,    t: "Clinics",        d: "Family doctors, specialists" },
-        { i: "eye" as const,      t: "Diagnostics",    d: "Imaging, lab tests" },
-        { i: "sparkles" as const, t: "Salons",         d: "Hair, beauty, spa" },
-        { i: "user" as const,     t: "Dental",         d: "Routine + appointments" },
-        { i: "settings" as const, t: "Service centers", d: "Auto, electronics, repair" },
-      ].map((s) => (
-        <div key={s.t} style={{
+      {([
+        { i: "heart" as const,    tk: "i1t", dk: "i1d" },
+        { i: "eye" as const,      tk: "i2t", dk: "i2d" },
+        { i: "sparkles" as const, tk: "i3t", dk: "i3d" },
+        { i: "user" as const,     tk: "i4t", dk: "i4d" },
+        { i: "settings" as const, tk: "i5t", dk: "i5d" },
+      ] as const).map((s) => (
+        <div key={s.tk} style={{
           padding: 22, borderRadius: 14,
           background: "rgba(255,255,255,0.025)",
           border: "1px solid rgba(255,255,255,0.06)",
@@ -587,8 +633,12 @@ const Industries = () => (
         }}>
           <Icon name={s.i} size={22} style={{ color: "oklch(0.78 0.14 220)" }}/>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{s.t}</div>
-            <div style={{ fontSize: 11.5, color: "rgba(255,255,255,0.45)", marginTop: 3 }}>{s.d}</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>
+              {t(`industries.${s.tk}` as Parameters<typeof t>[0])}
+            </div>
+            <div style={{ fontSize: 11.5, color: "rgba(255,255,255,0.45)", marginTop: 3 }}>
+              {t(`industries.${s.dk}` as Parameters<typeof t>[0])}
+            </div>
           </div>
         </div>
       ))}
@@ -597,27 +647,31 @@ const Industries = () => (
 );
 
 // ─── Early access ────────────────────────────────────────────────────────────
-const EarlyAccess = () => (
+const EarlyAccess = ({ t }: { t: ReturnType<typeof useTranslations<"landing">> }) => (
   <Section
     id="early-access"
-    eyebrow="Early access"
-    title="Built for Uzbekistan, ready for your branch."
-    sub="zeyvo is in closed early access. We're onboarding the first branches now — banks, clinics, and public services in Tashkent. If you run a location with a queue, reach out."
+    eyebrow={t("early.eyebrow")}
+    title={t("early.title")}
+    sub={t("early.sub")}
   >
     <div className="lp-grid-early" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginTop: 36, maxWidth: 1280 }}>
-      {[
-        { t: "Banks & financial services", d: "Multi-window, multi-branch management. Works alongside existing Innomax kiosks — no rip-and-replace." },
-        { t: "Clinics & polyclinics",     d: "Walk-in and appointment queues in one system. Patients get a Telegram notification when it's their turn." },
-        { t: "Government & public services", d: "High-volume counters, audit log, exportable reports. Compliant with UZ personal data regulations." },
-      ].map((c) => (
-        <div key={c.t} style={{
+      {([
+        { tk: "c1t", dk: "c1d" },
+        { tk: "c2t", dk: "c2d" },
+        { tk: "c3t", dk: "c3d" },
+      ] as const).map((c) => (
+        <div key={c.tk} style={{
           padding: 24, borderRadius: 16,
           background: "rgba(255,255,255,0.025)",
           border: "1px solid rgba(255,255,255,0.06)",
           display: "flex", flexDirection: "column", gap: 12,
         }}>
-          <div style={{ fontSize: 15, fontWeight: 600, color: "#fff", letterSpacing: -0.2 }}>{c.t}</div>
-          <div style={{ fontSize: 13.5, color: "rgba(255,255,255,0.55)", lineHeight: 1.55 }}>{c.d}</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: "#fff", letterSpacing: -0.2 }}>
+            {t(`early.${c.tk}` as Parameters<typeof t>[0])}
+          </div>
+          <div style={{ fontSize: 13.5, color: "rgba(255,255,255,0.55)", lineHeight: 1.55 }}>
+            {t(`early.${c.dk}` as Parameters<typeof t>[0])}
+          </div>
         </div>
       ))}
     </div>
@@ -625,7 +679,7 @@ const EarlyAccess = () => (
 );
 
 // ─── CTA ─────────────────────────────────────────────────────────────────────
-const CtaCard = () => (
+const CtaCard = ({ t }: { t: ReturnType<typeof useTranslations<"landing">> }) => (
   <div className="lp-cta-section" style={{ padding: "80px 48px 60px" }}>
     <div style={{
       maxWidth: 1280, margin: "0 auto",
@@ -639,10 +693,10 @@ const CtaCard = () => (
         background: "linear-gradient(180deg, #fff 0%, rgba(255,255,255,0.7) 100%)",
         WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent",
       }}>
-        Let your customers<br/>live their day.
+        {t("cta.title")}
       </div>
       <p style={{ fontSize: 16, color: "rgba(255,255,255,0.6)", maxWidth: 480, margin: "20px auto 0", lineHeight: 1.5 }}>
-        One branch trial. No card. See the difference, then roll out.
+        {t("cta.sub")}
       </p>
       <div style={{ display: "flex", gap: 10, marginTop: 28, justifyContent: "center", flexWrap: "wrap" }}>
         <a href="mailto:uzgamer.uz27@gmail.com?subject=zeyvo%20%E2%80%94%20Request%20demo" style={{
@@ -650,112 +704,126 @@ const CtaCard = () => (
           background: "#fff", color: "#0a0e15",
           fontSize: 14, fontWeight: 600, textDecoration: "none",
           display: "inline-flex", alignItems: "center", gap: 8,
-        }}>Request demo <Icon name="arrow" size={15}/></a>
+        }}>{t("cta.requestDemo")} <Icon name="arrow" size={15}/></a>
         <Link href="/branches" style={{
           padding: "14px 22px", borderRadius: 10,
           background: "rgba(255,255,255,0.08)",
           border: "1px solid rgba(255,255,255,0.15)",
           color: "#fff", fontSize: 14, fontWeight: 500, textDecoration: "none",
-        }}>Open live demo</Link>
+        }}>{t("cta.openDemo")}</Link>
       </div>
     </div>
   </div>
 );
 
 // ─── Footer ──────────────────────────────────────────────────────────────────
-type FooterLink = { label: string; href: string; external?: boolean };
-const FOOTER_COLUMNS: { title: string; links: FooterLink[] }[] = [
-  {
-    title: "Product",
-    links: [
-      { label: "Remote queue",   href: "#features" },
-      { label: "Live monitor",   href: "#features" },
-      { label: "Analytics",      href: "#console" },
-      { label: "Kiosks",         href: "#features" },
-      { label: "Telegram bot",   href: "https://t.me/zeyvo_bot", external: true },
-    ],
-  },
-  {
-    title: "For",
-    links: [
-      { label: "Clinics",         href: "#industries" },
-      { label: "Diagnostics",     href: "#industries" },
-      { label: "Salons",          href: "#industries" },
-      { label: "Dental",          href: "#industries" },
-      { label: "Service centers", href: "#industries" },
-    ],
-  },
-  {
-    title: "Company",
-    links: [
-      { label: "Early access",   href: "#early-access" },
-      { label: "Contact",        href: "mailto:uzgamer.uz27@gmail.com", external: true },
-      { label: "GitHub",         href: "https://github.com/Normamatov27/zeyvo", external: true },
-      { label: "Privacy Policy", href: "/privacy" },
-      { label: "Terms of Use",   href: "/terms" },
-    ],
-  },
-];
+const Footer = ({ t }: { t: ReturnType<typeof useTranslations<"landing">> }) => {
+  const footerColumns = [
+    {
+      title: t("footer.col1"),
+      links: [
+        { label: t("footer.links.remoteQueue"),   href: "#features" },
+        { label: t("footer.links.liveMonitor"),   href: "#features" },
+        { label: t("footer.links.analytics"),     href: "#console" },
+        { label: t("footer.links.kiosks"),        href: "#features" },
+        { label: t("footer.links.telegramBot"),   href: "https://t.me/zeyvo_bot", external: true },
+      ],
+    },
+    {
+      title: t("footer.col2"),
+      links: [
+        { label: t("footer.links.clinics"),        href: "#industries" },
+        { label: t("footer.links.diagnostics"),    href: "#industries" },
+        { label: t("footer.links.salons"),         href: "#industries" },
+        { label: t("footer.links.dental"),         href: "#industries" },
+        { label: t("footer.links.serviceCenters"), href: "#industries" },
+      ],
+    },
+    {
+      title: t("footer.col3"),
+      links: [
+        { label: t("footer.links.earlyAccess"),   href: "#early-access" },
+        { label: t("footer.links.contact"),       href: "mailto:uzgamer.uz27@gmail.com", external: true },
+        { label: t("footer.links.github"),        href: "https://github.com/Normamatov27/zeyvo", external: true },
+        { label: t("footer.links.privacy"),       href: "/privacy" },
+        { label: t("footer.links.terms"),         href: "/terms" },
+      ],
+    },
+  ];
 
-const Footer = () => (
-  <div style={{
-    padding: "32px 40px",
-    borderTop: "1px solid rgba(255,255,255,0.06)",
-    background: "rgba(255,255,255,0.02)",
-  }}>
-    <div style={{ maxWidth: 1280, margin: "0 auto" }}>
-      <div className="lp-footer-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 24 }}>
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 16, fontWeight: 600, color: "#fff" }}>
-            <Logo size={18} color="#fff" stroke={1.8}/> zeyvo
+  return (
+    <div style={{
+      padding: "32px 40px",
+      borderTop: "1px solid rgba(255,255,255,0.06)",
+      background: "rgba(255,255,255,0.02)",
+    }}>
+      <div style={{ maxWidth: 1280, margin: "0 auto" }}>
+        <div className="lp-footer-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 24 }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 16, fontWeight: 600, color: "#fff" }}>
+              <Logo size={18} color="#fff" stroke={1.8}/> zeyvo
+            </div>
+            <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.45)", maxWidth: 280, lineHeight: 1.55, marginTop: 12 }}>
+              {t("footer.desc")}
+            </p>
           </div>
-          <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.45)", maxWidth: 280, lineHeight: 1.55, marginTop: 12 }}>
-            AI-powered queue & appointment infrastructure for modern service businesses. Built in Tashkent · used everywhere.
-          </p>
+          {footerColumns.map((col) => (
+            <div key={col.title}>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 10 }}>{col.title}</div>
+              {col.links.map((l) => (
+                <a
+                  key={l.label}
+                  href={l.href}
+                  {...("external" in l && l.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                  style={{
+                    fontSize: 12.5, color: "rgba(255,255,255,0.7)",
+                    padding: "3px 0", display: "block",
+                    textDecoration: "none",
+                  }}
+                >
+                  {l.label}
+                </a>
+              ))}
+            </div>
+          ))}
         </div>
-        {FOOTER_COLUMNS.map((col) => (
-          <div key={col.title}>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 10 }}>{col.title}</div>
-            {col.links.map((l) => (
-              <a
-                key={l.label}
-                href={l.href}
-                {...(l.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-                style={{
-                  fontSize: 12.5, color: "rgba(255,255,255,0.7)",
-                  padding: "3px 0", display: "block",
-                  textDecoration: "none",
-                }}
-              >
-                {l.label}
-              </a>
-            ))}
+        <div style={{
+          marginTop: 28, paddingTop: 18, borderTop: "1px solid rgba(255,255,255,0.06)",
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          fontSize: 11.5, color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-mono)",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <span>© 2026 zeyvo labs · tashkent</span>
+            <a href="/privacy" style={{ color: "rgba(255,255,255,0.4)", textDecoration: "none" }}>{t("footer.links.privacyShort")}</a>
+            <a href="/terms" style={{ color: "rgba(255,255,255,0.4)", textDecoration: "none" }}>{t("footer.links.termsShort")}</a>
           </div>
-        ))}
-      </div>
-      <div style={{
-        marginTop: 28, paddingTop: 18, borderTop: "1px solid rgba(255,255,255,0.06)",
-        display: "flex", justifyContent: "space-between", alignItems: "center",
-        fontSize: 11.5, color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-mono)",
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <span>© 2026 zeyvo labs · tashkent</span>
-          <a href="/privacy" style={{ color: "rgba(255,255,255,0.4)", textDecoration: "none" }}>Privacy</a>
-          <a href="/terms" style={{ color: "rgba(255,255,255,0.4)", textDecoration: "none" }}>Terms</a>
+          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ width: 6, height: 6, background: "oklch(0.62 0.14 150)", borderRadius: "50%" }}/>
+            {t("footer.allOperational")}
+          </span>
         </div>
-        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ width: 6, height: 6, background: "oklch(0.62 0.14 150)", borderRadius: "50%" }}/>
-          all systems operational
-        </span>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 export default function HomePage() {
   const { userId, _hydrated } = useAuthStore();
   const authed = _hydrated && userId !== null;
+  const t = useTranslations("landing");
+
+  // Track page view
+  useEffect(() => {
+    fetch("/api/v1/public/pageview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        path: "/",
+        referrer: typeof document !== "undefined" ? document.referrer : "",
+      }),
+    }).catch(() => {});
+  }, []);
 
   return (
     <div id="top" style={{
@@ -804,15 +872,15 @@ export default function HomePage() {
           .lp-topnav { padding: 0 18px !important; }
         }
       `}</style>
-      <TopNav authed={authed}/>
-      <Hero/>
-      <Problem/>
-      <Solution/>
-      <Console/>
-      <Industries/>
-      <EarlyAccess/>
-      <CtaCard/>
-      <Footer/>
+      <TopNav authed={authed} t={t}/>
+      <Hero t={t}/>
+      <Problem t={t}/>
+      <Solution t={t}/>
+      <Console t={t}/>
+      <Industries t={t}/>
+      <EarlyAccess t={t}/>
+      <CtaCard t={t}/>
+      <Footer t={t}/>
     </div>
   );
 }

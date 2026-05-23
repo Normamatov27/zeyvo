@@ -47,12 +47,20 @@ public class PlatformController {
         Number ticketsToday = (Number) em.createNativeQuery(
                         "SELECT COUNT(*) FROM app.ticket WHERE joined_at >= CURRENT_DATE")
                 .getSingleResult();
-        return Map.of(
-                "totalOrganizations", orgs,
-                "totalBranches", branches,
-                "totalUsers", users,
-                "totalTicketsToday", ticketsToday.longValue()
-        );
+        Number viewsToday = (Number) em.createNativeQuery(
+                        "SELECT COUNT(*) FROM app.page_view WHERE visited_at >= CURRENT_DATE")
+                .getSingleResult();
+        Number viewsTotal = (Number) em.createNativeQuery(
+                        "SELECT COUNT(*) FROM app.page_view")
+                .getSingleResult();
+        var result = new java.util.LinkedHashMap<String, Object>();
+        result.put("totalOrganizations", orgs);
+        result.put("totalBranches", branches);
+        result.put("totalUsers", users);
+        result.put("totalTicketsToday", ticketsToday.longValue());
+        result.put("pageViewsToday", viewsToday.longValue());
+        result.put("pageViewsTotal", viewsTotal.longValue());
+        return result;
     }
 
     @PostMapping("/tenants")

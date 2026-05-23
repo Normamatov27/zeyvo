@@ -9,6 +9,8 @@ interface PlatformStats {
   totalBranches: number;
   totalTicketsToday: number;
   totalUsers: number;
+  pageViewsToday: number;
+  pageViewsTotal: number;
 }
 
 interface AuditEvent {
@@ -118,7 +120,7 @@ export default function PlatformOverviewPage() {
 
       <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 18, overflow: "auto" }}>
         {/* Top KPIs */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
           <StatTile
             label="Organizations"
             value={loading ? "—" : (stats?.totalOrganizations ?? 0)}
@@ -143,10 +145,20 @@ export default function PlatformOverviewPage() {
             sub="customers + staff"
             accent="success"
           />
+        </div>
+
+        {/* Website visitor stats */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
           <StatTile
-            label="Audit events"
-            value={loading ? "—" : audit.length > 0 ? `${audit.length}+` : "0"}
-            sub="recent (last loaded)"
+            label="Landing page views · today"
+            value={loading ? "—" : (stats?.pageViewsToday ?? 0)}
+            sub="zeyvo.tech / visitors today"
+            accent="primary"
+          />
+          <StatTile
+            label="Landing page views · all time"
+            value={loading ? "—" : (stats?.pageViewsTotal ?? 0).toLocaleString()}
+            sub="total recorded since tracking started"
           />
         </div>
 

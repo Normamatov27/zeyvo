@@ -362,5 +362,114 @@
     "your_turn_body": "Window {window} is calling you.",
     "served": "Visit complete · {number}",
     "served_body": "Thanks for using zeyvo. Rate your visit?"
+  },
+  "landing": {
+    "nav": {
+      "product": "Product",
+      "industries": "Industries",
+      "console": "Console",
+      "earlyAccess": "Early access",
+      "signIn": "Sign in",
+      "requestDemo": "Request demo",
+      "openApp": "Open app"
+    },
+    "hero": {
+      "badge": "AI-POWERED QUEUE INFRASTRUCTURE",
+      "line1": "Building the future",
+      "line2": "of waiting.",
+      "desc": "AI-powered queue & appointment infrastructure for modern service businesses. Customers join remotely. Operators serve smarter. Lines disappear.",
+      "startTrial": "Start free trial",
+      "openTelegram": "Open in Telegram",
+      "statChannels": "channels supported",
+      "statLatency": "p95 API latency",
+      "statNative": "telegram-native"
+    },
+    "problem": {
+      "eyebrow": "The problem",
+      "title": "Waiting is a tax on the modern day.",
+      "sub": "Receptionists overload. Customers leave. Operators guess. Most service businesses still run their queues on Excel and a clipboard.",
+      "s1": "avg wait at a typical clinic on Friday",
+      "s2": "customers who leave the line",
+      "s3": "lost revenue from churn per branch",
+      "s4": "staff time wasted on queue admin"
+    },
+    "solution": {
+      "eyebrow": "The solution",
+      "title": "A live operating system for customer flow.",
+      "f1t": "Remote queue",
+      "f1d": "Take a number from home. Join via web, app or Telegram. Walk in only when called.",
+      "f2t": "Appointments",
+      "f2d": "Book any time. We pin your slot, send reminders, hold it against walk-ins.",
+      "f3t": "Live ETA",
+      "f3d": "Smart predictions from queue speed, service duration and staffing. Updated every second.",
+      "f4t": "Notifications",
+      "f4d": "Push, Telegram, SMS. The customer knows exactly when to leave.",
+      "f5t": "Analytics",
+      "f5d": "Peak hours, no-show rate, wait time per service. Real data, instant.",
+      "f6t": "Operator console",
+      "f6d": "Call next, transfer, mark served. One screen, no friction."
+    },
+    "console": {
+      "eyebrow": "Operational console",
+      "title": "A dashboard that feels like infrastructure.",
+      "sub": "Built for managers who run multiple branches and don't have time for clutter."
+    },
+    "industries": {
+      "eyebrow": "Built for",
+      "title": "Industries where waiting eats profit.",
+      "i1t": "Clinics",
+      "i1d": "Family doctors, specialists",
+      "i2t": "Diagnostics",
+      "i2d": "Imaging, lab tests",
+      "i3t": "Salons",
+      "i3d": "Hair, beauty, spa",
+      "i4t": "Dental",
+      "i4d": "Routine + appointments",
+      "i5t": "Service centers",
+      "i5d": "Auto, electronics, repair"
+    },
+    "early": {
+      "eyebrow": "Early access",
+      "title": "Built for Uzbekistan, ready for your branch.",
+      "sub": "zeyvo is in closed early access. We're onboarding the first branches now — banks, clinics, and public services in Tashkent. If you run a location with a queue, reach out.",
+      "c1t": "Banks & financial services",
+      "c1d": "Multi-window, multi-branch management. Works alongside existing Innomax kiosks — no rip-and-replace.",
+      "c2t": "Clinics & polyclinics",
+      "c2d": "Walk-in and appointment queues in one system. Patients get a Telegram notification when it's their turn.",
+      "c3t": "Government & public services",
+      "c3d": "High-volume counters, audit log, exportable reports. Compliant with UZ personal data regulations."
+    },
+    "cta": {
+      "title": "Let your customers live their day.",
+      "sub": "One branch trial. No card. See the difference, then roll out.",
+      "requestDemo": "Request demo",
+      "openDemo": "Open live demo"
+    },
+    "footer": {
+      "desc": "AI-powered queue & appointment infrastructure for modern service businesses. Built in Tashkent · used everywhere.",
+      "allOperational": "all systems operational",
+      "col1": "Product",
+      "col2": "For",
+      "col3": "Company",
+      "links": {
+        "remoteQueue": "Remote queue",
+        "liveMonitor": "Live monitor",
+        "analytics": "Analytics",
+        "kiosks": "Kiosks",
+        "telegramBot": "Telegram bot",
+        "clinics": "Clinics",
+        "diagnostics": "Diagnostics",
+        "salons": "Salons",
+        "dental": "Dental",
+        "serviceCenters": "Service centers",
+        "earlyAccess": "Early access",
+        "contact": "Contact",
+        "github": "GitHub",
+        "privacy": "Privacy Policy",
+        "terms": "Terms of Use",
+        "privacyShort": "Privacy",
+        "termsShort": "Terms"
+      }
+    }
   }
 }
