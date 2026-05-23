@@ -14,16 +14,10 @@ const MoonIcon = () => (
   </svg>
 );
 
-const MonitorIcon = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-    <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
-  </svg>
-);
 
 const THEMES = [
-  { value: "light"  as const, label: "Light",  Icon: SunIcon },
-  { value: "dark"   as const, label: "Dark",   Icon: MoonIcon },
-  { value: "system" as const, label: "System", Icon: MonitorIcon },
+  { value: "light" as const, Icon: SunIcon },
+  { value: "dark"  as const, Icon: MoonIcon },
 ];
 
 export function ThemeToggle({ compact = false }: { compact?: boolean }) {
@@ -31,15 +25,12 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
   const setTheme = useUiStore((s) => s.setTheme);
 
   if (compact) {
-    const rawIdx = THEMES.findIndex((t) => t.value === theme);
-    const idx = rawIdx >= 0 ? rawIdx : 0;
-    const current = THEMES[idx]!;
-    const next = THEMES[(idx + 1) % THEMES.length]!;
+    const current = theme === "dark" ? THEMES[1]! : THEMES[0]!;
+    const next = theme === "dark" ? THEMES[0]! : THEMES[1]!;
     return (
       <button
         onClick={() => setTheme(next.value)}
-        aria-label={`Switch theme (current: ${current.label})`}
-        title={`Theme: ${current.label} → ${next.label}`}
+        aria-label={`Switch to ${next.value} theme`}
         style={{
           width: 32, height: 32, borderRadius: 8,
           border: "1px solid var(--color-border)",
@@ -57,21 +48,20 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
   return (
     <div role="group" aria-label="Theme" style={{ display: "flex", gap: 4, padding: 3, borderRadius: 8, background: "var(--color-surface-2)" }}>
       {THEMES.map((t) => {
-        const isActive = t.value === theme;
+        const isActive = t.value === theme || (theme === "system" && t.value === "light");
         return (
           <button
             key={t.value}
             onClick={() => setTheme(t.value)}
             style={{
-              padding: "5px 10px", borderRadius: 6, border: "none",
+              padding: "6px 14px", borderRadius: 6, border: "none",
               background: isActive ? "var(--color-primary-soft)" : "transparent",
               color: isActive ? "var(--color-primary)" : "var(--color-fg-3)",
-              fontSize: 12, fontWeight: isActive ? 600 : 400,
-              cursor: "pointer", display: "flex", alignItems: "center", gap: 5,
+              cursor: "pointer", display: "grid", placeItems: "center",
               transition: "background 0.15s, color 0.15s",
             }}
           >
-            <t.Icon/>{t.label}
+            <t.Icon/>
           </button>
         );
       })}
