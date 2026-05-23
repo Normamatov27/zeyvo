@@ -40,8 +40,8 @@ public class PaymentController {
                                               Authentication auth) {
         UUID orgId = resolveOrgId(auth);
         String plan = (String) body.get("plan");
-        if (plan == null || (!plan.equals("growth") && !plan.equals("business")))
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "plan must be growth or business");
+        if (plan == null || (!plan.equals("starter") && !plan.equals("growth") && !plan.equals("enterprise")))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "plan must be starter, growth, or enterprise");
 
         String currency = body.containsKey("currency") ? (String) body.get("currency") : "UZS";
         Object amtRaw = body.get("amount");

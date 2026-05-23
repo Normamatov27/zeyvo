@@ -29,7 +29,7 @@ export default function OnboardingPage() {
   const [phone, setPhone] = useState("");
   const [firstBranchName, setFirstBranchName] = useState("");
 
-  const [plan, setPlan] = useState<"trial" | "growth" | "business">("trial");
+  const [plan, setPlan] = useState<"trial" | "starter" | "growth" | "enterprise">("trial");
   const [agreedToTos, setAgreedToTos] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -163,11 +163,12 @@ export default function OnboardingPage() {
         {/* Plan selection */}
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <div style={{ fontSize: 12, fontWeight: 500, color: "var(--color-fg-2)" }}>Choose a plan</div>
-          {(["trial", "growth", "business"] as const).map((p) => {
+          {(["trial", "starter", "growth", "enterprise"] as const).map((p) => {
             const meta = {
-              trial:    { label: "Trial", price: "Free · 30 days", desc: "1 branch · up to 500 tickets" },
-              growth:   { label: "Growth", price: "$29 / month", desc: "3 branches · unlimited tickets · analytics" },
-              business: { label: "Business", price: "$79 / month", desc: "Unlimited branches · priority support · API access" },
+              trial:      { label: "Trial",      price: "Free · 14 days",         desc: "1 branch · 2 windows · 500 tickets/mo" },
+              starter:    { label: "Starter",    price: "499,000 UZS / mo",       desc: "1 branch · 5 users · 3,000 tickets/mo" },
+              growth:     { label: "Growth",     price: "1,490,000 UZS / mo",     desc: "3 branches · 20 users · 25,000 tickets/mo" },
+              enterprise: { label: "Enterprise", price: "from 4,900,000 UZS / mo", desc: "Custom branches · priority support · dedicated setup" },
             }[p];
             const active = plan === p;
             return (

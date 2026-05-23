@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 
 const PLANS = {
-  growth:   { label: "Growth",   uzsAmount: 370_000,  usdAmount: 29,  desc: "3 branches · unlimited tickets · analytics" },
-  business: { label: "Business", uzsAmount: 1_010_000, usdAmount: 79,  desc: "Unlimited branches · priority support · API" },
+  starter:    { label: "Starter",    uzsAmount: 499_000,   usdAmount: 39,   desc: "1 branch · 5 users · 3,000 tickets/mo" },
+  growth:     { label: "Growth",     uzsAmount: 1_490_000, usdAmount: 117,  desc: "3 branches · 20 users · 25,000 tickets/mo · analytics" },
+  enterprise: { label: "Enterprise", uzsAmount: 4_900_000, usdAmount: 385,  desc: "Custom branches · priority support · dedicated setup" },
 };
 
 const CARDS = {
@@ -16,7 +17,7 @@ const CARDS = {
 
 export default function PaymentPage() {
   const router = useRouter();
-  const [plan, setPlan] = useState<"growth" | "business">("growth");
+  const [plan, setPlan] = useState<"starter" | "growth" | "enterprise">("starter");
   const [currency, setCurrency] = useState<"UZS" | "USD">("UZS");
   const [txRef, setTxRef] = useState("");
   const [note, setNote] = useState("");
@@ -90,7 +91,7 @@ export default function PaymentPage() {
 
       {/* Plan selector */}
       <div style={{ display: "flex", gap: 10 }}>
-        {(["growth", "business"] as const).map((p) => {
+        {(["starter", "growth", "enterprise"] as const).map((p) => {
           const active = plan === p;
           return (
             <button key={p} onClick={() => setPlan(p)} style={{
