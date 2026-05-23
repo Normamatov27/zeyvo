@@ -12,6 +12,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 const NAV = [
   { href: "/platform", label: "Overview", icon: "⬡" },
   { href: "/platform/tenants", label: "Tenants", icon: "🏢" },
+  { href: "/platform/payments", label: "Payments", icon: "💳" },
   { href: "/platform/flags", label: "Feature flags", icon: "🚩" },
   { href: "/platform/audit", label: "Audit log", icon: "📋" },
 ];

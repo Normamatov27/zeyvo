@@ -230,6 +230,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* Sign out + super_admin shortcut */}
         <div style={{ paddingTop: 12,
           borderTop: "1px solid var(--color-hairline)" }}>
+          <Link href="/admin/payment" style={{
+            display: "block", padding: "8px 10px", borderRadius: 6,
+            background: "var(--color-warning-soft)",
+            color: "var(--color-warning)",
+            fontSize: 12, fontWeight: 500,
+            textDecoration: "none", marginBottom: 6,
+          }}>
+            Upgrade plan →
+          </Link>
           {isSuper && (
             <Link href="/platform" style={{
               display: "block", padding: "8px 10px", borderRadius: 6,

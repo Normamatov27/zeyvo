@@ -21,4 +21,7 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, UUID> 
 
     @Query(value = "SELECT role FROM app.user_role WHERE user_id = :userId", nativeQuery = true)
     List<String> findRolesByUserId(@Param("userId") UUID userId);
+
+    @Query(value = "SELECT organization_id FROM app.user_role WHERE user_id = :userId AND role != 'customer' LIMIT 1", nativeQuery = true)
+    Optional<UUID> findOrgIdByUserId(@Param("userId") UUID userId);
 }

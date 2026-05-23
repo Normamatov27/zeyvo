@@ -29,6 +29,7 @@ export default function OnboardingPage() {
   const [phone, setPhone] = useState("");
   const [firstBranchName, setFirstBranchName] = useState("");
 
+  const [plan, setPlan] = useState<"trial" | "growth" | "business">("trial");
   const [agreedToTos, setAgreedToTos] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +63,8 @@ export default function OnboardingPage() {
           firstBranchName: firstBranchName.trim() || null,
         }),
       });
-      const url = `/otp?phone=${encodeURIComponent(phoneNorm)}&channel=${encodeURIComponent(res.channel)}&redirect=${encodeURIComponent("/admin/overview")}`;
+      const redirect = plan !== "trial" ? "/admin/payment" : "/admin/overview";
+      const url = `/otp?phone=${encodeURIComponent(phoneNorm)}&channel=${encodeURIComponent(res.channel)}&redirect=${encodeURIComponent(redirect)}`;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       router.replace(url as any);
     } catch (err: any) {
@@ -157,6 +159,41 @@ export default function OnboardingPage() {
             style={inputStyle}
           />
         </Field>
+
+        {/* Plan selection */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 500, color: "var(--color-fg-2)" }}>Choose a plan</div>
+          {(["trial", "growth", "business"] as const).map((p) => {
+            const meta = {
+              trial:    { label: "Trial", price: "Free · 30 days", desc: "1 branch · up to 500 tickets" },
+              growth:   { label: "Growth", price: "$29 / month", desc: "3 branches · unlimited tickets · analytics" },
+              business: { label: "Business", price: "$79 / month", desc: "Unlimited branches · priority support · API access" },
+            }[p];
+            const active = plan === p;
+            return (
+              <label key={p} style={{
+                display: "flex", alignItems: "center", gap: 12, padding: "12px 14px",
+                borderRadius: 10, cursor: "pointer",
+                border: `1.5px solid ${active ? "var(--color-primary)" : "var(--color-border)"}`,
+                background: active ? "var(--color-primary-soft)" : "var(--color-surface-2)",
+              }}>
+                <input type="radio" name="plan" value={p} checked={active} onChange={() => setPlan(p)} style={{ accentColor: "var(--color-primary)" }}/>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: active ? "var(--color-primary)" : "var(--color-fg)" }}>{meta.label}</div>
+                  <div style={{ fontSize: 11, color: "var(--color-fg-3)", marginTop: 1 }}>{meta.desc}</div>
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 600, fontFamily: "var(--font-mono)",
+                  color: active ? "var(--color-primary)" : "var(--color-fg-3)" }}>{meta.price}</div>
+              </label>
+            );
+          })}
+          {plan !== "trial" && (
+            <div style={{ fontSize: 11, color: "var(--color-fg-3)", padding: "8px 12px", borderRadius: 8,
+              background: "var(--color-warning-soft)", lineHeight: 1.5 }}>
+              After sign-up you will see payment instructions (P2P bank transfer). Your plan activates once the super admin confirms the payment.
+            </div>
+          )}
+        </div>
 
         <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", userSelect: "none" }}>
           <input
