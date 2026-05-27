@@ -1,5 +1,6 @@
 package com.zeyvo.queue.appointment.api;
 
+import com.zeyvo.common.web.DomainException;
 import com.zeyvo.queue.appointment.api.dto.AppointmentDto;
 import com.zeyvo.queue.appointment.api.dto.BookAppointmentRequest;
 import com.zeyvo.queue.appointment.domain.Appointment;
@@ -9,9 +10,12 @@ import com.zeyvo.queue.domain.Ticket;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,6 +33,9 @@ import java.util.UUID;
 public class AppointmentController {
 
     private final AppointmentService service;
+
+    @PersistenceContext
+    private EntityManager em;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -52,8 +59,30 @@ public class AppointmentController {
     public List<AppointmentDto> adminList(
             @RequestParam UUID branchId,
             @RequestParam Instant from,
-            @RequestParam Instant to) {
+            @RequestParam Instant to,
+            Authentication auth) {
+        requireBranchOrg(branchId, auth);
         return service.getAdminView(branchId, from, to);
+    }
+
+    private void requireBranchOrg(UUID branchId, Authentication auth) {
+        if (auth != null && auth.getDetails() instanceof java.util.Map<?, ?> claims) {
+            Object rolesObj = claims.get("roles");
+            if (rolesObj instanceof java.util.List<?> roles && roles.contains("SUPER_ADMIN")) return;
+            Object orgIdObj = claims.get("org_id");
+            if (orgIdObj instanceof String orgStr && !orgStr.isBlank()) {
+                UUID callerOrg = UUID.fromString(orgStr);
+                try {
+                    UUID branchOrg = (UUID) em.createNativeQuery(
+                            "SELECT organization_id FROM app.branch WHERE id = :bid")
+                        .setParameter("bid", branchId)
+                        .getSingleResult();
+                    if (callerOrg.equals(branchOrg)) return;
+                } catch (jakarta.persistence.NoResultException ignored) {}
+            }
+        }
+        throw new DomainException("forbidden.cross_org",
+                "Branch not in your organization", HttpStatus.FORBIDDEN);
     }
 
     @GetMapping("/{id}")

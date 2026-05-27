@@ -82,6 +82,13 @@ public class ChatService {
         // Notify the customer
         broadcast.notifyUserChat(conv.getCustomerId().toString(), payload);
 
+        // Notify admins on the appropriate topic (for real-time sync across admin tabs)
+        if ("support".equals(conv.getType())) {
+            broadcast.broadcastToChat("support", null, payload);
+        } else {
+            broadcast.broadcastToChat("org", conv.getOrgId(), payload);
+        }
+
         return payload;
     }
 

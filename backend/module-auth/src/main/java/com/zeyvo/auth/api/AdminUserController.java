@@ -98,18 +98,38 @@ public class AdminUserController {
     @PreAuthorize("hasAnyRole('ORG_ADMIN', 'MANAGER', 'SUPER_ADMIN')")
     @Operation(summary = "Look up a user by phone — for adding staff")
     @SuppressWarnings("unchecked")
-    public Map<String, Object> lookup(@RequestParam String phone) {
-        List<Object[]> rows = em.createNativeQuery("""
-                SELECT u.id, u.full_name, u.phone,
-                       COALESCE(array_agg(r.role) FILTER (WHERE r.role IS NOT NULL), '{}') AS roles
-                FROM app.user_account u
-                LEFT JOIN app.user_role r ON r.user_id = u.id
-                WHERE u.phone = :phone AND u.deleted_at IS NULL
-                GROUP BY u.id
-                LIMIT 1
-                """)
-                .setParameter("phone", phone)
-                .getResultList();
+    public Map<String, Object> lookup(@RequestParam String phone, Authentication auth) {
+        boolean isSuperAdmin = hasRole(auth, "SUPER_ADMIN");
+        List<Object[]> rows;
+        if (isSuperAdmin) {
+            rows = em.createNativeQuery("""
+                    SELECT u.id, u.full_name, u.phone,
+                           COALESCE(array_agg(r.role) FILTER (WHERE r.role IS NOT NULL), '{}') AS roles
+                    FROM app.user_account u
+                    LEFT JOIN app.user_role r ON r.user_id = u.id
+                    WHERE u.phone = :phone AND u.deleted_at IS NULL
+                    GROUP BY u.id
+                    LIMIT 1
+                    """)
+                    .setParameter("phone", phone)
+                    .getResultList();
+        } else {
+            // Org admins/managers can only look up users within their own org
+            UUID orgId = resolveOrgId(auth);
+            rows = em.createNativeQuery("""
+                    SELECT u.id, u.full_name, u.phone,
+                           COALESCE(array_agg(r.role) FILTER (WHERE r.role IS NOT NULL), '{}') AS roles
+                    FROM app.user_account u
+                    JOIN app.user_role r ON r.user_id = u.id
+                    WHERE u.phone = :phone AND u.deleted_at IS NULL
+                      AND r.organization_id = :orgId
+                    GROUP BY u.id
+                    LIMIT 1
+                    """)
+                    .setParameter("phone", phone)
+                    .setParameter("orgId", orgId)
+                    .getResultList();
+        }
 
         if (rows.isEmpty()) {
             throw new DomainException("user.not_found", "No user found with phone " + phone, HttpStatus.NOT_FOUND);
@@ -130,6 +150,14 @@ public class AdminUserController {
         }
         m.put("roles", rolesList);
         return m;
+    }
+
+    private boolean hasRole(Authentication auth, String role) {
+        if (auth != null && auth.getDetails() instanceof java.util.Map<?, ?> claims) {
+            Object rolesObj = claims.get("roles");
+            if (rolesObj instanceof java.util.List<?> roles) return roles.contains(role);
+        }
+        return false;
     }
 
     @PostMapping("/{userId}/roles")
@@ -218,13 +246,6 @@ public class AdminUserController {
         if (auth != null && auth.getDetails() instanceof java.util.Map<?, ?> claims) {
             Object orgId = claims.get("org_id");
             if (orgId instanceof String s && !s.isBlank()) return UUID.fromString(s);
-            // super_admin may have no org — fall back to first org
-            Object rolesObj = claims.get("roles");
-            if (rolesObj instanceof java.util.List<?> roles && roles.contains("SUPER_ADMIN")) {
-                Object id = em.createNativeQuery("SELECT id FROM app.organization ORDER BY created_at LIMIT 1")
-                        .getSingleResult();
-                return (UUID) id;
-            }
         }
         throw new DomainException("auth.no_organization",
                 "Your account is not linked to any organization.", HttpStatus.FORBIDDEN);

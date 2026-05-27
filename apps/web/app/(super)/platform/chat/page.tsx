@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import { useAuthStore } from "@/stores/auth";
+import { getStompClient } from "@/lib/realtime";
 
 interface Conversation {
   id: string;
@@ -34,6 +36,7 @@ function formatTime(iso: string): string {
 }
 
 export default function PlatformChatPage() {
+  const { accessToken, userId, _hydrated } = useAuthStore();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loadingConvs, setLoadingConvs] = useState(true);
   const [selected, setSelected] = useState<Conversation | null>(null);
@@ -43,6 +46,12 @@ export default function PlatformChatPage() {
   const [sending, setSending] = useState(false);
   const [closing, setClosing] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const subRef = useRef<{ unsubscribe: () => void } | null>(null);
+
+  const selectedIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    selectedIdRef.current = selected?.id ?? null;
+  }, [selected]);
 
   function loadConversations() {
     setLoadingConvs(true);
@@ -53,6 +62,57 @@ export default function PlatformChatPage() {
   }
 
   useEffect(() => { loadConversations(); }, []);
+
+  // WebSocket subscription for live support chat updates
+  useEffect(() => {
+    if (!_hydrated || !userId) return;
+    const stomp = getStompClient(accessToken ?? undefined);
+    const subscribe = () => {
+      subRef.current = stomp.subscribe("/topic/chat/support", (msg) => {
+        try {
+          const payload = JSON.parse(msg.body) as Message & { type: string };
+          if (payload.type === "chat.message") {
+            // 1. If message belongs to current selected conversation, append it
+            if (payload.conversationId === selectedIdRef.current) {
+              setMessages((prev) => {
+                if (prev.some((m) => m.id === payload.id)) return prev;
+                return [...prev, payload];
+              });
+            }
+
+            // 2. Update conversation list sidebar
+            setConversations((prev) => {
+              const exists = prev.some((c) => c.id === payload.conversationId);
+              if (!exists) {
+                // New support chat initiated by customer: fetch current list from API
+                apiFetch<Conversation[]>("/api/v1/chat/admin/conversations")
+                  .then(setConversations)
+                  .catch(() => {});
+                return prev;
+              }
+              // Move existing conversation to top and update activity time
+              return prev
+                .map((c) =>
+                  c.id === payload.conversationId
+                    ? { ...c, updatedAt: payload.sentAt }
+                    : c
+                )
+                .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+            });
+          }
+        } catch (e) {
+          console.error("STOMP parse error", e);
+        }
+      });
+    };
+
+    if (stomp.connected) subscribe();
+    else stomp.onConnect = subscribe;
+
+    return () => {
+      subRef.current?.unsubscribe();
+    };
+  }, [_hydrated, userId, accessToken]);
 
   useEffect(() => {
     if (!selected) return;

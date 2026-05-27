@@ -238,8 +238,10 @@ public class AuthService {
         List<String> dbRoles = userRepo.findRolesByUserId(user.getId());
         List<String> roles = dbRoles.isEmpty() ? List.of("customer") : dbRoles;
         // Backfill org_id on the entity if the user was added as staff via role assignment
-        // (user_account.organization_id may be null when roles are managed separately)
-        if (user.getOrganizationId() == null) {
+        // (user_account.organization_id may be null when roles are managed separately).
+        // Super admins are exempt — they operate platform-wide with no org binding.
+        boolean isSuperAdmin = dbRoles.contains("super_admin");
+        if (!isSuperAdmin && user.getOrganizationId() == null) {
             userRepo.findOrgIdByUserId(user.getId()).ifPresent(oid -> {
                 user.setOrganizationId(oid);
                 userRepo.save(user);

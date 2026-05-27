@@ -55,6 +55,30 @@ interface ServiceMetric {
   noShowRate: number;
 }
 
+interface ApptMetrics {
+  total: number; booked: number; confirmed: number; checkedIn: number;
+  inProgress: number; served: number; noShow: number; cancelled: number;
+  serveRate: number; avgLeadHours: number | null;
+  byProvider: { providerId: string; providerName: string; served: number; noShow: number; total: number; }[];
+}
+
+interface ProviderMetric {
+  providerId: string; providerName: string; specialty: string | null;
+  total: number; served: number; noShow: number;
+  avgDurationS: number | null; serveRate: number; scheduleDays: number;
+}
+
+interface RatingsData {
+  avgRating: number | null; ratingCount: number; pct5Star: number; pctLowStar: number;
+  daily: { day: string; avgRating: number; count: number; }[];
+  recentComments: { stars: number; comment: string; at: string; }[];
+}
+
+interface PeakData {
+  maxCount: number;
+  cells: { dow: number; hour: number; count: number; }[];
+}
+
 function KpiCell({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
   return (
     <div style={{ background: "var(--color-surface-2)", borderRadius: 10, padding: "12px 14px" }}>
@@ -96,8 +120,12 @@ export default function AnalyticsPage() {
   const [hourly, setHourly] = useState<HourlyPoint[]>([]);
   const [staffMetrics, setStaffMetrics] = useState<StaffMetric[]>([]);
   const [serviceMetrics, setServiceMetrics] = useState<ServiceMetric[]>([]);
+  const [apptMetrics, setApptMetrics] = useState<ApptMetrics | null>(null);
+  const [providerMetrics, setProviderMetrics] = useState<ProviderMetric[]>([]);
+  const [ratingsData, setRatingsData] = useState<RatingsData | null>(null);
+  const [peakData, setPeakData] = useState<PeakData | null>(null);
   const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "staff" | "services">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "staff" | "services" | "appointments" | "providers" | "ratings" | "peak">("overview");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -142,6 +170,18 @@ export default function AnalyticsPage() {
       .catch(() => {});
     apiFetch<ServiceMetric[]>(`/api/v1/branches/${activeBranchId}/metrics/services`)
       .then(setServiceMetrics)
+      .catch(() => {});
+    apiFetch<ApptMetrics>(`/api/v1/branches/${activeBranchId}/metrics/appointments?days=7`)
+      .then(setApptMetrics)
+      .catch(() => {});
+    apiFetch<ProviderMetric[]>(`/api/v1/branches/${activeBranchId}/metrics/providers?days=30`)
+      .then(setProviderMetrics)
+      .catch(() => {});
+    apiFetch<RatingsData>(`/api/v1/branches/${activeBranchId}/metrics/ratings?days=30`)
+      .then(setRatingsData)
+      .catch(() => {});
+    apiFetch<PeakData>(`/api/v1/branches/${activeBranchId}/metrics/peak?days=14`)
+      .then(setPeakData)
       .catch(() => {});
   }, [activeBranchId]);
 
@@ -204,7 +244,7 @@ export default function AnalyticsPage() {
         borderBottom: "1px solid var(--color-hairline)",
         background: "var(--color-surface)", padding: "0 24px", flexShrink: 0,
       }}>
-        {(["overview", "staff", "services"] as const).map((tab) => (
+        {(["overview", "staff", "services", "appointments", "providers", "ratings", "peak"] as const).map((tab) => (
           <button key={tab} onClick={() => setActiveTab(tab)} style={{
             padding: "10px 16px", fontSize: 12, fontWeight: 600,
             background: "none", border: "none", cursor: "pointer",
@@ -464,6 +504,156 @@ export default function AnalyticsPage() {
           </div>
         )}
       </>}
+
+      {/* ── Appointments tab ────────────────────────────────────── */}
+      {activeTab === "appointments" && (
+        apptMetrics == null ? (
+          <div style={{ textAlign: "center", color: "var(--color-fg-4)", paddingTop: 40 }}>Loading…</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12 }}>
+              {[
+                { label: "Total (7d)", value: apptMetrics.total },
+                { label: "Booked", value: apptMetrics.booked },
+                { label: "Confirmed", value: apptMetrics.confirmed },
+                { label: "Served", value: apptMetrics.served, accent: "var(--color-success)" },
+                { label: "No-show", value: apptMetrics.noShow, accent: apptMetrics.noShow > 0 ? "var(--color-warning)" : undefined },
+              ].map(c => (
+                <KpiCell key={c.label} label={c.label} value={c.value.toString()} accent={c.accent}/>
+              ))}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
+              <KpiCell label="Serve rate" value={`${apptMetrics.serveRate.toFixed(1)}%`} accent={apptMetrics.serveRate >= 70 ? "var(--color-success)" : "var(--color-warning)"}/>
+              <KpiCell label="Cancelled" value={apptMetrics.cancelled.toString()}/>
+              <KpiCell label="Avg booking lead" value={apptMetrics.avgLeadHours != null ? `${apptMetrics.avgLeadHours.toFixed(1)}h` : "—"}/>
+            </div>
+            {apptMetrics.byProvider.length > 0 && (
+              <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: 14, overflow: "hidden" }}>
+                <div style={{ padding: "12px 18px", fontSize: 11, fontFamily: "var(--font-mono)", textTransform: "uppercase", letterSpacing: 0.5, color: "var(--color-fg-4)", borderBottom: "1px solid var(--color-hairline)" }}>By Provider</div>
+                {apptMetrics.byProvider.map((p, i) => (
+                  <div key={p.providerId} style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 80px", padding: "10px 18px", alignItems: "center", borderBottom: i < apptMetrics.byProvider.length - 1 ? "1px solid var(--color-hairline)" : "none" }}>
+                    <span style={{ fontSize: 13, fontWeight: 500 }}>{p.providerName}</span>
+                    <span style={{ fontSize: 13, color: "var(--color-fg-3)" }}>{p.total} total</span>
+                    <span style={{ fontSize: 13, color: "var(--color-success)", fontWeight: 600 }}>{p.served} ✓</span>
+                    <span style={{ fontSize: 13, color: p.noShow > 0 ? "var(--color-warning)" : "var(--color-fg-4)" }}>{p.noShow} ✗</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      )}
+
+      {/* ── Providers tab ──────────────────────────────────────── */}
+      {activeTab === "providers" && (
+        <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: 14, overflow: "hidden" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 90px 80px 80px 100px 80px 80px", padding: "10px 18px", fontSize: 10, fontFamily: "var(--font-mono)", textTransform: "uppercase", letterSpacing: 0.5, color: "var(--color-fg-4)", borderBottom: "1px solid var(--color-hairline)" }}>
+            <span>Provider</span><span>Specialty</span><span>Total</span><span>Served</span><span>Serve %</span><span>Avg dur.</span><span>Days/wk</span>
+          </div>
+          {providerMetrics.length === 0 ? (
+            <div style={{ padding: "32px 18px", textAlign: "center", color: "var(--color-fg-4)", fontSize: 13 }}>No provider data</div>
+          ) : providerMetrics.map((p, i) => (
+            <div key={p.providerId} style={{ display: "grid", gridTemplateColumns: "1fr 90px 80px 80px 100px 80px 80px", padding: "11px 18px", alignItems: "center", borderBottom: i < providerMetrics.length - 1 ? "1px solid var(--color-hairline)" : "none" }}>
+              <span style={{ fontSize: 13, fontWeight: 600 }}>{p.providerName}</span>
+              <span style={{ fontSize: 11, color: "var(--color-fg-3)" }}>{p.specialty ?? "—"}</span>
+              <span style={{ fontSize: 13, fontVariantNumeric: "tabular-nums" }}>{p.total}</span>
+              <span style={{ fontSize: 13, color: "var(--color-success)", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{p.served}</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: p.serveRate >= 70 ? "var(--color-success)" : "var(--color-warning)", fontFamily: "var(--font-mono)" }}>{p.serveRate.toFixed(1)}%</span>
+              <span style={{ fontSize: 12, color: "var(--color-fg-2)", fontFamily: "var(--font-mono)" }}>{p.avgDurationS != null ? `${Math.round(p.avgDurationS/60)}m` : "—"}</span>
+              <span style={{ fontSize: 12, color: "var(--color-fg-3)", fontFamily: "var(--font-mono)" }}>{p.scheduleDays}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Ratings tab ────────────────────────────────────────── */}
+      {activeTab === "ratings" && (
+        ratingsData == null ? (
+          <div style={{ textAlign: "center", color: "var(--color-fg-4)", paddingTop: 40 }}>Loading…</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
+              <KpiCell label="Avg rating (30d)" value={ratingsData.avgRating != null ? `${ratingsData.avgRating.toFixed(2)} ★` : "—"} accent="var(--color-warning)"/>
+              <KpiCell label="Total ratings" value={ratingsData.ratingCount.toString()}/>
+              <KpiCell label="5-star %" value={`${ratingsData.pct5Star.toFixed(1)}%`} accent="var(--color-success)"/>
+              <KpiCell label="1-2 star %" value={`${ratingsData.pctLowStar.toFixed(1)}%`} accent={ratingsData.pctLowStar > 15 ? "var(--color-danger)" : "var(--color-fg)"}/>
+            </div>
+            {ratingsData.daily.length > 0 && (
+              <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: 14, padding: 18 }}>
+                <div style={{ fontSize: 11, fontFamily: "var(--font-mono)", textTransform: "uppercase", letterSpacing: 0.5, color: "var(--color-fg-4)", marginBottom: 12 }}>Daily avg rating (30d)</div>
+                <ResponsiveContainer width="100%" height={160}>
+                  <AreaChart data={ratingsData.daily.map(d => ({ day: d.day.slice(5), rating: d.avgRating, count: d.count }))}>
+                    <defs>
+                      <linearGradient id="gRating" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="oklch(0.65 0.18 55)" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="oklch(0.65 0.18 55)" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-hairline)" vertical={false}/>
+                    <XAxis dataKey="day" tick={{ fontSize: 9, fill: "var(--color-fg-3)" }} tickLine={false} axisLine={false}/>
+                    <YAxis domain={[1, 5]} tick={{ fontSize: 9, fill: "var(--color-fg-3)" }} tickLine={false} axisLine={false}/>
+                    <Tooltip contentStyle={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: 8, fontSize: 12 }}/>
+                    <Area type="monotone" dataKey="rating" stroke="oklch(0.65 0.18 55)" strokeWidth={2} fill="url(#gRating)" dot={false}/>
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+            {ratingsData.recentComments.length > 0 && (
+              <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: 14, padding: "16px 20px" }}>
+                <div style={{ fontSize: 11, fontFamily: "var(--font-mono)", textTransform: "uppercase", letterSpacing: 0.5, color: "var(--color-fg-4)", marginBottom: 12 }}>Recent comments</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {ratingsData.recentComments.map((c, i) => (
+                    <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                      <span style={{ fontSize: 13, flexShrink: 0 }}>{"★".repeat(c.stars)}{"☆".repeat(5 - c.stars)}</span>
+                      <span style={{ fontSize: 13, color: "var(--color-fg-2)", flex: 1 }}>{c.comment}</span>
+                      <span style={{ fontSize: 10, color: "var(--color-fg-4)", fontFamily: "var(--font-mono)", flexShrink: 0 }}>{c.at?.slice(0, 10)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      )}
+
+      {/* ── Peak hours heatmap tab ─────────────────────────────── */}
+      {activeTab === "peak" && (
+        peakData == null ? (
+          <div style={{ textAlign: "center", color: "var(--color-fg-4)", paddingTop: 40 }}>Loading…</div>
+        ) : (
+          <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: 14, padding: 20 }}>
+            <div style={{ fontSize: 11, fontFamily: "var(--font-mono)", textTransform: "uppercase", letterSpacing: 0.5, color: "var(--color-fg-4)", marginBottom: 16 }}>Peak hours (tickets) — last 14 days · hour × weekday</div>
+            {/* Hour labels top row */}
+            <div style={{ display: "flex", gap: 2, marginBottom: 4, paddingLeft: 32 }}>
+              {Array.from({ length: 16 }, (_, i) => i + 7).map(h => (
+                <div key={h} style={{ flex: 1, fontSize: 8, color: "var(--color-fg-4)", textAlign: "center", fontFamily: "var(--font-mono)" }}>{h}</div>
+              ))}
+            </div>
+            {/* Day rows */}
+            {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((day, dow) => (
+              <div key={dow} style={{ display: "flex", alignItems: "center", gap: 2, marginBottom: 2 }}>
+                <div style={{ width: 28, fontSize: 9, color: "var(--color-fg-4)", fontFamily: "var(--font-mono)", flexShrink: 0 }}>{day}</div>
+                {Array.from({ length: 16 }, (_, i) => i + 7).map(hour => {
+                  const cell = peakData.cells.find(c => c.dow === dow && c.hour === hour);
+                  const count = cell?.count ?? 0;
+                  const intensity = peakData.maxCount > 0 ? count / peakData.maxCount : 0;
+                  return (
+                    <div key={hour} title={`${day} ${hour}:00 — ${count} tickets`} style={{
+                      flex: 1, height: 22, borderRadius: 3,
+                      background: `oklch(0.5 0.18 262 / ${Math.max(0.05, intensity)})`,
+                      cursor: "default",
+                    }}/>
+                  );
+                })}
+              </div>
+            ))}
+            <div style={{ marginTop: 12, fontSize: 10, color: "var(--color-fg-4)" }}>
+              Lighter = fewer tickets · Darker = peak load · Hours 07:00–22:00 UTC+5
+            </div>
+          </div>
+        )
+      )}
+
       </div>
     </div>
   );

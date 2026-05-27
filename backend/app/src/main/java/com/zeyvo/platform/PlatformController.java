@@ -311,6 +311,195 @@ public class PlatformController {
         }).toList();
     }
 
+    // ── Platform metrics ─────────────────────────────────────────────────────
+
+    @GetMapping("/metrics/orgs")
+    @Transactional(readOnly = true)
+    @Operation(summary = "Per-org activity rollup")
+    @SuppressWarnings("unchecked")
+    public List<Map<String, Object>> metricsOrgs() {
+        List<Object[]> rows = em.createNativeQuery("""
+                SELECT
+                  o.id, o.name, o.plan,
+                  COUNT(DISTINCT b.id)                                                     AS branch_count,
+                  COUNT(t.id) FILTER (WHERE t.joined_at > NOW() - INTERVAL '7 days')      AS tickets_7d,
+                  MAX(t.joined_at)                                                         AS last_activity,
+                  CASE o.plan
+                    WHEN 'starter'    THEN 499000
+                    WHEN 'growth'     THEN 1490000
+                    WHEN 'enterprise' THEN 4900000
+                    ELSE 0
+                  END                                                                      AS mrr_uzs
+                FROM app.organization o
+                LEFT JOIN app.branch b    ON b.organization_id = o.id
+                LEFT JOIN app.ticket t    ON t.organization_id = o.id
+                WHERE o.active = true
+                GROUP BY o.id, o.name, o.plan
+                ORDER BY tickets_7d DESC
+                """)
+            .getResultList();
+
+        return rows.stream().map(r -> {
+            var m = new java.util.LinkedHashMap<String, Object>();
+            m.put("id", r[0] == null ? null : r[0].toString());
+            m.put("name", r[1]);
+            m.put("plan", r[2]);
+            m.put("branchCount", r[3] == null ? 0 : ((Number) r[3]).longValue());
+            m.put("tickets7d", r[4] == null ? 0 : ((Number) r[4]).longValue());
+            m.put("lastActivity", r[5] == null ? null : r[5].toString());
+            m.put("mrrUzs", r[6] == null ? 0 : ((Number) r[6]).longValue());
+            return (Map<String, Object>) m;
+        }).toList();
+    }
+
+    @GetMapping("/metrics/plans")
+    @Transactional(readOnly = true)
+    @Operation(summary = "Plan distribution + recent upgrades")
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> metricsPlans() {
+        List<Object[]> dist = em.createNativeQuery("""
+                SELECT plan, COUNT(*) FROM app.organization WHERE active = true GROUP BY plan ORDER BY plan
+                """).getResultList();
+
+        List<Object[]> upgrades = em.createNativeQuery("""
+                SELECT o.id, o.name, o.plan, pr.approved_at
+                FROM app.payment_request pr
+                JOIN app.organization o ON o.id = pr.organization_id
+                WHERE pr.status = 'approved'
+                  AND pr.approved_at > NOW() - INTERVAL '30 days'
+                ORDER BY pr.approved_at DESC
+                LIMIT 10
+                """).getResultList();
+
+        var m = new java.util.LinkedHashMap<String, Object>();
+        m.put("distribution", dist.stream().map(r -> {
+            var pm = new java.util.LinkedHashMap<String, Object>();
+            pm.put("plan", r[0]);
+            pm.put("count", r[1] == null ? 0 : ((Number) r[1]).longValue());
+            return pm;
+        }).toList());
+        m.put("recentUpgrades", upgrades.stream().map(r -> {
+            var um = new java.util.LinkedHashMap<String, Object>();
+            um.put("orgId", r[0] == null ? null : r[0].toString());
+            um.put("orgName", r[1]);
+            um.put("plan", r[2]);
+            um.put("approvedAt", r[3] == null ? null : r[3].toString());
+            return um;
+        }).toList());
+        return m;
+    }
+
+    @GetMapping("/metrics/payments")
+    @Transactional(readOnly = true)
+    @Operation(summary = "Payment request stats + MRR")
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> metricsPayments() {
+        List<Object[]> byStatus = em.createNativeQuery("""
+                SELECT status, plan, COUNT(*), SUM(amount_uzs)
+                FROM app.payment_request
+                WHERE created_at > NOW() - INTERVAL '30 days'
+                GROUP BY status, plan
+                ORDER BY status, plan
+                """).getResultList();
+
+        Object[] mrr = (Object[]) em.createNativeQuery("""
+                SELECT
+                  SUM(CASE o.plan
+                    WHEN 'starter'    THEN 499000
+                    WHEN 'growth'     THEN 1490000
+                    WHEN 'enterprise' THEN 4900000
+                    ELSE 0
+                  END)                AS mrr_uzs,
+                  COUNT(*) FILTER (WHERE o.plan != 'trial') AS paid_orgs
+                FROM app.organization o WHERE o.active = true
+                """).getSingleResult();
+
+        var m = new java.util.LinkedHashMap<String, Object>();
+        m.put("mrrUzs", mrr[0] == null ? 0 : ((Number) mrr[0]).longValue());
+        m.put("paidOrgs", mrr[1] == null ? 0 : ((Number) mrr[1]).longValue());
+        m.put("byStatus", byStatus.stream().map(r -> {
+            var sm = new java.util.LinkedHashMap<String, Object>();
+            sm.put("status", r[0]);
+            sm.put("plan", r[1]);
+            sm.put("count", r[2] == null ? 0 : ((Number) r[2]).longValue());
+            sm.put("totalUzs", r[3] == null ? 0 : ((Number) r[3]).longValue());
+            return sm;
+        }).toList());
+        return m;
+    }
+
+    @GetMapping("/metrics/chat")
+    @Transactional(readOnly = true)
+    @Operation(summary = "Support chat volume stats")
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> metricsChat() {
+        Object[] summary = (Object[]) em.createNativeQuery("""
+                SELECT
+                  COUNT(*) FILTER (WHERE status = 'open')                                  AS open_count,
+                  COUNT(*) FILTER (WHERE status = 'closed'
+                    AND updated_at > NOW() - INTERVAL '7 days')                            AS resolved_7d,
+                  AVG(EXTRACT(EPOCH FROM (
+                    SELECT MIN(m.sent_at) FROM app.chat_message m
+                    WHERE m.conversation_id = c.id AND m.sender_role != 'customer'
+                  ) - c.created_at) / 60.0)
+                  FILTER (WHERE status = 'closed')                                         AS avg_first_reply_min
+                FROM app.chat_conversation c
+                """).getSingleResult();
+
+        List<Object[]> daily = em.createNativeQuery("""
+                SELECT DATE(sent_at), COUNT(*)
+                FROM app.chat_message
+                WHERE sent_at > NOW() - INTERVAL '7 days'
+                GROUP BY 1 ORDER BY 1
+                """).getResultList();
+
+        var m = new java.util.LinkedHashMap<String, Object>();
+        m.put("openConversations", summary[0] == null ? 0 : ((Number) summary[0]).longValue());
+        m.put("resolved7d", summary[1] == null ? 0 : ((Number) summary[1]).longValue());
+        m.put("avgFirstReplyMin", summary[2] == null ? null : ((Number) summary[2]).doubleValue());
+        m.put("messagesPerDay", daily.stream().map(r -> {
+            var dm = new java.util.LinkedHashMap<String, Object>();
+            dm.put("day", r[0] == null ? null : r[0].toString());
+            dm.put("count", r[1] == null ? 0 : ((Number) r[1]).longValue());
+            return dm;
+        }).toList());
+        return m;
+    }
+
+    @GetMapping("/metrics/users")
+    @Transactional(readOnly = true)
+    @Operation(summary = "User and staff activity stats")
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> metricsUsers() {
+        List<Object[]> byRole = em.createNativeQuery("""
+                SELECT role, COUNT(DISTINCT user_id)
+                FROM app.user_role
+                GROUP BY role ORDER BY role
+                """).getResultList();
+
+        Number signups30d = (Number) em.createNativeQuery(
+                "SELECT COUNT(*) FROM app.user_account WHERE created_at > NOW() - INTERVAL '30 days'")
+            .getSingleResult();
+
+        Number active7d = (Number) em.createNativeQuery("""
+                SELECT COUNT(DISTINCT actor_user_id) FROM app.audit_event
+                WHERE occurred_at > NOW() - INTERVAL '7 days'
+                  AND actor_user_id IS NOT NULL
+                """).getSingleResult();
+
+        var m = new java.util.LinkedHashMap<String, Object>();
+        m.put("totalUsers", userRepo.count());
+        m.put("signups30d", signups30d.longValue());
+        m.put("activeStaff7d", active7d.longValue());
+        m.put("byRole", byRole.stream().map(r -> {
+            var rm = new java.util.LinkedHashMap<String, Object>();
+            rm.put("role", r[0]);
+            rm.put("count", r[1] == null ? 0 : ((Number) r[1]).longValue());
+            return rm;
+        }).toList());
+        return m;
+    }
+
     private static String deriveSlug(String name) {
         String slug = name.toLowerCase()
                 .replaceAll("[^a-z0-9]+", "-")

@@ -57,6 +57,8 @@ public class WindowController {
                                       @RequestParam(required = false) UUID userId,
                                       Authentication auth) {
         UUID operatorId = userId != null ? userId : resolveUserId(auth);
+        // Verify caller owns this window's org (super_admin bypasses)
+        requireWindowOrg(windowId, auth);
         // Clear any previous window assignment for this operator
         windowRepo.findByOperatorId(operatorId).ifPresent(prev -> {
             if (!prev.getId().equals(windowId)) {
@@ -69,6 +71,26 @@ public class WindowController {
         window.setOperatorId(operatorId);
         windowRepo.save(window);
         return WindowDeskDto.from(window);
+    }
+
+    private void requireWindowOrg(UUID windowId, Authentication auth) {
+        if (auth != null && auth.getDetails() instanceof java.util.Map<?, ?> claims) {
+            Object rolesObj = claims.get("roles");
+            if (rolesObj instanceof java.util.List<?> roles && roles.contains("SUPER_ADMIN")) return;
+            Object orgIdObj = claims.get("org_id");
+            if (orgIdObj instanceof String orgStr && !orgStr.isBlank()) {
+                UUID callerOrg = UUID.fromString(orgStr);
+                try {
+                    UUID windowOrg = (UUID) em.createNativeQuery(
+                            "SELECT b.organization_id FROM app.window_desk w JOIN app.branch b ON b.id = w.branch_id WHERE w.id = :wid")
+                        .setParameter("wid", windowId)
+                        .getSingleResult();
+                    if (callerOrg.equals(windowOrg)) return;
+                } catch (jakarta.persistence.NoResultException ignored) {}
+            }
+        }
+        throw new DomainException("forbidden.cross_org",
+                "Window not in your organization", org.springframework.http.HttpStatus.FORBIDDEN);
     }
 
     @DeleteMapping("/{windowId}/assign")

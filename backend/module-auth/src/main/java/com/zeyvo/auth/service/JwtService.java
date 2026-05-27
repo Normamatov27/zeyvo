@@ -32,16 +32,19 @@ public class JwtService {
 
     public String mint(UserAccount user, List<String> roles) {
         Instant now = Instant.now();
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .subject(user.getId().toString())
-                .claim("org_id", user.getOrganizationId() != null
-                        ? user.getOrganizationId().toString() : null)
                 .claim("roles", roles)
                 .claim("locale", user.getLocale())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusSeconds(expiryMinutes * 60)))
-                .signWith(signingKey)
-                .compact();
+                .signWith(signingKey);
+        // Only include org_id claim when the user is bound to an org.
+        // Super admins with no org will have no org_id in their JWT.
+        if (user.getOrganizationId() != null) {
+            builder.claim("org_id", user.getOrganizationId().toString());
+        }
+        return builder.compact();
     }
 
     public Claims parse(String token) {
