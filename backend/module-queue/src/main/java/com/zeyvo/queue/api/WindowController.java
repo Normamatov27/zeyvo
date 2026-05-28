@@ -106,12 +106,64 @@ public class WindowController {
 
     @PostMapping("/{windowId}/no-show")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @Operation(summary = "Mark the current ticket as no-show")
+    @Operation(summary = "Mark the current ticket as no-show (requires reason)")
     public void noShow(@PathVariable UUID windowId,
                        @RequestParam UUID ticketId,
+                       @RequestParam(required = false) String reason,
                        @CurrentUser AuthPrincipal user) {
         authz.requireWindowInOrg(user, windowId);
         ticketService.markNoShow(ticketId, windowId);
+    }
+
+    @PostMapping("/{windowId}/call-again")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Re-announce the current called ticket (increments call count)")
+    public void callAgain(@PathVariable UUID windowId,
+                          @RequestParam UUID ticketId,
+                          @CurrentUser AuthPrincipal user) {
+        authz.requireWindowInOrg(user, windowId);
+        ticketService.callAgain(ticketId, windowId);
+    }
+
+    @PostMapping("/{windowId}/arrive")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Confirm the customer has arrived at the window (CALLED → ARRIVED)")
+    public void arrive(@PathVariable UUID windowId,
+                       @RequestParam UUID ticketId,
+                       @CurrentUser AuthPrincipal user) {
+        authz.requireWindowInOrg(user, windowId);
+        ticketService.confirmArrival(ticketId, null, windowId);
+    }
+
+    @PostMapping("/{windowId}/start")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Start serving the arrived/called customer (→ SERVING)")
+    public void startServing(@PathVariable UUID windowId,
+                             @RequestParam UUID ticketId,
+                             @CurrentUser AuthPrincipal user) {
+        authz.requireWindowInOrg(user, windowId);
+        ticketService.startServing(ticketId, windowId);
+    }
+
+    @PostMapping("/{windowId}/restore")
+    @Operation(summary = "Restore a no-show ticket back to waiting (within restore window)")
+    public TicketDto restore(@PathVariable UUID windowId,
+                             @RequestParam UUID ticketId,
+                             @CurrentUser AuthPrincipal user) {
+        authz.requireWindowInOrg(user, windowId);
+        return TicketDto.from(ticketService.restoreNoShow(ticketId, user));
+    }
+
+    @PostMapping("/{windowId}/cancel")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('MANAGER', 'ORG_ADMIN', 'SUPER_ADMIN')")
+    @Operation(summary = "Cancel any active ticket at this window with a reason (manager+)")
+    public void cancelByStaff(@PathVariable UUID windowId,
+                               @RequestParam UUID ticketId,
+                               @RequestParam String reason,
+                               @CurrentUser AuthPrincipal user) {
+        authz.requireWindowInOrg(user, windowId);
+        ticketService.cancelByStaff(ticketId, reason, user);
     }
 
     @GetMapping("/{windowId}/status")

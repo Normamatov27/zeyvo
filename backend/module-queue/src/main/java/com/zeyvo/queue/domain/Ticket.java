@@ -85,15 +85,45 @@ public class Ticket {
     @Column(name = "rating_comment")
     private String ratingComment;
 
+    @Column(name = "arrived_at")
+    private Instant arrivedAt;
+
+    @Column(name = "call_count", nullable = false)
+    @Builder.Default
+    private short callCount = 0;
+
+    @Column(name = "no_show_reason")
+    private String noShowReason;
+
+    @Column(name = "cancel_reason")
+    private String cancelReason;
+
+    @Column(name = "cancelled_by")
+    private UUID cancelledBy;
+
     public void call(UUID windowId, Instant now) {
         this.status = TicketStatus.CALLED;
         this.windowId = windowId;
         this.calledAt = now;
+        this.callCount = (short) (this.callCount + 1);
+    }
+
+    public void callAgain(Instant now) {
+        this.calledAt = now;
+        this.callCount = (short) (this.callCount + 1);
+    }
+
+    public void confirmArrival(Instant now) {
+        this.status = TicketStatus.ARRIVED;
+        this.arrivedAt = now;
     }
 
     public void startServing(Instant now) {
         this.status = TicketStatus.SERVING;
         this.servingAt = now;
+        if (this.arrivedAt == null) {
+            this.arrivedAt = now;
+        }
     }
 
     public void markServed(Instant now) {
@@ -102,13 +132,43 @@ public class Ticket {
         this.closedAt = now;
     }
 
-    public void markNoShow(Instant now) {
+    public void markNoShow(Instant now, String reason) {
         this.status = TicketStatus.NO_SHOW;
+        this.noShowReason = reason;
         this.closedAt = now;
     }
 
-    public void cancel(Instant now) {
+    public void restoreToWaiting(Instant now) {
+        this.status = TicketStatus.WAITING;
+        this.calledAt = null;
+        this.arrivedAt = null;
+        this.servingAt = null;
+        this.servedAt = null;
+        this.closedAt = null;
+        this.noShowReason = null;
+        this.windowId = null;
+        this.callCount = 0;
+    }
+
+    public void cancel(Instant now, String reason, UUID by) {
         this.status = TicketStatus.CANCELLED;
+        this.cancelReason = reason;
+        this.cancelledBy = by;
         this.closedAt = now;
+    }
+
+    public void markTransferred(Instant now) {
+        this.status = TicketStatus.TRANSFERRED;
+        this.closedAt = now;
+    }
+
+    /** Legacy no-arg cancel — kept for backward compatibility; reason/by left null. */
+    public void cancel(Instant now) {
+        cancel(now, null, null);
+    }
+
+    /** Legacy no-arg markNoShow — kept for backward compatibility; reason left null. */
+    public void markNoShow(Instant now) {
+        markNoShow(now, null);
     }
 }

@@ -1,11 +1,16 @@
 package com.zeyvo.realtime;
 
+import com.zeyvo.queue.events.TicketArrived;
 import com.zeyvo.queue.events.TicketCalled;
+import com.zeyvo.queue.events.TicketCalledAgain;
 import com.zeyvo.queue.events.TicketCancelled;
 import com.zeyvo.queue.events.TicketCreated;
 import com.zeyvo.queue.events.TicketExpired;
 import com.zeyvo.queue.events.TicketNoShow;
+import com.zeyvo.queue.events.TicketRestored;
 import com.zeyvo.queue.events.TicketServed;
+import com.zeyvo.queue.events.TicketServingStarted;
+import com.zeyvo.queue.events.TicketTransferred;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
@@ -132,6 +137,94 @@ public class QueueEventBroadcaster {
         broadcast.broadcastToTicket(e.ticketId(), Map.of(
                 "v", 1, "type", "ticket.no_show",
                 "status", "no_show"
+        ));
+    }
+
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void on(TicketCalledAgain e) {
+        var payload = new java.util.LinkedHashMap<String, Object>();
+        payload.put("v", 1);
+        payload.put("type", "ticket.called_again");
+        payload.put("ticket_id", e.ticketId().toString());
+        payload.put("number", e.ticketNumber());
+        if (e.windowId() != null) payload.put("window_id", e.windowId().toString());
+        payload.put("call_count", e.callCount());
+        payload.put("called_at", e.occurredAt().toString());
+        broadcast.broadcastToOps(e.branchId(), payload);
+        if (e.customerId() != null) {
+            broadcast.notifyUser(e.customerId().toString(), Map.of(
+                    "type", "your_turn_again",
+                    "number", e.ticketNumber()
+            ));
+        }
+    }
+
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void on(TicketArrived e) {
+        Map<String, Object> payload = Map.of(
+                "v", 1,
+                "type", "ticket.arrived",
+                "ticket_id", e.ticketId().toString(),
+                "number", e.ticketNumber(),
+                "arrived_at", e.occurredAt().toString()
+        );
+        broadcast.broadcastToOps(e.branchId(), payload);
+        broadcast.broadcastToTicket(e.ticketId(), Map.of(
+                "v", 1, "type", "ticket.arrived", "status", "arrived"
+        ));
+    }
+
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void on(TicketServingStarted e) {
+        Map<String, Object> payload = Map.of(
+                "v", 1,
+                "type", "ticket.serving",
+                "ticket_id", e.ticketId().toString(),
+                "number", e.ticketNumber(),
+                "window_id", e.windowId().toString(),
+                "serving_at", e.occurredAt().toString()
+        );
+        broadcast.broadcastToOps(e.branchId(), payload);
+        broadcast.broadcastToTicket(e.ticketId(), Map.of(
+                "v", 1, "type", "ticket.serving", "status", "serving"
+        ));
+    }
+
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void on(TicketRestored e) {
+        Map<String, Object> payload = Map.of(
+                "v", 1,
+                "type", "ticket.restored",
+                "ticket_id", e.ticketId().toString(),
+                "number", e.ticketNumber()
+        );
+        broadcast.broadcastToOps(e.branchId(), payload);
+        broadcast.broadcastToQueue(e.branchId(), payload);
+        broadcast.broadcastToTicket(e.ticketId(), Map.of(
+                "v", 1, "type", "ticket.restored", "status", "waiting"
+        ));
+    }
+
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void on(TicketTransferred e) {
+        Map<String, Object> payload = Map.of(
+                "v", 1,
+                "type", "ticket.transferred",
+                "ticket_id", e.ticketId().toString(),
+                "number", e.ticketNumber(),
+                "to_service_id", e.toServiceId().toString(),
+                "new_ticket_id", e.newTicketId().toString(),
+                "new_number", e.newTicketNumber()
+        );
+        broadcast.broadcastToOps(e.branchId(), payload);
+        broadcast.broadcastToTicket(e.ticketId(), Map.of(
+                "v", 1, "type", "ticket.transferred", "status", "transferred",
+                "new_ticket_id", e.newTicketId().toString()
         ));
     }
 

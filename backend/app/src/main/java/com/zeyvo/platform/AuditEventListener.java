@@ -76,6 +76,45 @@ public class AuditEventListener {
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void on(TicketCalledAgain e) {
+        write(e.organizationId(), e.customerId(), "ticket.called_again", "ticket", e.ticketId(), e.ticketNumber());
+    }
+
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void on(TicketArrived e) {
+        write(e.organizationId(), e.customerId(), "ticket.arrived", "ticket", e.ticketId(), e.ticketNumber());
+    }
+
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void on(TicketServingStarted e) {
+        write(e.organizationId(), e.customerId(), "ticket.serving", "ticket", e.ticketId(), e.ticketNumber());
+        writeAnalytics(e.organizationId(), e.branchId(), null, e.ticketId(),
+                "serving", null, e.windowId(), null, null);
+    }
+
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void on(TicketRestored e) {
+        write(e.organizationId(), e.restoredBy(), "ticket.restored", "ticket", e.ticketId(), e.ticketNumber());
+        writeAnalytics(e.organizationId(), e.branchId(), null, e.ticketId(),
+                "restored", null, null, null, null);
+    }
+
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void on(TicketTransferred e) {
+        write(e.organizationId(), e.transferredBy(), "ticket.transferred", "ticket", e.ticketId(), e.ticketNumber());
+    }
+
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void on(UserRegisteredEvent e) {
         write(null, e.userId(), "user.registered", "user", e.userId(), e.channel());
     }

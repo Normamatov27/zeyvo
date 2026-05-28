@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 public enum TicketStatus {
-    WAITING, CALLED, SERVING, SERVED, NO_SHOW, CANCELLED, EXPIRED, TRANSFERRED;
+    WAITING, CALLED, ARRIVED, SERVING, SERVED, NO_SHOW, CANCELLED, EXPIRED, TRANSFERRED;
 
     @JsonValue
     public String toValue() {
@@ -25,7 +25,7 @@ public enum TicketStatus {
 
     public boolean isActive() {
         return switch (this) {
-            case WAITING, CALLED, SERVING -> true;
+            case WAITING, CALLED, ARRIVED, SERVING -> true;
             default -> false;
         };
     }

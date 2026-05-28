@@ -3,14 +3,21 @@ package com.zeyvo.queue.service;
 import com.zeyvo.common.web.AuthPrincipal;
 import com.zeyvo.common.web.DomainException;
 import com.zeyvo.queue.api.dto.TakeTicketRequest;
+import com.zeyvo.queue.domain.QueueCommand;
+import com.zeyvo.queue.domain.QueueStateMachine;
 import com.zeyvo.tenant.service.AuthorizationService;
 import com.zeyvo.queue.domain.Ticket;
 import com.zeyvo.queue.domain.TicketStatus;
+import com.zeyvo.queue.events.TicketArrived;
 import com.zeyvo.queue.events.TicketCalled;
+import com.zeyvo.queue.events.TicketCalledAgain;
 import com.zeyvo.queue.events.TicketCancelled;
 import com.zeyvo.queue.events.TicketCreated;
 import com.zeyvo.queue.events.TicketNoShow;
+import com.zeyvo.queue.events.TicketRestored;
 import com.zeyvo.queue.events.TicketServed;
+import com.zeyvo.queue.events.TicketServingStarted;
+import com.zeyvo.queue.events.TicketTransferred;
 import com.zeyvo.queue.infra.repository.TicketRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -37,6 +44,7 @@ public class TicketService {
     private final ApplicationEventPublisher eventPublisher;
     private final HeuristicEtaEstimator etaEstimator;
     private final AuthorizationService authz;
+    private final QueueStateMachine stateMachine;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -171,6 +179,7 @@ public class TicketService {
             throw DomainException.conflict("ticket.wrong_window",
                     "This ticket is not assigned to your window.");
         }
+        stateMachine.assertLegal(QueueCommand.FINISH_SERVING, ticket.getStatus());
         Instant now = Instant.now();
 
         long waitSeconds = ticket.getCalledAt() != null
@@ -197,7 +206,8 @@ public class TicketService {
             throw DomainException.conflict("ticket.wrong_window",
                     "This ticket is not assigned to your window.");
         }
-        if (ticket.getStatus() != TicketStatus.CALLED) {
+        // stateMachine enforces CALLED-only; return silently for idempotent re-calls
+        if (!stateMachine.isLegal(QueueCommand.MARK_NO_SHOW, ticket.getStatus())) {
             log.debug("markNoShow skipped: ticket {} is in status {}", ticketId, ticket.getStatus());
             return;
         }
@@ -216,20 +226,167 @@ public class TicketService {
     public void cancel(UUID ticketId, UUID requestingCustomerId) {
         Ticket ticket = getOrThrow(ticketId);
 
-        // Only the ticket owner or admin can cancel; admin path skips customer check
+        // Only the ticket owner can cancel via customer path; use cancelByStaff for staff cancels
         if (requestingCustomerId != null && !requestingCustomerId.equals(ticket.getCustomerId())) {
             throw DomainException.forbidden("Cannot cancel another customer's ticket.");
         }
-        if (ticket.getStatus().isTerminal()) {
-            throw DomainException.conflict("ticket.terminal_state",
-                    "Ticket is already in terminal state: " + ticket.getStatus());
-        }
+        // Null customerId means anonymous caller — only WAITING is safe to cancel anonymously
+        stateMachine.assertLegal(QueueCommand.CANCEL_BY_CUSTOMER, ticket.getStatus());
         Instant now = Instant.now();
         ticket.cancel(now);
         eventPublisher.publishEvent(new TicketCancelled(
                 ticket.getId(), ticket.getNumber(), ticket.getBranchId(),
                 ticket.getOrganizationId(), ticket.getCustomerId(), now
         ));
+    }
+
+    @Transactional
+    public void callAgain(UUID ticketId, UUID windowId) {
+        Ticket ticket = getOrThrow(ticketId);
+        if (ticket.getWindowId() == null || !ticket.getWindowId().equals(windowId)) {
+            throw DomainException.conflict("ticket.wrong_window", "This ticket is not assigned to your window.");
+        }
+        stateMachine.assertLegal(QueueCommand.CALL_AGAIN, ticket.getStatus());
+        Instant now = Instant.now();
+        ticket.callAgain(now);
+
+        eventPublisher.publishEvent(new TicketCalledAgain(
+                ticket.getId(), ticket.getNumber(), ticket.getBranchId(),
+                ticket.getOrganizationId(), windowId, ticket.getCallCount(),
+                ticket.getCustomerId(), now
+        ));
+    }
+
+    @Transactional
+    public void confirmArrival(UUID ticketId, UUID requestingCustomerId, UUID windowId) {
+        Ticket ticket = getOrThrow(ticketId);
+        // Either the ticket owner or the window operator can confirm arrival
+        boolean isOwner = requestingCustomerId != null && requestingCustomerId.equals(ticket.getCustomerId());
+        boolean isWindowOp = windowId != null && windowId.equals(ticket.getWindowId());
+        if (!isOwner && !isWindowOp) {
+            throw DomainException.forbidden("Only the ticket owner or assigned operator can confirm arrival.");
+        }
+        stateMachine.assertLegal(QueueCommand.CONFIRM_ARRIVAL, ticket.getStatus());
+        Instant now = Instant.now();
+        ticket.confirmArrival(now);
+
+        eventPublisher.publishEvent(new TicketArrived(
+                ticket.getId(), ticket.getNumber(), ticket.getBranchId(),
+                ticket.getOrganizationId(), ticket.getWindowId(),
+                ticket.getCustomerId(), now
+        ));
+    }
+
+    @Transactional
+    public void startServing(UUID ticketId, UUID windowId) {
+        Ticket ticket = getOrThrow(ticketId);
+        if (ticket.getWindowId() == null || !ticket.getWindowId().equals(windowId)) {
+            throw DomainException.conflict("ticket.wrong_window", "This ticket is not assigned to your window.");
+        }
+        stateMachine.assertLegal(QueueCommand.START_SERVING, ticket.getStatus());
+        Instant now = Instant.now();
+        ticket.startServing(now);
+
+        eventPublisher.publishEvent(new TicketServingStarted(
+                ticket.getId(), ticket.getNumber(), ticket.getBranchId(),
+                ticket.getOrganizationId(), windowId, ticket.getCustomerId(), now
+        ));
+    }
+
+    @Transactional
+    public void cancelByStaff(UUID ticketId, String reason, AuthPrincipal staff) {
+        Ticket ticket = getOrThrow(ticketId);
+        authz.requireBranchInOrg(staff, ticket.getBranchId());
+        stateMachine.assertLegal(QueueCommand.CANCEL_BY_STAFF, ticket.getStatus());
+        if (reason == null || reason.isBlank()) {
+            throw DomainException.conflict("ticket.cancel_reason_required", "A reason is required for staff cancellation.");
+        }
+        Instant now = Instant.now();
+        ticket.cancel(now, reason, staff.userId());
+        if (ticket.getWindowId() != null) {
+            clearWindowCurrentTicket(ticket.getWindowId());
+        }
+
+        eventPublisher.publishEvent(new TicketCancelled(
+                ticket.getId(), ticket.getNumber(), ticket.getBranchId(),
+                ticket.getOrganizationId(), ticket.getCustomerId(), now
+        ));
+    }
+
+    @Transactional
+    public Ticket restoreNoShow(UUID ticketId, AuthPrincipal staff) {
+        Ticket ticket = getOrThrow(ticketId);
+        authz.requireBranchInOrg(staff, ticket.getBranchId());
+        stateMachine.assertLegal(QueueCommand.RESTORE_NO_SHOW, ticket.getStatus());
+
+        // Enforce restore window: default 10 minutes after closing
+        if (ticket.getClosedAt() != null) {
+            long secondsSinceClosed = java.time.Duration.between(ticket.getClosedAt(), Instant.now()).getSeconds();
+            if (secondsSinceClosed > 600) {
+                throw DomainException.conflict("ticket.restore_window_expired",
+                        "Restore window has passed (10 minutes after no-show).");
+            }
+        }
+
+        Instant now = Instant.now();
+        ticket.restoreToWaiting(now);
+        // Small priority bump so restored ticket doesn't sink to the back
+        ticket.setPriority((short) Math.min(ticket.getPriority() + 10, 90));
+
+        eventPublisher.publishEvent(new TicketRestored(
+                ticket.getId(), ticket.getNumber(), ticket.getBranchId(),
+                ticket.getOrganizationId(), staff.userId(), now
+        ));
+        return ticket;
+    }
+
+    @Transactional
+    public Ticket transferService(UUID ticketId, UUID toServiceId, AuthPrincipal staff) {
+        Ticket ticket = getOrThrow(ticketId);
+        authz.requireBranchInOrg(staff, ticket.getBranchId());
+        authz.requireServiceInOrg(staff, toServiceId);
+        stateMachine.assertLegal(QueueCommand.TRANSFER_SERVICE, ticket.getStatus());
+
+        // Verify the target service belongs to the same branch
+        Object[] svcRow;
+        try {
+            svcRow = (Object[]) entityManager.createNativeQuery(
+                    "SELECT code, branch_id FROM app.service WHERE id = :sid AND active = true")
+                .setParameter("sid", toServiceId)
+                .getSingleResult();
+        } catch (jakarta.persistence.NoResultException e) {
+            throw DomainException.notFound("Service", toServiceId);
+        }
+        if (!ticket.getBranchId().equals(svcRow[1])) {
+            throw DomainException.conflict("ticket.service_wrong_branch", "Target service must belong to the same branch.");
+        }
+        String toServiceCode = (String) svcRow[0];
+
+        Instant now = Instant.now();
+        UUID fromServiceId = ticket.getServiceId();
+
+        // Clear any window that was serving this ticket
+        if (ticket.getWindowId() != null) {
+            clearWindowCurrentTicket(ticket.getWindowId());
+        }
+        ticket.markTransferred(now);
+
+        // Create a new WAITING ticket in the target service
+        TakeTicketRequest req = new TakeTicketRequest(
+                ticket.getBranchId(), toServiceId, toServiceCode, ticket.getSource()
+        );
+        Ticket newTicket = takeTicket(req, ticket.getCustomerId());
+        // Preserve priority with a small bump
+        newTicket.setPriority((short) Math.min(ticket.getPriority() + 5, 90));
+        newTicket.getMetadata().put("transferredFrom", ticketId.toString());
+        ticket.getMetadata().put("transferredTo", newTicket.getId().toString());
+
+        eventPublisher.publishEvent(new TicketTransferred(
+                ticket.getId(), ticket.getNumber(), ticket.getBranchId(),
+                ticket.getOrganizationId(), fromServiceId, toServiceId,
+                newTicket.getId(), newTicket.getNumber(), staff.userId(), now
+        ));
+        return newTicket;
     }
 
     public Ticket getOrThrow(UUID ticketId) {
@@ -247,22 +404,13 @@ public class TicketService {
     }
 
     /**
-     * Customer taps "I'm here" when called — resets called_at so no-show timer restarts.
-     * Allowed only when status = CALLED.
+     * Customer taps "I'm here" when called — transitions to ARRIVED which stops the no-show timer.
+     * Delegates to confirmArrival (customer path: windowId=null).
      */
     @Transactional
     public void confirmPresence(UUID ticketId, UUID requestingCustomerId) {
-        Ticket ticket = getOrThrow(ticketId);
-        if (requestingCustomerId != null && !requestingCustomerId.equals(ticket.getCustomerId())) {
-            throw DomainException.forbidden("Cannot confirm presence for another customer's ticket.");
-        }
-        if (ticket.getStatus() != TicketStatus.CALLED) {
-            throw DomainException.conflict("ticket.not_called",
-                    "Ticket is not in 'called' state — cannot confirm presence.");
-        }
-        // Reset called_at so the no-show scheduler gets a fresh window
-        ticket.setCalledAt(Instant.now());
-        log.info("Presence confirmed for ticket {}", ticket.getNumber());
+        confirmArrival(ticketId, requestingCustomerId, null);
+        log.info("Presence confirmed (arrival) for ticket {}", ticketId);
     }
 
     @Transactional

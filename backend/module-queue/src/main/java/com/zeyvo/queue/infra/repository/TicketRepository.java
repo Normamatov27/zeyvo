@@ -18,6 +18,7 @@ public interface TicketRepository extends JpaRepository<Ticket, UUID> {
             WHERE t.branchId = :branchId
               AND t.status IN (com.zeyvo.queue.domain.TicketStatus.WAITING,
                                com.zeyvo.queue.domain.TicketStatus.CALLED,
+                               com.zeyvo.queue.domain.TicketStatus.ARRIVED,
                                com.zeyvo.queue.domain.TicketStatus.SERVING)
             ORDER BY t.joinedAt ASC
             """)
@@ -28,6 +29,7 @@ public interface TicketRepository extends JpaRepository<Ticket, UUID> {
             WHERE t.branchId = :branchId
               AND t.status IN (com.zeyvo.queue.domain.TicketStatus.WAITING,
                                com.zeyvo.queue.domain.TicketStatus.CALLED,
+                               com.zeyvo.queue.domain.TicketStatus.ARRIVED,
                                com.zeyvo.queue.domain.TicketStatus.SERVING)
             """)
     int countActiveByBranch(UUID branchId);
@@ -38,6 +40,7 @@ public interface TicketRepository extends JpaRepository<Ticket, UUID> {
               AND t.branchId = :branchId
               AND t.status IN (com.zeyvo.queue.domain.TicketStatus.WAITING,
                                com.zeyvo.queue.domain.TicketStatus.CALLED,
+                               com.zeyvo.queue.domain.TicketStatus.ARRIVED,
                                com.zeyvo.queue.domain.TicketStatus.SERVING)
             """)
     int countActiveByCustomerAndBranch(UUID customerId, UUID branchId);

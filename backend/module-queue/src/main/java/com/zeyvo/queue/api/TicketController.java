@@ -5,6 +5,7 @@ import com.zeyvo.common.web.CurrentUser;
 import com.zeyvo.queue.api.dto.RateTicketRequest;
 import com.zeyvo.queue.api.dto.TakeTicketRequest;
 import com.zeyvo.queue.api.dto.TicketDto;
+import com.zeyvo.queue.api.dto.TransferServiceRequest;
 import com.zeyvo.queue.api.dto.TransferTicketRequest;
 import com.zeyvo.queue.domain.Ticket;
 import com.zeyvo.queue.service.TicketService;
@@ -204,11 +205,21 @@ public class TicketController {
 
     @PostMapping("/{id}/transfer")
     @PreAuthorize("hasAnyRole('OPERATOR', 'MANAGER', 'ORG_ADMIN', 'SUPER_ADMIN')")
-    @Operation(summary = "Transfer a waiting ticket to a specific window (operator/admin)")
+    @Operation(summary = "Pin a ticket to a specific window (operator/admin)")
     public TicketDto transfer(@PathVariable UUID id,
                                @Valid @RequestBody TransferTicketRequest req,
                                @CurrentUser AuthPrincipal user) {
         Ticket ticket = ticketService.transfer(id, req.toWindowId(), user);
         return TicketDto.from(ticket);
+    }
+
+    @PostMapping("/{id}/transfer-service")
+    @PreAuthorize("hasAnyRole('OPERATOR', 'MANAGER', 'ORG_ADMIN', 'SUPER_ADMIN')")
+    @Operation(summary = "Transfer a ticket to a different service queue (creates new ticket)")
+    public TicketDto transferService(@PathVariable UUID id,
+                                     @Valid @RequestBody TransferServiceRequest req,
+                                     @CurrentUser AuthPrincipal user) {
+        Ticket newTicket = ticketService.transferService(id, req.toServiceId(), user);
+        return TicketDto.from(newTicket);
     }
 }

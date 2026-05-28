@@ -1,10 +1,6 @@
 package com.zeyvo.queue.service;
 
-import com.zeyvo.queue.domain.Ticket;
-import com.zeyvo.queue.domain.TicketStatus;
 import com.zeyvo.queue.events.TicketExpired;
-import com.zeyvo.queue.events.TicketNoShow;
-import com.zeyvo.queue.infra.repository.TicketRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
@@ -18,9 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Two lifecycle jobs:
@@ -32,7 +26,6 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class TicketLifecycleScheduler {
 
-    private final TicketRepository ticketRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     @PersistenceContext
@@ -44,14 +37,16 @@ public class TicketLifecycleScheduler {
     @Value("${zeyvo.queue.expiry-minutes:120}")
     private int expiryMinutes;
 
-    /** Track which tickets already got a near-turn nudge this session (in-memory, resets on restart). */
-    private final Set<UUID> nudgedTickets = ConcurrentHashMap.newKeySet();
-
     // ── Near-turn notification ────────────────────────────────────────────────
 
+    /**
+     * Finds waiting tickets with ≤threshold tickets ahead that have NOT yet been nudged
+     * (near_turn_notified_at IS NULL). Uses the DB column instead of in-memory state,
+     * which makes it safe across restarts and multiple instances.
+     */
     @Scheduled(fixedDelayString = "${zeyvo.queue.near-turn-check-interval-ms:60000}")
     @SchedulerLock(name = "near_turn_check", lockAtMostFor = "55s", lockAtLeastFor = "10s")
-    @Transactional(readOnly = true)
+    @Transactional
     public void checkNearTurn() {
         @SuppressWarnings("unchecked")
         List<Object[]> rows = em.createNativeQuery("""
@@ -63,6 +58,7 @@ public class TicketLifecycleScheduler {
                 FROM app.ticket t
                 WHERE t.status = 'waiting'
                   AND t.customer_id IS NOT NULL
+                  AND t.near_turn_notified_at IS NULL
                   AND (SELECT COUNT(*) FROM app.ticket t2
                        WHERE t2.branch_id = t.branch_id
                          AND t2.status = 'waiting'
@@ -73,28 +69,19 @@ public class TicketLifecycleScheduler {
 
         for (Object[] row : rows) {
             UUID ticketId = (UUID) row[0];
-            if (nudgedTickets.contains(ticketId)) continue;
-            nudgedTickets.add(ticketId);
-
             String number = (String) row[1];
             UUID branchId = (UUID) row[2];
             UUID customerId = (UUID) row[3];
             int ahead = ((Number) row[4]).intValue();
 
+            // Stamp the DB column so we don't re-nudge on subsequent runs
+            em.createNativeQuery("UPDATE app.ticket SET near_turn_notified_at = now() WHERE id = :id")
+                    .setParameter("id", ticketId)
+                    .executeUpdate();
+
             log.debug("Near-turn nudge: ticket={} ahead={} customer={}", number, ahead, customerId);
             eventPublisher.publishEvent(new NearTurnEvent(ticketId, number, branchId, customerId, ahead));
         }
-    }
-
-    /** Clears nudge memory for terminal tickets (served, cancelled, etc.) hourly. */
-    @Scheduled(fixedDelay = 3_600_000)
-    @SchedulerLock(name = "prune_nudge_memory", lockAtMostFor = "10m", lockAtLeastFor = "1m")
-    @Transactional(readOnly = true)
-    public void pruneNudgeMemory() {
-        nudgedTickets.removeIf(id -> {
-            Ticket t = ticketRepository.findById(id).orElse(null);
-            return t == null || t.getStatus().isTerminal();
-        });
     }
 
     // ── Expiration ────────────────────────────────────────────────────────────
@@ -128,8 +115,6 @@ public class TicketLifecycleScheduler {
                     .setParameter("ids", batch)
                     .executeUpdate();
         }
-
-        nudgedTickets.removeAll(staleIds);
 
         Instant occurredAt = now;
         for (Object[] row : staleRows) {
