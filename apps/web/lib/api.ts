@@ -30,11 +30,11 @@ export async function apiFetch<T = unknown>(
   let resolvedToken = token ?? useAuthStore?.getState().accessToken ?? undefined;
 
   // Proactive refresh: accessToken lives in memory only, so it disappears on
-  // hard nav. If we have a refreshToken in localStorage but no accessToken,
-  // refresh before the call to avoid an unnecessary 401/403 round trip.
+  // hard reload. userId in localStorage tells us a session exists — attempt a
+  // cookie-based refresh before the call to avoid an unnecessary 401 round trip.
   if (!resolvedToken && !_retried && useAuthStore) {
     const state = useAuthStore.getState();
-    if (state.refreshToken) {
+    if (state.userId) {
       const ok = await state.refresh();
       if (ok) resolvedToken = useAuthStore.getState().accessToken ?? undefined;
     }

@@ -1,14 +1,15 @@
 package com.zeyvo.analytics;
 
-import com.zeyvo.common.web.DomainException;
+import com.zeyvo.common.web.AuthPrincipal;
+import com.zeyvo.common.web.CurrentUser;
+import com.zeyvo.tenant.service.AuthorizationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
-import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,13 +25,16 @@ public class AnalyticsController {
     @PersistenceContext
     private EntityManager em;
 
+    @Autowired
+    private AuthorizationService authz;
+
     // ── Branch KPI summary (last 24 h) ───────────────────────────────────────
 
     @GetMapping("/v1/branches/{branchId}/metrics")
     @Operation(summary = "KPI summary for a branch over the last 24 hours")
     @SuppressWarnings("unchecked")
-    public Map<String, Object> metrics(@PathVariable UUID branchId, Authentication auth) {
-        requireBranchOrg(branchId, auth);
+    public Map<String, Object> metrics(@PathVariable UUID branchId, @CurrentUser AuthPrincipal user) {
+        authz.requireBranchInOrg(user, branchId);
         Object[] row = (Object[]) em.createNativeQuery("""
                 SELECT
                   COUNT(*)                                                             AS total,
@@ -81,8 +85,8 @@ public class AnalyticsController {
     @GetMapping("/v1/branches/{branchId}/metrics/hourly")
     @Operation(summary = "Hourly ticket breakdown for a branch over the last 24 hours")
     @SuppressWarnings("unchecked")
-    public List<Map<String, Object>> hourly(@PathVariable UUID branchId, Authentication auth) {
-        requireBranchOrg(branchId, auth);
+    public List<Map<String, Object>> hourly(@PathVariable UUID branchId, @CurrentUser AuthPrincipal user) {
+        authz.requireBranchInOrg(user, branchId);
         List<Object[]> rows = em.createNativeQuery("""
                 SELECT
                   date_trunc('hour', joined_at)                               AS hour,
@@ -116,8 +120,8 @@ public class AnalyticsController {
     @GetMapping("/v1/branches/{branchId}/metrics/staff")
     @Operation(summary = "Per-window staff performance for a branch over the last 7 days")
     @SuppressWarnings("unchecked")
-    public List<Map<String, Object>> staff(@PathVariable UUID branchId, Authentication auth) {
-        requireBranchOrg(branchId, auth);
+    public List<Map<String, Object>> staff(@PathVariable UUID branchId, @CurrentUser AuthPrincipal user) {
+        authz.requireBranchInOrg(user, branchId);
         List<Object[]> rows = em.createNativeQuery("""
                 SELECT
                   w.id                                                                   AS window_id,
@@ -158,8 +162,8 @@ public class AnalyticsController {
     @GetMapping("/v1/branches/{branchId}/metrics/services")
     @Operation(summary = "Per-service stats for a branch over the last 24 hours")
     @SuppressWarnings("unchecked")
-    public List<Map<String, Object>> services(@PathVariable UUID branchId, Authentication auth) {
-        requireBranchOrg(branchId, auth);
+    public List<Map<String, Object>> services(@PathVariable UUID branchId, @CurrentUser AuthPrincipal user) {
+        authz.requireBranchInOrg(user, branchId);
         List<Object[]> rows = em.createNativeQuery("""
                 SELECT
                   s.id                                                                    AS service_id,
@@ -212,8 +216,8 @@ public class AnalyticsController {
     @SuppressWarnings("unchecked")
     public Map<String, Object> appointments(@PathVariable UUID branchId,
                                             @RequestParam(defaultValue = "7") int days,
-                                            Authentication auth) {
-        requireBranchOrg(branchId, auth);
+                                            @CurrentUser AuthPrincipal user) {
+        authz.requireBranchInOrg(user, branchId);
 
         Object[] row = (Object[]) em.createNativeQuery("""
                 SELECT
@@ -288,8 +292,8 @@ public class AnalyticsController {
     @SuppressWarnings("unchecked")
     public List<Map<String, Object>> providers(@PathVariable UUID branchId,
                                                @RequestParam(defaultValue = "30") int days,
-                                               Authentication auth) {
-        requireBranchOrg(branchId, auth);
+                                               @CurrentUser AuthPrincipal user) {
+        authz.requireBranchInOrg(user, branchId);
 
         List<Object[]> rows = em.createNativeQuery("""
                 SELECT
@@ -341,8 +345,8 @@ public class AnalyticsController {
     @SuppressWarnings("unchecked")
     public Map<String, Object> ratings(@PathVariable UUID branchId,
                                        @RequestParam(defaultValue = "30") int days,
-                                       Authentication auth) {
-        requireBranchOrg(branchId, auth);
+                                       @CurrentUser AuthPrincipal user) {
+        authz.requireBranchInOrg(user, branchId);
 
         Object[] summary = (Object[]) em.createNativeQuery("""
                 SELECT
@@ -423,8 +427,8 @@ public class AnalyticsController {
     @SuppressWarnings("unchecked")
     public Map<String, Object> peak(@PathVariable UUID branchId,
                                     @RequestParam(defaultValue = "14") int days,
-                                    Authentication auth) {
-        requireBranchOrg(branchId, auth);
+                                    @CurrentUser AuthPrincipal user) {
+        authz.requireBranchInOrg(user, branchId);
 
         List<Object[]> rows = em.createNativeQuery("""
                 SELECT
@@ -458,29 +462,6 @@ public class AnalyticsController {
         m.put("maxCount", maxCount);
         m.put("cells", cells);
         return m;
-    }
-
-    // ── helpers ───────────────────────────────────────────────────────────────
-
-    /** Verify the caller is super_admin OR owns the branch's org. */
-    private void requireBranchOrg(UUID branchId, Authentication auth) {
-        if (auth != null && auth.getDetails() instanceof java.util.Map<?, ?> claims) {
-            Object rolesObj = claims.get("roles");
-            if (rolesObj instanceof java.util.List<?> roles && roles.contains("SUPER_ADMIN")) return;
-            Object orgIdObj = claims.get("org_id");
-            if (orgIdObj instanceof String orgStr && !orgStr.isBlank()) {
-                UUID callerOrg = UUID.fromString(orgStr);
-                try {
-                    UUID branchOrg = (UUID) em.createNativeQuery(
-                            "SELECT organization_id FROM app.branch WHERE id = :bid")
-                        .setParameter("bid", branchId)
-                        .getSingleResult();
-                    if (callerOrg.equals(branchOrg)) return;
-                } catch (jakarta.persistence.NoResultException ignored) {}
-            }
-        }
-        throw new DomainException("forbidden.cross_org",
-                "Branch not in your organization", HttpStatus.FORBIDDEN);
     }
 
     private static long toLong(Object v) {

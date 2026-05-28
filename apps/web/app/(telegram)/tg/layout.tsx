@@ -14,7 +14,7 @@ interface TgWebApp {
 }
 
 export default function TelegramLayout({ children }: { children: React.ReactNode }) {
-  const { setTokens, accessToken, refreshToken, refresh } = useAuthStore();
+  const { setTokens, accessToken, userId, refresh } = useAuthStore();
   const [authDone, setAuthDone] = useState(false);
   const [authFailed, setAuthFailed] = useState(false);
   const [sdkReady, setSdkReady] = useState(false);
@@ -26,9 +26,8 @@ export default function TelegramLayout({ children }: { children: React.ReactNode
     const tg: TgWebApp | undefined = (window as any).Telegram?.WebApp;
     if (!tg) {
       // Not inside Telegram (dev mode in a normal browser) — skip TG auth, but if
-      // there's a stored refreshToken from a prior OTP session, exchange it now so
-      // every API call below starts authed.
-      if (refreshToken && !accessToken) refresh().finally(() => setAuthDone(true));
+      // there's a stored userId (indicating a prior session), try cookie-based refresh.
+      if (userId && !accessToken) refresh().finally(() => setAuthDone(true));
       else setAuthDone(true);
       return;
     }
@@ -42,7 +41,7 @@ export default function TelegramLayout({ children }: { children: React.ReactNode
 
     // No initData (running outside a real TG context): fall back to refresh if we have one.
     if (!initData) {
-      if (refreshToken) refresh().finally(() => setAuthDone(true));
+      if (userId) refresh().finally(() => setAuthDone(true));
       else setAuthDone(true);
       return;
     }
@@ -69,16 +68,14 @@ export default function TelegramLayout({ children }: { children: React.ReactNode
         setAuthDone(true);
       })
       .catch(async () => {
-        // TG WebApp auth failed (e.g., HMAC mismatch). Try a stored refresh token next.
-        if (refreshToken) {
-          const ok = await refresh();
-          if (ok) { setAuthDone(true); return; }
-        }
+        // TG WebApp auth failed (e.g., HMAC mismatch). Try cookie-based refresh next.
+        const ok = await refresh();
+        if (ok) { setAuthDone(true); return; }
         // Nothing worked — let the user know rather than dumping them into a broken anon state.
         setAuthFailed(true);
         setAuthDone(true);
       });
-  }, [sdkReady, accessToken, refreshToken, setTokens, refresh]);
+  }, [sdkReady, accessToken, userId, setTokens, refresh]);
 
   return (
     <>

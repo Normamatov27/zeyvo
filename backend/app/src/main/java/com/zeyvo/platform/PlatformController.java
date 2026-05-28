@@ -362,12 +362,12 @@ public class PlatformController {
                 """).getResultList();
 
         List<Object[]> upgrades = em.createNativeQuery("""
-                SELECT o.id, o.name, o.plan, pr.approved_at
+                SELECT o.id, o.name, o.plan, pr.reviewed_at
                 FROM app.payment_request pr
-                JOIN app.organization o ON o.id = pr.organization_id
+                JOIN app.organization o ON o.id = pr.org_id
                 WHERE pr.status = 'approved'
-                  AND pr.approved_at > NOW() - INTERVAL '30 days'
-                ORDER BY pr.approved_at DESC
+                  AND pr.reviewed_at > NOW() - INTERVAL '30 days'
+                ORDER BY pr.reviewed_at DESC
                 LIMIT 10
                 """).getResultList();
 
@@ -395,7 +395,7 @@ public class PlatformController {
     @SuppressWarnings("unchecked")
     public Map<String, Object> metricsPayments() {
         List<Object[]> byStatus = em.createNativeQuery("""
-                SELECT status, plan, COUNT(*), SUM(amount_uzs)
+                SELECT status, plan, COUNT(*), SUM(amount)
                 FROM app.payment_request
                 WHERE created_at > NOW() - INTERVAL '30 days'
                 GROUP BY status, plan
@@ -415,7 +415,7 @@ public class PlatformController {
                 """).getSingleResult();
 
         var m = new java.util.LinkedHashMap<String, Object>();
-        m.put("mrrUzs", mrr[0] == null ? 0 : ((Number) mrr[0]).longValue());
+        m.put("mrrListUzs", mrr[0] == null ? 0 : ((Number) mrr[0]).longValue()); // list-price estimate; not real revenue
         m.put("paidOrgs", mrr[1] == null ? 0 : ((Number) mrr[1]).longValue());
         m.put("byStatus", byStatus.stream().map(r -> {
             var sm = new java.util.LinkedHashMap<String, Object>();

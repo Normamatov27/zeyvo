@@ -131,11 +131,14 @@ public class AppointmentService {
     }
 
     @Transactional
-    public Appointment cancel(UUID id, UUID requesterId, boolean isAdmin) {
+    public Appointment cancel(UUID id, UUID requesterId, Set<String> requesterRoles) {
         Appointment appt = repo.findById(id)
                 .orElseThrow(() -> new DomainException("appointment.not_found", "Appointment not found", HttpStatus.NOT_FOUND));
 
-        if (!isAdmin && !appt.getCustomerId().equals(requesterId)) {
+        boolean isStaff = requesterRoles.stream().anyMatch(r ->
+                r.equalsIgnoreCase("MANAGER") || r.equalsIgnoreCase("ORG_ADMIN") || r.equalsIgnoreCase("SUPER_ADMIN"));
+
+        if (!isStaff && !appt.getCustomerId().equals(requesterId)) {
             throw new DomainException("appointment.forbidden", "Not your appointment", HttpStatus.FORBIDDEN);
         }
 
@@ -144,7 +147,7 @@ public class AppointmentService {
             throw new DomainException("appointment.not_cancellable", "Appointment cannot be cancelled in its current state", HttpStatus.CONFLICT);
         }
 
-        if (!isAdmin) {
+        if (!isStaff) {
             Instant oneHourBefore = appt.getScheduledAt().minus(Duration.ofHours(1));
             if (Instant.now().isAfter(oneHourBefore)) {
                 throw new DomainException("appointment.cancel_too_late", "Cannot cancel within 1 hour of the appointment", HttpStatus.CONFLICT);
@@ -152,7 +155,7 @@ public class AppointmentService {
         }
 
         appt.cancel();
-        log.info("Appointment cancelled: {} by {} (admin={})", id, requesterId, isAdmin);
+        log.info("Appointment cancelled: {} by {} (staff={})", id, requesterId, isStaff);
         return appt;
     }
 

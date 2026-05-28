@@ -75,6 +75,10 @@ public class Ticket {
     @Column(name = "device_origin")
     private UUID deviceOrigin;
 
+    @Version
+    @Column(nullable = false)
+    private long version;
+
     @Column(name = "rating_stars")
     private Short ratingStars;
 

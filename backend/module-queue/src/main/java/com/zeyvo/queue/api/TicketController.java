@@ -1,10 +1,11 @@
 package com.zeyvo.queue.api;
 
+import com.zeyvo.common.web.AuthPrincipal;
+import com.zeyvo.common.web.CurrentUser;
 import com.zeyvo.queue.api.dto.RateTicketRequest;
 import com.zeyvo.queue.api.dto.TakeTicketRequest;
 import com.zeyvo.queue.api.dto.TicketDto;
 import com.zeyvo.queue.api.dto.TransferTicketRequest;
-import com.zeyvo.queue.domain.Ticket;
 import com.zeyvo.queue.domain.Ticket;
 import com.zeyvo.queue.service.TicketService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,10 +16,9 @@ import jakarta.persistence.PersistenceContext;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.security.Principal;
 import java.util.List;
 import java.util.UUID;
 
@@ -38,8 +38,8 @@ public class TicketController {
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Join a queue")
     public TicketDto take(@Valid @RequestBody TakeTicketRequest req,
-                          @AuthenticationPrincipal Principal principal) {
-        UUID customerId = principal != null ? UUID.fromString(principal.getName()) : null;
+                          @CurrentUser AuthPrincipal user) {
+        UUID customerId = user != null ? user.userId() : null;
         Ticket ticket = ticketService.takeTicket(req, customerId);
         return TicketDto.from(ticket);
     }
@@ -110,8 +110,8 @@ public class TicketController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Cancel a ticket")
     public void cancel(@PathVariable UUID id,
-                       @AuthenticationPrincipal Principal principal) {
-        UUID customerId = principal != null ? UUID.fromString(principal.getName()) : null;
+                       @CurrentUser AuthPrincipal user) {
+        UUID customerId = user != null ? user.userId() : null;
         ticketService.cancel(id, customerId);
     }
 
@@ -141,17 +141,17 @@ public class TicketController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Customer confirms they are present (resets no-show timer)")
     public void confirmPresence(@PathVariable UUID id,
-                                @AuthenticationPrincipal Principal principal) {
-        UUID customerId = principal != null ? UUID.fromString(principal.getName()) : null;
+                                @CurrentUser AuthPrincipal user) {
+        UUID customerId = user != null ? user.userId() : null;
         ticketService.confirmPresence(id, customerId);
     }
 
     @GetMapping("/my")
     @Operation(summary = "Authenticated user's ticket history (last 50)")
     @SuppressWarnings("unchecked")
-    public List<TicketDto> my(@AuthenticationPrincipal Principal principal) {
-        if (principal == null) return List.of();
-        UUID userId = UUID.fromString(principal.getName());
+    public List<TicketDto> my(@CurrentUser AuthPrincipal user) {
+        if (user == null) return List.of();
+        UUID userId = user.userId();
         List<com.zeyvo.queue.domain.Ticket> tickets = ticketService.getHistoryForUser(userId);
         if (tickets.isEmpty()) return List.of();
 
@@ -181,15 +181,18 @@ public class TicketController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Submit a satisfaction rating for a served ticket")
     public void rate(@PathVariable UUID id,
-                     @Valid @RequestBody RateTicketRequest req) {
-        ticketService.rate(id, req.stars(), req.comment());
+                     @Valid @RequestBody RateTicketRequest req,
+                     @CurrentUser AuthPrincipal user) {
+        ticketService.rate(id, req.stars(), req.comment(), user != null ? user.userId() : null);
     }
 
     @PostMapping("/{id}/transfer")
+    @PreAuthorize("hasAnyRole('OPERATOR', 'MANAGER', 'ORG_ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Transfer a waiting ticket to a specific window (operator/admin)")
     public TicketDto transfer(@PathVariable UUID id,
-                               @Valid @RequestBody TransferTicketRequest req) {
-        Ticket ticket = ticketService.transfer(id, req.toWindowId());
+                               @Valid @RequestBody TransferTicketRequest req,
+                               @CurrentUser AuthPrincipal user) {
+        Ticket ticket = ticketService.transfer(id, req.toWindowId(), user);
         return TicketDto.from(ticket);
     }
 }

@@ -1,6 +1,7 @@
 package com.zeyvo.realtime.config;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
@@ -15,6 +16,9 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final StompAuthInterceptor stompAuthInterceptor;
 
+    @Value("${zeyvo.cors.allowed-origins:https://zeyvo.tech,https://www.zeyvo.tech,http://localhost:3000}")
+    private String allowedOriginsRaw;
+
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
         registry.enableSimpleBroker("/topic", "/user");
@@ -25,11 +29,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns(
-                        "http://localhost:3000",
-                        "https://zeyvo.app",
-                        "https://www.zeyvo.app"
-                )
+                .setAllowedOriginPatterns(allowedOriginsRaw.split(","))
                 .withSockJS();
     }
 

@@ -1,6 +1,7 @@
 package com.zeyvo.auth.infra.security;
 
 import com.zeyvo.auth.service.JwtService;
+import com.zeyvo.common.web.AuthPrincipal;
 import com.zeyvo.common.web.TenantContext;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
@@ -17,6 +18,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
@@ -51,16 +53,20 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     }
 
     private void setAuthentication(Claims claims) {
-        List<SimpleGrantedAuthority> authorities = jwtService.roles(claims).stream()
+        List<String> roles = jwtService.roles(claims);
+        List<SimpleGrantedAuthority> authorities = roles.stream()
                 .map(r -> new SimpleGrantedAuthority("ROLE_" + r.toUpperCase()))
                 .toList();
 
-        var auth = new UsernamePasswordAuthenticationToken(
-                claims.getSubject(), // principal = userId string
-                null,
-                authorities
+        var principal = new AuthPrincipal(
+                jwtService.subjectAsUuid(claims),
+                jwtService.orgId(claims).orElse(null),
+                Set.copyOf(roles)
         );
-        auth.setDetails(claims); // full claims available via ((Claims) auth.getDetails())
+        var auth = new UsernamePasswordAuthenticationToken(principal, null, authorities);
+        // Keep claims in details temporarily — controllers that still use auth.getDetails()-as-Map
+        // (WindowController, AppointmentController adminList) continue to work during migration.
+        auth.setDetails(claims);
         SecurityContextHolder.getContext().setAuthentication(auth);
     }
 

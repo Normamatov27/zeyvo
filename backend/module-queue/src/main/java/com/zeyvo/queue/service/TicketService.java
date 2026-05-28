@@ -1,5 +1,6 @@
 package com.zeyvo.queue.service;
 
+import com.zeyvo.common.web.AuthPrincipal;
 import com.zeyvo.common.web.DomainException;
 import com.zeyvo.queue.api.dto.TakeTicketRequest;
 import com.zeyvo.queue.domain.Ticket;
@@ -124,16 +125,20 @@ public class TicketService {
                 .getResultList();
 
         if (results.isEmpty()) {
-            // Release any ticket currently being served on this window
             clearWindowCurrentTicket(windowId);
             return Optional.empty();
         }
 
+        // Reject if the window already has an active ticket — operator must serve or no-show first.
+        ticketRepository.findByWindowIdAndStatus(windowId, TicketStatus.CALLED)
+                .or(() -> ticketRepository.findByWindowIdAndStatus(windowId, TicketStatus.SERVING))
+                .ifPresent(busy -> {
+                    throw DomainException.conflict("queue.window_busy",
+                            "Window already has an active ticket. Serve or no-show it before calling the next.");
+                });
+
         Ticket ticket = results.get(0);
         Instant now = Instant.now();
-
-        // Auto-serve the ticket that was previously being served on this window
-        closeCurrentlyServingOnWindow(windowId, now);
 
         ticket.call(windowId, now);
 
@@ -160,6 +165,10 @@ public class TicketService {
     @Transactional
     public void markServed(UUID ticketId, UUID windowId) {
         Ticket ticket = getOrThrow(ticketId);
+        if (ticket.getWindowId() == null || !ticket.getWindowId().equals(windowId)) {
+            throw DomainException.conflict("ticket.wrong_window",
+                    "This ticket is not assigned to your window.");
+        }
         Instant now = Instant.now();
 
         long waitSeconds = ticket.getCalledAt() != null
@@ -182,6 +191,10 @@ public class TicketService {
     @Transactional
     public void markNoShow(UUID ticketId, UUID windowId) {
         Ticket ticket = getOrThrow(ticketId);
+        if (ticket.getWindowId() == null || !ticket.getWindowId().equals(windowId)) {
+            throw DomainException.conflict("ticket.wrong_window",
+                    "This ticket is not assigned to your window.");
+        }
         if (ticket.getStatus() != TicketStatus.CALLED) {
             log.debug("markNoShow skipped: ticket {} is in status {}", ticketId, ticket.getStatus());
             return;
@@ -251,8 +264,11 @@ public class TicketService {
     }
 
     @Transactional
-    public void rate(UUID ticketId, int stars, String comment) {
+    public void rate(UUID ticketId, int stars, String comment, UUID requesterId) {
         Ticket ticket = getOrThrow(ticketId);
+        if (requesterId == null || !requesterId.equals(ticket.getCustomerId())) {
+            throw DomainException.forbidden("Only the ticket owner can submit a rating.");
+        }
         if (ticket.getStatus() != TicketStatus.SERVED) {
             throw DomainException.conflict("ticket.not_served",
                     "Ticket must be in 'served' state to submit a rating.");
@@ -267,8 +283,21 @@ public class TicketService {
     }
 
     @Transactional
-    public Ticket transfer(UUID ticketId, UUID toWindowId) {
+    public Ticket transfer(UUID ticketId, UUID toWindowId, AuthPrincipal user) {
         Ticket ticket = getOrThrow(ticketId);
+        // Verify the ticket's branch belongs to the caller's org (SUPER_ADMIN bypasses)
+        if (!user.isSuperAdmin()) {
+            try {
+                UUID ticketOrg = (UUID) entityManager.createNativeQuery(
+                        "SELECT b.organization_id FROM app.branch b " +
+                        "JOIN app.service s ON s.branch_id = b.id WHERE s.id = :sid")
+                    .setParameter("sid", ticket.getServiceId())
+                    .getSingleResult();
+                if (!ticketOrg.equals(user.orgId())) {
+                    throw DomainException.forbidden("Ticket not in your organization.");
+                }
+            } catch (jakarta.persistence.NoResultException ignored) {}
+        }
         if (ticket.getStatus() != TicketStatus.WAITING && ticket.getStatus() != TicketStatus.CALLED) {
             throw DomainException.conflict("ticket.not_transferable",
                     "Only waiting or called tickets can be transferred.");
@@ -351,13 +380,6 @@ public class TicketService {
                 .setParameter("serviceCode", serviceCode)
                 .getSingleResult();
         return serviceCode + "-" + nextVal.intValue();
-    }
-
-    private void closeCurrentlyServingOnWindow(UUID windowId, Instant now) {
-        ticketRepository.findByWindowIdAndStatus(windowId, TicketStatus.SERVING)
-                .ifPresent(t -> t.markServed(now));
-        ticketRepository.findByWindowIdAndStatus(windowId, TicketStatus.CALLED)
-                .ifPresent(t -> t.markNoShow(now));
     }
 
     private void clearWindowCurrentTicket(UUID windowId) {

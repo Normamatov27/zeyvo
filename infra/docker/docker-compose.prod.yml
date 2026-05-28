@@ -24,7 +24,7 @@ services:
       - web
 
   backend:
-    image: zeyvo-backend:${IMAGE_TAG:-local}
+    image: ${BACKEND_IMAGE:-zeyvo-backend}:${IMAGE_TAG:-local}
     build:
       context: ../../backend
       dockerfile: ../infra/docker/Dockerfile.backend
@@ -62,7 +62,7 @@ services:
 
   web:
     # NEXT_PUBLIC_* are inlined at build time. Set them as build args (defaults below).
-    image: zeyvo-web:${IMAGE_TAG:-local}
+    image: ${WEB_IMAGE:-zeyvo-web}:${IMAGE_TAG:-local}
     build:
       context: ../..
       dockerfile: infra/docker/Dockerfile.web
