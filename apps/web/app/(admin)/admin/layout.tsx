@@ -4,10 +4,13 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+import { Menu } from "lucide-react";
 import { useAuthStore } from "@/stores/auth";
 import { apiFetch } from "@/lib/api";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Sheet, SheetContent, Button } from "@/components/ui";
+import { cn } from "@/lib/utils";
 
 const ADMIN_ROLES = new Set(["operator", "manager", "org_admin", "super_admin"]);
 
@@ -36,8 +39,8 @@ const GROUPS: {
       { href: "/admin/services",     label: "services",     minRole: "org_admin" },
       { href: "/admin/users",        label: "users",        minRole: "super_admin" },
       { href: "/admin/appointments", label: "appointments" },
-      { href: "/admin/windows",     label: "windows",      minRole: "manager" },
-      { href: "/admin/providers",   label: "providers",    minRole: "org_admin" },
+      { href: "/admin/windows",      label: "windows",      minRole: "manager" },
+      { href: "/admin/providers",    label: "providers",    minRole: "org_admin" },
       { href: "/admin/chat",         label: "chat",         minRole: "org_admin" },
     ],
   },
@@ -51,25 +54,155 @@ const GROUPS: {
   },
 ];
 
+// ─── Shared nav content ───────────────────────────────────────────────────────
+
+function NavContent({
+  rank,
+  roleKey,
+  displayRole,
+  profileName,
+  userId,
+  isSuper,
+  pathname,
+  onNavigate,
+  signOut,
+  t,
+}: {
+  rank: number;
+  roleKey: RoleKey;
+  displayRole: string;
+  profileName: string | null;
+  userId: string | null;
+  isSuper: boolean;
+  pathname: string;
+  onNavigate?: () => void;
+  signOut: () => void;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  return (
+    <>
+      {/* Wordmark */}
+      <div className="flex items-center gap-2 px-2.5 pb-3.5 border-b border-hairline mb-2.5">
+        <img src="/logo.jpg" alt="" className="logo-brand w-[22px] h-[22px] rounded-[5px] object-cover" />
+        <span className="text-sm font-bold tracking-tight">zeyvo</span>
+        <span className="text-[10px] text-fg-3 font-mono">admin</span>
+      </div>
+
+      {/* User pill */}
+      <div className="flex items-center gap-2 px-2.5 py-2 rounded-2 bg-surface-2 mb-3.5">
+        <div className="w-6 h-6 rounded-[6px] bg-[oklch(0.55_0.18_25)] text-white grid place-items-center text-xs font-semibold flex-shrink-0">
+          {(profileName ?? userId ?? "?").charAt(0).toUpperCase()}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[12.5px] font-semibold truncate">
+            {profileName ?? (userId?.slice(0, 8) + "…")}
+          </p>
+          <p className="text-[10px] text-fg-3 font-mono">{displayRole}</p>
+        </div>
+      </div>
+
+      {/* Nav groups */}
+      <div className="flex-1 overflow-auto">
+        {GROUPS.filter((g) => ROLE_RANK[g.minRole] <= rank).map((group) => {
+          const visibleItems = group.items.filter(
+            (i) => ROLE_RANK[i.minRole ?? "operator"] <= rank
+          );
+          if (visibleItems.length === 0) return null;
+          return (
+            <div key={group.group} className="mb-3.5">
+              <p className="px-2.5 pb-1.5 text-[10px] font-mono uppercase tracking-[0.06em] text-fg-4 font-medium">
+                {t(`groups.${group.group}`)}
+              </p>
+              {visibleItems.map((item) => {
+                const active =
+                  pathname === item.href || pathname.startsWith(item.href + "/");
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href as any}
+                    onClick={onNavigate}
+                    className={cn(
+                      "flex items-center gap-2 px-2.5 py-[7px] rounded-[6px] text-[13px] no-underline mb-px transition-colors",
+                      active
+                        ? "bg-primary-soft text-primary font-medium"
+                        : "text-fg-2 hover:bg-surface-2 hover:text-fg"
+                    )}
+                  >
+                    <span className="flex-1">{t(`items.${item.label}`)}</span>
+                    {item.live && (
+                      <span className="flex items-center gap-1 text-[10px] font-semibold text-success bg-success-soft px-1.5 py-0.5 rounded-pill">
+                        <span className="w-1 h-1 rounded-full bg-success" />
+                        live
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Bottom utilities */}
+      <div className="pt-2.5 border-t border-hairline flex flex-col gap-2 mt-auto">
+        <ThemeToggle />
+        <LocaleSwitcher />
+      </div>
+
+      {/* Sign out + links */}
+      <div className="pt-3 border-t border-hairline mt-1 flex flex-col gap-1">
+        <Link
+          href={"/admin/payment" as any}
+          onClick={onNavigate}
+          className="block px-2.5 py-2 rounded-[6px] bg-warning-soft text-warning text-xs font-medium no-underline"
+        >
+          Upgrade plan →
+        </Link>
+        {isSuper && (
+          <Link
+            href="/platform"
+            onClick={onNavigate}
+            className="block px-2.5 py-2 rounded-[6px] bg-primary-soft text-primary text-xs font-medium no-underline"
+          >
+            {t("platformAdmin")} →
+          </Link>
+        )}
+        <button
+          onClick={() => { signOut(); onNavigate?.(); }}
+          className="w-full px-2.5 py-2 rounded-[6px] text-left text-xs text-fg-3 hover:bg-surface-2 hover:text-fg transition-colors"
+        >
+          {t("signOut")}
+        </button>
+      </div>
+    </>
+  );
+}
+
+// ─── Layout ───────────────────────────────────────────────────────────────────
+
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { roles, userId, clear, _hydrated } = useAuthStore();
   const [profileName, setProfileName] = useState<string | null>(null);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const t = useTranslations("admin");
 
-  // Auth gate + operator redirect (must run before early returns to satisfy hooks rules)
   useEffect(() => {
     if (!_hydrated) return;
     if (!userId || !roles.some((r) => ADMIN_ROLES.has(r))) {
       router.replace(`/sign-in?redirect=${encodeURIComponent(pathname)}` as any);
       return;
     }
-    const isOp = roles.includes("operator") && !roles.includes("manager") && !roles.includes("org_admin") && !roles.includes("super_admin");
+    const isOp =
+      roles.includes("operator") &&
+      !roles.includes("manager") &&
+      !roles.includes("org_admin") &&
+      !roles.includes("super_admin");
     if (isOp && pathname !== "/admin/queue" && !pathname.startsWith("/admin/queue/")) {
       router.replace("/admin/queue");
     }
-  }, [_hydrated, userId, roles, pathname]);
+  }, [_hydrated, userId, roles, pathname, router]);
 
   useEffect(() => {
     if (!_hydrated || !userId) return;
@@ -85,15 +218,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (!_hydrated) {
     return (
-      <div style={{ padding: 40, textAlign: "center", color: "var(--color-fg-3)" }}>
+      <div className="flex items-center justify-center h-screen text-fg-3 text-sm">
         Loading…
       </div>
     );
   }
+
   if (!userId || !roles.some((r) => ADMIN_ROLES.has(r))) {
     return (
-      <div style={{ padding: 40, textAlign: "center", color: "var(--color-fg-3)" }}>
-        Redirecting to sign-in…
+      <div className="flex items-center justify-center h-screen text-fg-3 text-sm">
+        Redirecting…
       </div>
     );
   }
@@ -107,167 +241,57 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const displayRole = t(`roles.${roleKey}`);
   const isSuper = roles.includes("super_admin");
 
+  const navProps = {
+    rank, roleKey, displayRole, profileName, userId, isSuper,
+    pathname, signOut, t,
+  };
 
   return (
-    <div style={{ display: "flex", height: "100svh", overflow: "hidden" }}>
-      {/* Mobile gate — admin is desktop-only */}
-      <style>{`
-        @media (max-width: 900px) {
-          .admin-root { display: none !important; }
-          .admin-mobile-gate { display: flex !important; }
-        }
-      `}</style>
-      <div className="admin-mobile-gate" style={{
-        display: "none", position: "fixed", inset: 0, zIndex: 9999,
-        background: "var(--color-bg)", flexDirection: "column",
-        alignItems: "center", justifyContent: "center",
-        padding: 32, textAlign: "center", gap: 16,
-      }}>
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none"
-          stroke="var(--color-fg-3)" strokeWidth="1.5" strokeLinecap="round">
-          <rect x="2" y="3" width="20" height="14" rx="2"/>
-          <path d="M8 21h8M12 17v4"/>
-        </svg>
-        <div style={{ fontSize: 17, fontWeight: 600 }}>Open on a larger screen</div>
-        <div style={{ fontSize: 13, color: "var(--color-fg-3)", maxWidth: 280, lineHeight: 1.5 }}>
-          The admin panel is designed for desktop. Please open it on a device with a screen wider than 900px.
-        </div>
-      </div>
-      <div className="admin-root" style={{ display: "flex", width: "100%", height: "100%", overflow: "hidden" }}>
-      {/* Sidebar */}
-      <aside style={{
-        width: 220, flexShrink: 0,
-        background: "var(--color-surface)",
-        borderRight: "1px solid var(--color-hairline)",
-        display: "flex", flexDirection: "column",
-        padding: "14px 10px",
-      }}>
-        {/* Wordmark */}
-        <div style={{
-          padding: "6px 10px 14px",
-          borderBottom: "1px solid var(--color-hairline)",
-          marginBottom: 10,
-        }}>
-          <img src="/logo.jpg" alt="" className="logo-brand" style={{ width: 22, height: 22, borderRadius: 5, objectFit: "cover" }}/>
-          <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: -0.4 }}>zeyvo</span>
-          <span style={{ fontSize: 10, color: "var(--color-fg-3)", marginLeft: 2, fontFamily: "var(--font-mono)" }}>admin</span>
-        </div>
+    <div className="flex h-svh overflow-hidden">
 
-        {/* User pill */}
-        <div style={{
-          display: "flex", alignItems: "center", gap: 8,
-          padding: "8px 10px", borderRadius: 8,
-          background: "var(--color-surface-2)", marginBottom: 14,
-        }}>
-          <div style={{
-            width: 26, height: 26, borderRadius: 6,
-            background: "oklch(0.55 0.18 25)", color: "#fff",
-            display: "grid", placeItems: "center",
-            fontSize: 12, fontWeight: 600, flex: "none",
-          }}>
-            {(profileName ?? userId ?? "?").charAt(0).toUpperCase()}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 12.5, fontWeight: 600, textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
-              {profileName ?? userId?.slice(0, 8) + "…"}
-            </div>
-            <div style={{ fontSize: 10, color: "var(--color-fg-3)",
-              fontFamily: "var(--font-mono)" }}>{displayRole}</div>
-          </div>
-        </div>
-
-        {/* Nav groups */}
-        {GROUPS.filter((g) => ROLE_RANK[g.minRole] <= rank).map((group) => {
-          const visibleItems = group.items.filter((i) => ROLE_RANK[i.minRole ?? "operator"] <= rank);
-          if (visibleItems.length === 0) return null;
-          return (
-          <div key={group.group} style={{ marginBottom: 14 }}>
-            <div style={{
-              padding: "4px 10px 6px",
-              fontSize: 10, fontFamily: "var(--font-mono)",
-              textTransform: "uppercase", letterSpacing: 0.6,
-              color: "var(--color-fg-4)", fontWeight: 500,
-            }}>{t(`groups.${group.group}`)}</div>
-            {visibleItems.map((item) => {
-              const active = pathname === item.href || pathname.startsWith(item.href + "/");
-              return (
-                <Link key={item.href} href={item.href as any} style={{
-                  display: "flex", alignItems: "center", gap: 8,
-                  padding: "7px 10px", borderRadius: 6,
-                  fontSize: 13, textDecoration: "none",
-                  background: active ? "var(--color-primary-soft)" : "transparent",
-                  color: active ? "var(--color-primary)" : "var(--color-fg-2)",
-                  fontWeight: active ? 500 : 400,
-                  marginBottom: 1,
-                }}>
-                  <span style={{ flex: 1 }}>{t(`items.${item.label}`)}</span>
-                  {item.live && (
-                    <span style={{
-                      display: "flex", alignItems: "center", gap: 3,
-                      fontSize: 10, fontWeight: 600,
-                      color: "var(--color-success)",
-                      background: "var(--color-success-soft)",
-                      padding: "2px 6px", borderRadius: 999,
-                    }}>
-                      <span style={{ width: 5, height: 5, borderRadius: "50%",
-                        background: "var(--color-success)" }}/>
-                      live
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
-          );
-        })}
-
-        {/* Theme + Locale (push to bottom) */}
-        <div style={{ marginTop: "auto", padding: "10px 4px 12px", borderTop: "1px solid var(--color-hairline)", display: "flex", flexDirection: "column", gap: 8 }}>
-          <ThemeToggle/>
-          <LocaleSwitcher/>
-        </div>
-
-        {/* Sign out + super_admin shortcut */}
-        <div style={{ paddingTop: 12,
-          borderTop: "1px solid var(--color-hairline)" }}>
-          <Link href="/admin/payment" style={{
-            display: "block", padding: "8px 10px", borderRadius: 6,
-            background: "var(--color-warning-soft)",
-            color: "var(--color-warning)",
-            fontSize: 12, fontWeight: 500,
-            textDecoration: "none", marginBottom: 6,
-          }}>
-            Upgrade plan →
-          </Link>
-          {isSuper && (
-            <Link href="/platform" style={{
-              display: "block", padding: "8px 10px", borderRadius: 6,
-              background: "var(--color-primary-soft)",
-              color: "var(--color-primary)",
-              fontSize: 12, fontWeight: 500,
-              textDecoration: "none", marginBottom: 6,
-            }}>
-              {t("platformAdmin")} →
-            </Link>
-          )}
-          <button
-            onClick={signOut}
-            style={{
-              width: "100%", padding: "8px 10px", borderRadius: 6,
-              background: "none", border: "none",
-              color: "var(--color-fg-3)", fontSize: 12,
-              cursor: "pointer", textAlign: "left",
-            }}
-          >
-            {t("signOut")}
-          </button>
-        </div>
+      {/* ── Desktop sidebar (≥1024px) ── */}
+      <aside className="hidden lg:flex w-[220px] flex-shrink-0 flex-col bg-surface border-r border-hairline p-3.5 overflow-auto">
+        <NavContent {...navProps} />
       </aside>
 
-      {/* Main content */}
-      <main style={{ flex: 1, overflow: "auto", background: "var(--color-bg)" }}>
-        {children}
-      </main>
+      {/* ── Mobile nav drawer (< 1024px) ── */}
+      <Sheet
+        open={mobileNavOpen}
+        onOpenChange={setMobileNavOpen}
+        side="right"
+        className="w-[260px]"
+      >
+        <SheetContent className="flex flex-col h-full py-4 px-3">
+          <NavContent
+            {...navProps}
+            onNavigate={() => setMobileNavOpen(false)}
+          />
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Main area ── */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+
+        {/* Mobile top bar (< 1024px) */}
+        <div className="lg:hidden flex items-center h-12 px-4 border-b border-hairline bg-surface flex-shrink-0 gap-3">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <img src="/logo.jpg" alt="" className="logo-brand w-5 h-5 rounded-[4px] object-cover" />
+            <span className="text-sm font-bold tracking-tight">zeyvo</span>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => setMobileNavOpen(true)}
+            aria-label="Open navigation"
+          >
+            <Menu size={18} />
+          </Button>
+        </div>
+
+        {/* Page content */}
+        <main className="flex-1 overflow-auto bg-bg">
+          {children}
+        </main>
       </div>
     </div>
   );

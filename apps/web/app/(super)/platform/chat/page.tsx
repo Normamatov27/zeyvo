@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth";
-import { getStompClient } from "@/lib/realtime";
+import { getStompClient, onStompConnect } from "@/lib/realtime";
 
 interface Conversation {
   id: string;
@@ -106,10 +106,9 @@ export default function PlatformChatPage() {
       });
     };
 
-    if (stomp.connected) subscribe();
-    else stomp.onConnect = subscribe;
-
+    const unsub = onStompConnect(subscribe);
     return () => {
+      unsub();
       subRef.current?.unsubscribe();
     };
   }, [_hydrated, userId, accessToken]);

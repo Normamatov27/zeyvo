@@ -75,6 +75,87 @@ public class AuthorizationService {
         throw DomainException.forbidden("Provider not in your organization.");
     }
 
+    /**
+     * Appointment → branch → organization_id.
+     * Only the appointment's owning org or SUPER_ADMIN may mutate/read it.
+     */
+    public void requireAppointmentInOrg(AuthPrincipal user, UUID appointmentId) {
+        if (user.isSuperAdmin()) return;
+        UUID callerOrg = requireOrgId(user);
+        try {
+            UUID org = (UUID) em.createNativeQuery(
+                    "SELECT b.organization_id FROM app.appointment a " +
+                    "JOIN app.branch b ON b.id = a.branch_id WHERE a.id = :aid")
+                .setParameter("aid", appointmentId)
+                .getSingleResult();
+            if (callerOrg.equals(org)) return;
+        } catch (NoResultException ignored) {}
+        throw DomainException.forbidden("Appointment not in your organization.");
+    }
+
+    /**
+     * Device → branch → organization_id.
+     * Only the device's owning org or SUPER_ADMIN may manage it.
+     */
+    public void requireDeviceInOrg(AuthPrincipal user, UUID deviceId) {
+        if (user.isSuperAdmin()) return;
+        UUID callerOrg = requireOrgId(user);
+        try {
+            UUID org = (UUID) em.createNativeQuery(
+                    "SELECT b.organization_id FROM app.device d " +
+                    "JOIN app.branch b ON b.id = d.branch_id WHERE d.id = :did")
+                .setParameter("did", deviceId)
+                .getSingleResult();
+            if (callerOrg.equals(org)) return;
+        } catch (NoResultException ignored) {}
+        throw DomainException.forbidden("Device not in your organization.");
+    }
+
+    /**
+     * Chat conversation access:
+     *   type=support → only SUPER_ADMIN
+     *   type=org     → SUPER_ADMIN, or org admin/manager whose orgId matches conv.org_id
+     * Returns the conversation's orgId (or null for support convs) after verification.
+     */
+    public UUID requireConversationAccess(AuthPrincipal user, UUID convId) {
+        Object[] row;
+        try {
+            row = (Object[]) em.createNativeQuery(
+                    "SELECT type, org_id FROM app.chat_conversation WHERE id = :cid")
+                .setParameter("cid", convId)
+                .getSingleResult();
+        } catch (NoResultException e) {
+            throw DomainException.notFound("Conversation", convId);
+        }
+        String type  = (String) row[0];
+        UUID   orgId = row[1] != null ? (UUID) row[1] : null;
+
+        if ("support".equals(type)) {
+            if (!user.isSuperAdmin()) throw DomainException.forbidden("Only super-admins may access support conversations.");
+            return null;
+        }
+        // org conversation
+        if (user.isSuperAdmin()) return orgId;
+        UUID callerOrg = requireOrgId(user);
+        if (!callerOrg.equals(orgId)) throw DomainException.forbidden("Conversation not in your organization.");
+        return orgId;
+    }
+
+    /**
+     * Verifies that the target window belongs to the same branch as expectedBranchId.
+     * Used by ticket transfer to prevent cross-branch window assignment.
+     */
+    public void requireWindowInBranch(UUID windowId, UUID expectedBranchId) {
+        try {
+            UUID branchId = (UUID) em.createNativeQuery(
+                    "SELECT branch_id FROM app.window_desk WHERE id = :wid")
+                .setParameter("wid", windowId)
+                .getSingleResult();
+            if (expectedBranchId.equals(branchId)) return;
+        } catch (NoResultException ignored) {}
+        throw DomainException.forbidden("Target window is not in the ticket's branch.");
+    }
+
     /** Extracts orgId — throws 403 FORBIDDEN if the caller has no org (e.g. super-admin without org). */
     public UUID requireOrgId(AuthPrincipal user) {
         UUID orgId = user.orgId();

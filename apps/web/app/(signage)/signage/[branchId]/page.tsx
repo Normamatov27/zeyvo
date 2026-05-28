@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { apiFetchAnon } from "@/lib/api";
 import { BranchDetail, Ticket } from "@/lib/types";
-import { getStompClient, subscribeBranchQueue } from "@/lib/realtime";
+import { subscribeBranchQueue } from "@/lib/realtime";
 
 function playSignageAlert() {
   try {
@@ -32,7 +32,7 @@ export default function SignagePage() {
   const [flashIds, setFlashIds] = useState<Set<string>>(new Set());
   const [time, setTime] = useState(new Date());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const subRef = useRef<{ unsubscribe: () => void } | null>(null);
+  const subRef = useRef<(() => void) | null>(null);
   const prevServingIds = useRef<Set<string>>(new Set());
 
   function updateTickets(newTickets: Ticket[]) {
@@ -89,19 +89,14 @@ export default function SignagePage() {
     }
     load();
 
-    const stomp = getStompClient();
-    const connect = () => {
-      subRef.current = subscribeBranchQueue(stomp, branchId, () => loadTickets());
-    };
-    if (stomp.connected) connect();
-    else stomp.onConnect = connect;
+    subRef.current = subscribeBranchQueue(branchId, () => loadTickets());
 
     timerRef.current = setInterval(loadTickets, 20_000);
     const clock = setInterval(() => setTime(new Date()), 1_000);
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       clearInterval(clock);
-      subRef.current?.unsubscribe();
+      subRef.current?.();
     };
   }, [branchId]);
 

@@ -3,6 +3,7 @@ import "./globals.css";
 import ThemeBootstrap from "./ThemeBootstrap";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
+import { Toaster } from "@/components/ui";
 
 export const metadata: Metadata = {
   title: { default: "zeyvo", template: "%s · zeyvo" },
@@ -32,6 +33,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <NextIntlClientProvider locale={locale} messages={messages}>
           <ThemeBootstrap />
           {children}
+          <Toaster />
         </NextIntlClientProvider>
       </body>
     </html>

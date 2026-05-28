@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth";
 import { useUiStore } from "@/stores/ui";
-import { getStompClient } from "@/lib/realtime";
+import { getStompClient, onStompConnect } from "@/lib/realtime";
 
 interface ChatMsg {
   id: string;
@@ -61,9 +61,8 @@ export function ChatWidget() {
         } catch {}
       });
     };
-    if (stomp.connected) subscribe();
-    else stomp.onConnect = subscribe;
-    return () => { subRef.current?.unsubscribe(); };
+    const unsub = onStompConnect(subscribe);
+    return () => { unsub(); subRef.current?.unsubscribe(); };
   }, [_hydrated, userId, accessToken]);
 
   // Scroll to bottom on new messages

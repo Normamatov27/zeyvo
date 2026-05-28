@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { apiFetch } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth";
-import { getStompClient } from "@/lib/realtime";
+import { getStompClient, onStompConnect } from "@/lib/realtime";
 
 interface Conversation {
   id: string;
@@ -66,22 +66,19 @@ export default function AdminChatPage() {
         try {
           const payload = JSON.parse(msg.body) as ChatMsg & { type: string };
           if (payload.type === "chat.message") {
-            // Add to messages if conversation is open
             setMessages((prev) => {
               if (selected?.id === payload.conversationId && !prev.some((m) => m.id === payload.id)) {
                 return [...prev, payload];
               }
               return prev;
             });
-            // Refresh conversation list for updated_at
             loadConversations();
           }
         } catch {}
       });
     };
-    if (stomp.connected) subscribe();
-    else stomp.onConnect = subscribe;
-    return () => { subRef.current?.unsubscribe(); };
+    const unsub = onStompConnect(subscribe);
+    return () => { unsub(); subRef.current?.unsubscribe(); };
   }, [accessToken, isSuper, orgId, selected?.id, loadConversations]);
 
   useEffect(() => {

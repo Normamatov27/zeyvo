@@ -1,7 +1,11 @@
 package com.zeyvo.realtime.config;
 
 import com.zeyvo.auth.service.JwtService;
+import com.zeyvo.common.web.AuthPrincipal;
 import io.jsonwebtoken.Claims;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.NoResultException;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.Message;
@@ -10,15 +14,31 @@ import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
- * Validates JWT on STOMP CONNECT. Unauthenticated connections may only subscribe
- * to public topics (branch queue/signage). Ops topics require at least OPERATOR role.
+ * STOMP channel interceptor that:
+ * 1. On CONNECT — validates JWT and sets a typed AuthPrincipal as the session user.
+ * 2. On SUBSCRIBE — enforces per-topic authorization rules.
+ *
+ * Topic authorization matrix:
+ *   /topic/signage/{branchId}           — public (wall display)
+ *   /topic/branches/{branchId}/queue    — public (customer queue view)
+ *   /topic/branches/{branchId}/ops      — staff role + branch in caller's org
+ *   /topic/tickets/{ticketId}           — authenticated (owner or staff — server filters events)
+ *   /topic/chat/support                 — SUPER_ADMIN only
+ *   /topic/chat/org/{orgId}             — SUPER_ADMIN or matching org staff
+ *   /user/**                            — authenticated (Spring user-destination, principal-scoped)
  */
 @Component
 @RequiredArgsConstructor
@@ -27,7 +47,16 @@ public class StompAuthInterceptor implements ChannelInterceptor {
 
     private final JwtService jwtService;
 
+    @PersistenceContext
+    private EntityManager em;
+
+    private static final Pattern BRANCH_OPS  = Pattern.compile("^/topic/branches/([^/]+)/ops$");
+    private static final Pattern CHAT_ORG    = Pattern.compile("^/topic/chat/org/([^/]+)$");
+    private static final Pattern TICKETS     = Pattern.compile("^/topic/tickets/([^/]+)$");
+    private static final Pattern USER_DEST   = Pattern.compile("^/user/");
+
     @Override
+    @Transactional(readOnly = true)
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
         StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
         if (accessor == null) return message;
@@ -38,31 +67,133 @@ public class StompAuthInterceptor implements ChannelInterceptor {
                 String token = authHeader.substring(7);
                 jwtService.parseSafe(token).ifPresentOrElse(
                         claims -> accessor.setUser(buildPrincipal(claims)),
-                        () -> log.debug("STOMP CONNECT with invalid JWT token")
+                        () -> log.debug("STOMP CONNECT with invalid/expired JWT")
                 );
             }
+            // No token → anonymous connection; only public topics will be allowed below.
         }
 
         if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
             String dest = accessor.getDestination();
-            if (dest != null && dest.contains("/ops")) {
-                // Ops topics require authentication
-                if (accessor.getUser() == null) {
-                    log.warn("STOMP: unauthenticated subscription attempt to ops topic: {}", dest);
-                    throw new org.springframework.security.access.AccessDeniedException(
-                            "Authentication required to subscribe to ops topics");
-                }
-            }
+            if (dest == null) return message;
+
+            AuthPrincipal actor = extractActor(accessor);
+            authorizeSubscription(dest, actor);
         }
 
         return message;
     }
 
+    // ── Authorization ──────────────────────────────────────────────────────────
+
+    private void authorizeSubscription(String dest, AuthPrincipal actor) {
+        // Public topics — no auth required
+        if (dest.startsWith("/topic/signage/") ||
+            dest.startsWith("/topic/branches/") && dest.endsWith("/queue")) {
+            return;
+        }
+
+        // Ops: staff in the branch's org
+        Matcher opsMatcher = BRANCH_OPS.matcher(dest);
+        if (opsMatcher.matches()) {
+            requireAuthenticated(actor, dest);
+            if (!actor.isStaff()) {
+                deny("Ops topics require staff role", dest);
+            }
+            UUID branchId = parseUuid(opsMatcher.group(1), dest);
+            requireBranchInOrg(actor, branchId, dest);
+            return;
+        }
+
+        // Ticket topic: authenticated (server filters events by owner/staff anyway)
+        if (TICKETS.matcher(dest).matches()) {
+            requireAuthenticated(actor, dest);
+            return;
+        }
+
+        // Chat: support (SUPER_ADMIN), org (matching org staff)
+        if ("/topic/chat/support".equals(dest)) {
+            requireAuthenticated(actor, dest);
+            if (!actor.isSuperAdmin()) deny("Only super-admins may subscribe to support chat", dest);
+            return;
+        }
+
+        Matcher chatOrgMatcher = CHAT_ORG.matcher(dest);
+        if (chatOrgMatcher.matches()) {
+            requireAuthenticated(actor, dest);
+            if (actor.isSuperAdmin()) return;
+            UUID topicOrgId = parseUuid(chatOrgMatcher.group(1), dest);
+            if (actor.orgId() == null || !actor.orgId().equals(topicOrgId)) {
+                deny("Chat org topic not in your organization", dest);
+            }
+            if (!actor.isStaff()) deny("Chat admin topics require staff role", dest);
+            return;
+        }
+
+        // User-destination (Spring-managed, principal-scoped): require authentication
+        if (USER_DEST.matcher(dest).matches()) {
+            requireAuthenticated(actor, dest);
+            return;
+        }
+
+        // Unknown destination — deny by default (fail-closed)
+        log.warn("STOMP: unknown destination, denying: {}", dest);
+        throw new AccessDeniedException("Unknown subscription destination: " + dest);
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────────────
+
+    private AuthPrincipal extractActor(StompHeaderAccessor accessor) {
+        if (accessor.getUser() instanceof UsernamePasswordAuthenticationToken token &&
+            token.getPrincipal() instanceof AuthPrincipal p) {
+            return p;
+        }
+        return null; // anonymous
+    }
+
+    private void requireAuthenticated(AuthPrincipal actor, String dest) {
+        if (actor == null) {
+            log.warn("STOMP: unauthenticated subscription denied: {}", dest);
+            throw new AccessDeniedException("Authentication required for: " + dest);
+        }
+    }
+
+    private void deny(String reason, String dest) {
+        log.warn("STOMP: subscription denied ({}) for: {}", reason, dest);
+        throw new AccessDeniedException(reason);
+    }
+
+    private void requireBranchInOrg(AuthPrincipal actor, UUID branchId, String dest) {
+        if (actor.isSuperAdmin()) return;
+        if (actor.orgId() == null) deny("No org in token", dest);
+        try {
+            UUID branchOrg = (UUID) em.createNativeQuery(
+                    "SELECT organization_id FROM app.branch WHERE id = :bid")
+                .setParameter("bid", branchId)
+                .getSingleResult();
+            if (actor.orgId().equals(branchOrg)) return;
+        } catch (NoResultException ignored) {}
+        deny("Branch not in your organization", dest);
+    }
+
+    private UUID parseUuid(String s, String dest) {
+        try {
+            return UUID.fromString(s);
+        } catch (IllegalArgumentException e) {
+            deny("Invalid UUID in destination", dest);
+            throw new IllegalStateException("unreachable");
+        }
+    }
+
     private UsernamePasswordAuthenticationToken buildPrincipal(Claims claims) {
-        List<SimpleGrantedAuthority> authorities = jwtService.roles(claims).stream()
+        List<String> roles = jwtService.roles(claims);
+        List<SimpleGrantedAuthority> authorities = roles.stream()
                 .map(r -> new SimpleGrantedAuthority("ROLE_" + r.toUpperCase()))
                 .toList();
-        var auth = new UsernamePasswordAuthenticationToken(claims.getSubject(), null, authorities);
+        UUID userId = jwtService.subjectAsUuid(claims);
+        UUID orgId  = jwtService.orgId(claims).orElse(null);
+        var principal = new AuthPrincipal(userId, orgId, Set.copyOf(roles));
+        var auth = new UsernamePasswordAuthenticationToken(principal, null, authorities);
         auth.setDetails(claims);
         return auth;
     }

@@ -8,6 +8,7 @@ import com.zeyvo.queue.api.dto.TicketDto;
 import com.zeyvo.queue.api.dto.TransferTicketRequest;
 import com.zeyvo.queue.domain.Ticket;
 import com.zeyvo.queue.service.TicketService;
+import com.zeyvo.tenant.service.AuthorizationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -30,6 +31,7 @@ import java.util.UUID;
 public class TicketController {
 
     private final TicketService ticketService;
+    private final AuthorizationService authz;
 
     @PersistenceContext
     private EntityManager em;
@@ -45,9 +47,23 @@ public class TicketController {
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Get ticket status")
-    public TicketDto get(@PathVariable UUID id) {
+    @Operation(summary = "Get ticket status (owner or branch staff)")
+    public TicketDto get(@PathVariable UUID id,
+                         @CurrentUser AuthPrincipal user) {
         var ticket = ticketService.getOrThrow(id);
+
+        // Owner always allowed; anonymous (null user) or wrong owner → 403 unless staff-in-org
+        if (user == null) {
+            throw com.zeyvo.common.web.DomainException.forbidden("Authentication required to view ticket details.");
+        }
+        boolean isOwner = ticket.getCustomerId() != null && ticket.getCustomerId().equals(user.userId());
+        if (!isOwner && !user.isStaff()) {
+            throw com.zeyvo.common.web.DomainException.forbidden("Not your ticket.");
+        }
+        if (!isOwner && user.isStaff()) {
+            // Staff must be in the ticket's branch's org
+            authz.requireBranchInOrg(user, ticket.getBranchId());
+        }
 
         Integer position = null;
         Integer etaMinutes = null;

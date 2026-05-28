@@ -218,7 +218,11 @@
     "joined": "qo'shildi",
     "back_home": "Bosh sahifaga",
     "try_again": "Qayta urinish",
-    "loading_ticket": "Talon yuklanmoqda"
+    "loading_ticket": "Talon yuklanmoqda",
+    "called_heading": "Sizning navbatingiz!",
+    "go_to_window": "{window}-oynaga o'ting",
+    "im_here": "✋ Men shu yerdaman",
+    "position": "joy"
   },
   "branch": {
     "occupancy": "Filial bandligi",
@@ -296,6 +300,10 @@
       "source_kiosk": "Shaxsan · Kiosk",
       "source_remote": "Masofadan · Onlayn"
     },
+    "sign_in_required": "Bu taloni ko'rish uchun kiring",
+    "load_error": "Taloni yuklab bo'lmadi",
+    "served_message": "Xizmat ko'rsatildi!",
+    "served_sub": "Zeyvodan foydalanganingiz uchun rahmat.",
     "cancel": "Navbatdan chiqish",
     "cancelling": "Bekor qilinmoqda…",
     "find_another": "Boshqa navbat topish",
@@ -313,7 +321,8 @@
     },
     "qr": {
       "hint": "Taloningizni tasdiqlash uchun kiosk yoki operatorga ko'rsating",
-      "close": "Yopish"
+      "close": "Yopish",
+      "show": "QR-kodni ko'rsatish"
     }
   },
   "appointments": {

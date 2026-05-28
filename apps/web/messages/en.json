@@ -218,7 +218,11 @@
     "joined": "joined",
     "back_home": "Back to home",
     "try_again": "Try again",
-    "loading_ticket": "Loading your ticket"
+    "loading_ticket": "Loading your ticket",
+    "called_heading": "It's your turn!",
+    "go_to_window": "Please go to Window {window}",
+    "im_here": "✋ I'm here",
+    "position": "position"
   },
   "branch": {
     "occupancy": "Branch occupancy",
@@ -296,6 +300,10 @@
       "source_kiosk": "Walk-in · Kiosk",
       "source_remote": "Remote · Online"
     },
+    "sign_in_required": "Please sign in to view this ticket",
+    "load_error": "Couldn't load this ticket",
+    "served_message": "You've been served!",
+    "served_sub": "Thanks for using zeyvo. We hope your visit went well.",
     "cancel": "Cancel ticket",
     "cancelling": "Cancelling…",
     "find_another": "Find another queue",
@@ -313,7 +321,8 @@
     },
     "qr": {
       "hint": "Show this at the kiosk or window to verify your ticket",
-      "close": "Close"
+      "close": "Close",
+      "show": "Show QR code"
     }
   },
   "appointments": {

@@ -3,6 +3,7 @@ package com.zeyvo.queue.service;
 import com.zeyvo.common.web.AuthPrincipal;
 import com.zeyvo.common.web.DomainException;
 import com.zeyvo.queue.api.dto.TakeTicketRequest;
+import com.zeyvo.tenant.service.AuthorizationService;
 import com.zeyvo.queue.domain.Ticket;
 import com.zeyvo.queue.domain.TicketStatus;
 import com.zeyvo.queue.events.TicketCalled;
@@ -35,6 +36,7 @@ public class TicketService {
     private final TicketRepository ticketRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final HeuristicEtaEstimator etaEstimator;
+    private final AuthorizationService authz;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -302,6 +304,8 @@ public class TicketService {
             throw DomainException.conflict("ticket.not_transferable",
                     "Only waiting or called tickets can be transferred.");
         }
+        // Target window must be in the same branch as the ticket
+        authz.requireWindowInBranch(toWindowId, ticket.getBranchId());
         ticket.setStatus(TicketStatus.WAITING);
         ticket.setWindowId(toWindowId);
         ticket.setCalledAt(null);

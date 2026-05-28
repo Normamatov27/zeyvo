@@ -4,14 +4,18 @@ import com.zeyvo.adapter.api.dto.DeviceResponse;
 import com.zeyvo.adapter.api.dto.RegisterDeviceRequest;
 import com.zeyvo.adapter.domain.Device;
 import com.zeyvo.adapter.service.DeviceService;
+import com.zeyvo.common.web.AuthPrincipal;
+import com.zeyvo.common.web.CurrentUser;
 import com.zeyvo.queue.api.dto.TakeTicketRequest;
 import com.zeyvo.queue.service.TicketService;
 import com.zeyvo.tenant.domain.QueueService;
+import com.zeyvo.tenant.service.AuthorizationService;
 import com.zeyvo.tenant.service.TenantService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -27,11 +31,18 @@ public class DeviceController {
     private final DeviceService deviceService;
     private final TicketService ticketService;
     private final TenantService tenantService;
+    private final AuthorizationService authz;
 
-    /** Register a new device. The one-time raw API token is returned in config._raw_token. */
+    /**
+     * Register a new device. Requires staff+ role scoped to the target branch's org.
+     * The one-time raw API token is returned in config._raw_token — capture it now.
+     */
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
-    public DeviceResponse register(@Valid @RequestBody RegisterDeviceRequest req) {
+    @PreAuthorize("hasAnyRole('MANAGER', 'ORG_ADMIN', 'SUPER_ADMIN')")
+    public DeviceResponse register(@Valid @RequestBody RegisterDeviceRequest req,
+                                    @CurrentUser AuthPrincipal user) {
+        authz.requireBranchInOrg(user, req.branchId());
         Device device = deviceService.register(
                 req.branchId(), req.kind(), req.adapter(),
                 req.config() != null ? req.config() : Map.of()
@@ -50,10 +61,15 @@ public class DeviceController {
         deviceService.heartbeat(id, sha256(token));
     }
 
-    /** List all devices registered to a branch (admin use). */
+    /** List devices registered to a branch (staff in same org only; config stripped). */
     @GetMapping
-    public List<DeviceResponse> list(@RequestParam UUID branchId) {
-        return deviceService.listByBranch(branchId).stream().map(DeviceResponse::from).toList();
+    @PreAuthorize("hasAnyRole('MANAGER', 'ORG_ADMIN', 'SUPER_ADMIN')")
+    public List<DeviceResponse> list(@RequestParam UUID branchId,
+                                     @CurrentUser AuthPrincipal user) {
+        authz.requireBranchInOrg(user, branchId);
+        return deviceService.listByBranch(branchId).stream()
+                .map(DeviceResponse::fromSafe)
+                .toList();
     }
 
     /**

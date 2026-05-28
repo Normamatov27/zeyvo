@@ -61,30 +61,35 @@ public class AppointmentController {
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Get appointment by ID")
-    public AppointmentDto get(@PathVariable UUID id) {
-        return service.getById(id);
+    @Operation(summary = "Get appointment by ID (owner or staff in same org)")
+    public AppointmentDto get(@PathVariable UUID id,
+                              @CurrentUser AuthPrincipal user) {
+        return service.getById(id, user);
     }
 
     @PostMapping("/{id}/cancel")
     @Operation(summary = "Cancel an appointment (owner or staff)")
     public AppointmentDto cancel(@PathVariable UUID id,
                                  @CurrentUser AuthPrincipal user) {
-        Appointment appt = service.cancel(id, user.userId(), user.roles());
+        Appointment appt = service.cancel(id, user.userId(), user.roles(), user);
         return AppointmentDto.from(appt);
     }
 
     @PostMapping("/{id}/confirm")
     @PreAuthorize("hasAnyRole('MANAGER', 'ORG_ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Admin: confirm a booked appointment")
-    public AppointmentDto confirm(@PathVariable UUID id) {
+    public AppointmentDto confirm(@PathVariable UUID id,
+                                  @CurrentUser AuthPrincipal user) {
+        authz.requireAppointmentInOrg(user, id);
         return AppointmentDto.from(service.confirm(id));
     }
 
     @PostMapping("/{id}/check-in")
     @PreAuthorize("hasAnyRole('OPERATOR', 'MANAGER', 'ORG_ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Admin: check in an appointment (booked/confirmed → checked_in)")
-    public AppointmentDto checkIn(@PathVariable UUID id) {
+    public AppointmentDto checkIn(@PathVariable UUID id,
+                                  @CurrentUser AuthPrincipal user) {
+        authz.requireAppointmentInOrg(user, id);
         return AppointmentDto.from(service.checkIn(id));
     }
 
@@ -93,6 +98,7 @@ public class AppointmentController {
     @Operation(summary = "Admin: start serving — creates a live queue ticket (checked_in → in_progress)")
     public TicketDto startServing(@PathVariable UUID id,
                                   @CurrentUser AuthPrincipal user) {
+        authz.requireAppointmentInOrg(user, id);
         Ticket ticket = service.startServing(id, user.userId());
         return TicketDto.from(ticket);
     }
@@ -100,7 +106,9 @@ public class AppointmentController {
     @PostMapping("/{id}/no-show")
     @PreAuthorize("hasAnyRole('OPERATOR', 'MANAGER', 'ORG_ADMIN', 'SUPER_ADMIN')")
     @Operation(summary = "Admin: mark appointment as no-show")
-    public AppointmentDto noShow(@PathVariable UUID id) {
+    public AppointmentDto noShow(@PathVariable UUID id,
+                                 @CurrentUser AuthPrincipal user) {
+        authz.requireAppointmentInOrg(user, id);
         return AppointmentDto.from(service.markNoShow(id));
     }
 

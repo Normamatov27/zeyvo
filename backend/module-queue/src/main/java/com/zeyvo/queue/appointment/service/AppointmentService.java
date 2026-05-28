@@ -1,5 +1,6 @@
 package com.zeyvo.queue.appointment.service;
 
+import com.zeyvo.common.web.AuthPrincipal;
 import com.zeyvo.common.web.DomainException;
 import com.zeyvo.queue.appointment.api.dto.AppointmentDto;
 import com.zeyvo.queue.appointment.api.dto.BookAppointmentRequest;
@@ -109,10 +110,23 @@ public class AppointmentService {
         return appt;
     }
 
+    /**
+     * Appointment detail is visible to the owner or staff in the same org.
+     * A staff caller must have their org match the appointment's branch org.
+     */
     @Transactional(readOnly = true)
-    public AppointmentDto getById(UUID id) {
+    public AppointmentDto getById(UUID id, AuthPrincipal caller) {
         Appointment appt = repo.findById(id)
                 .orElseThrow(() -> new DomainException("appointment.not_found", "Appointment not found", HttpStatus.NOT_FOUND));
+        boolean isOwner = appt.getCustomerId().equals(caller.userId());
+        boolean isStaff = caller.isStaff();
+        if (!isOwner && !isStaff) {
+            throw DomainException.forbidden("Not your appointment.");
+        }
+        if (isStaff && !isOwner) {
+            // Staff must belong to the same org as the appointment's branch
+            requireAppointmentInOrg(caller, id, appt);
+        }
         return enrich(appt);
     }
 
@@ -131,7 +145,7 @@ public class AppointmentService {
     }
 
     @Transactional
-    public Appointment cancel(UUID id, UUID requesterId, Set<String> requesterRoles) {
+    public Appointment cancel(UUID id, UUID requesterId, Set<String> requesterRoles, AuthPrincipal caller) {
         Appointment appt = repo.findById(id)
                 .orElseThrow(() -> new DomainException("appointment.not_found", "Appointment not found", HttpStatus.NOT_FOUND));
 
@@ -140,6 +154,10 @@ public class AppointmentService {
 
         if (!isStaff && !appt.getCustomerId().equals(requesterId)) {
             throw new DomainException("appointment.forbidden", "Not your appointment", HttpStatus.FORBIDDEN);
+        }
+        // Staff cancellation must be within the same org (owner-cancel skips this)
+        if (isStaff && !appt.getCustomerId().equals(requesterId)) {
+            requireAppointmentInOrg(caller, id, appt);
         }
 
         Set<AppointmentStatus> cancellable = Set.of(AppointmentStatus.BOOKED, AppointmentStatus.CONFIRMED);
@@ -428,4 +446,23 @@ public class AppointmentService {
     }
 
     public record SlotInfo(Instant time, boolean available) {}
+
+    /**
+     * Verifies the appointment's branch belongs to the caller's org.
+     * Accepts a pre-loaded Appointment to avoid a second DB round-trip when the caller already has it.
+     * SUPER_ADMIN bypass is handled by the caller (AuthorizationService.requireAppointmentInOrg or directly).
+     */
+    private void requireAppointmentInOrg(AuthPrincipal caller, UUID appointmentId, Appointment appt) {
+        if (caller.isSuperAdmin()) return;
+        UUID callerOrg = caller.orgId();
+        if (callerOrg == null) throw DomainException.forbidden("No organisation in token.");
+        try {
+            UUID branchOrg = (UUID) em.createNativeQuery(
+                    "SELECT organization_id FROM app.branch WHERE id = :bid")
+                .setParameter("bid", appt.getBranchId())
+                .getSingleResult();
+            if (callerOrg.equals(branchOrg)) return;
+        } catch (jakarta.persistence.NoResultException ignored) {}
+        throw DomainException.forbidden("Appointment not in your organization.");
+    }
 }
