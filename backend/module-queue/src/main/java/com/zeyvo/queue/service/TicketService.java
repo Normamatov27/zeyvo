@@ -19,6 +19,8 @@ import com.zeyvo.queue.events.TicketServed;
 import com.zeyvo.queue.events.TicketServingStarted;
 import com.zeyvo.queue.events.TicketTransferred;
 import com.zeyvo.queue.infra.repository.TicketRepository;
+import com.zeyvo.tenant.domain.WindowDesk;
+import com.zeyvo.tenant.infra.WindowDeskRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +43,7 @@ import java.util.UUID;
 public class TicketService {
 
     private final TicketRepository ticketRepository;
+    private final WindowDeskRepository windowDeskRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final HeuristicEtaEstimator etaEstimator;
     private final AuthorizationService authz;
@@ -51,11 +54,11 @@ public class TicketService {
 
     @Transactional
     public Ticket takeTicket(TakeTicketRequest req, UUID customerId) {
-        // Look up org and branch capacity from DB (never trust client-provided capacity)
+        // Look up org, capacity, and active flag from DB (never trust client-provided values)
         Object[] branchRow;
         try {
             branchRow = (Object[]) entityManager.createNativeQuery(
-                    "SELECT organization_id, capacity FROM app.branch WHERE id = :id")
+                    "SELECT organization_id, capacity, active FROM app.branch WHERE id = :id")
                 .setParameter("id", req.branchId())
                 .getSingleResult();
         } catch (jakarta.persistence.NoResultException e) {
@@ -64,6 +67,25 @@ public class TicketService {
         }
         UUID orgId = (UUID) branchRow[0];
         int branchCapacity = branchRow[1] != null ? ((Number) branchRow[1]).intValue() : 100;
+        boolean branchActive = branchRow[2] == null || (Boolean) branchRow[2];
+        if (!branchActive) {
+            throw DomainException.conflict("branch.inactive", "This branch is not currently accepting tickets.");
+        }
+
+        // Validate service: must exist, belong to this branch, and be active
+        Object[] serviceRow;
+        try {
+            serviceRow = (Object[]) entityManager.createNativeQuery(
+                    "SELECT s.code FROM app.service s WHERE s.id = :sid AND s.branch_id = :bid AND s.active = true")
+                .setParameter("sid", req.serviceId())
+                .setParameter("bid", req.branchId())
+                .getSingleResult();
+        } catch (jakarta.persistence.NoResultException e) {
+            throw new com.zeyvo.common.web.DomainException(
+                    "service.not_found", "Service not found, inactive, or does not belong to this branch.",
+                    org.springframework.http.HttpStatus.NOT_FOUND);
+        }
+        String serviceCode = (String) serviceRow[0];
 
         // Anti-abuse: 1 active ticket per branch per customer
         if (customerId != null && ticketRepository.countActiveByCustomerAndBranch(customerId, req.branchId()) > 0) {
@@ -89,7 +111,8 @@ public class TicketService {
         checkBranchIsOpen(req.branchId());
 
         // Generate unique sequential ticket number atomically via ON CONFLICT DO UPDATE
-        String number = generateTicketNumber(req.branchId(), req.serviceCode());
+        // Use the server-derived serviceCode, not the client-provided value
+        String number = generateTicketNumber(req.branchId(), serviceCode);
 
         Ticket ticket = Ticket.builder()
                 .id(UUID.randomUUID())
@@ -123,15 +146,25 @@ public class TicketService {
      */
     @Transactional
     public Optional<Ticket> callNext(UUID windowId, UUID branchId, int windowNumber) {
+        // Prefer a ticket that was explicitly pinned to this window (transfer-to-window),
+        // then fall back to the branch-wide head of queue.
         @SuppressWarnings("unchecked")
         List<Ticket> results = entityManager.createNativeQuery("""
-                SELECT * FROM app.ticket
-                WHERE branch_id = :branchId AND status = 'waiting'
-                ORDER BY priority DESC, joined_at ASC
+                (SELECT * FROM app.ticket
+                 WHERE branch_id = :branchId AND status = 'waiting' AND window_id = :windowId
+                 ORDER BY priority DESC, joined_at ASC
+                 LIMIT 1
+                 FOR UPDATE SKIP LOCKED)
+                UNION ALL
+                (SELECT * FROM app.ticket
+                 WHERE branch_id = :branchId AND status = 'waiting' AND window_id IS NULL
+                 ORDER BY priority DESC, joined_at ASC
+                 LIMIT 1
+                 FOR UPDATE SKIP LOCKED)
                 LIMIT 1
-                FOR UPDATE SKIP LOCKED
                 """, Ticket.class)
                 .setParameter("branchId", branchId)
+                .setParameter("windowId", windowId)
                 .getResultList();
 
         if (results.isEmpty()) {
@@ -148,8 +181,22 @@ public class TicketService {
                 });
 
         Ticket ticket = results.get(0);
-        Instant now = Instant.now();
 
+        // Validate that this window is configured to serve the ticket's service.
+        // Service code is the prefix of the ticket number (e.g. "A" from "A-101").
+        // Windows with an empty serviceCodes list are general-purpose and accept any service.
+        String ticketServiceCode = ticket.getNumber().contains("-")
+                ? ticket.getNumber().split("-")[0] : null;
+        if (ticketServiceCode != null) {
+            windowDeskRepository.findById(windowId).ifPresent(window -> {
+                if (!window.handlesService(ticketServiceCode)) {
+                    throw DomainException.conflict("queue.window_service_mismatch",
+                            "This window is not configured to serve service '" + ticketServiceCode + "'.");
+                }
+            });
+        }
+
+        Instant now = Instant.now();
         ticket.call(windowId, now);
 
         // Update window_desk.serving_ticket atomically
@@ -454,6 +501,10 @@ public class TicketService {
         }
         // Target window must be in the same branch as the ticket
         authz.requireWindowInBranch(toWindowId, ticket.getBranchId());
+        // Clear the old window's serving_ticket pointer if this was a CALLED ticket
+        if (ticket.getWindowId() != null && ticket.getStatus() == TicketStatus.CALLED) {
+            clearWindowCurrentTicket(ticket.getWindowId());
+        }
         ticket.setStatus(TicketStatus.WAITING);
         ticket.setWindowId(toWindowId);
         ticket.setCalledAt(null);
