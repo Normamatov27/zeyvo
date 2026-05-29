@@ -105,9 +105,12 @@ public class StompAuthInterceptor implements ChannelInterceptor {
             return;
         }
 
-        // Ticket topic: authenticated (server filters events by owner/staff anyway)
-        if (TICKETS.matcher(dest).matches()) {
+        // Ticket topic: authenticated + either the ticket's owner or staff of the ticket's org
+        Matcher ticketMatcher = TICKETS.matcher(dest);
+        if (ticketMatcher.matches()) {
             requireAuthenticated(actor, dest);
+            UUID ticketId = parseUuid(ticketMatcher.group(1), dest);
+            requireTicketAccess(actor, ticketId, dest);
             return;
         }
 
@@ -161,6 +164,22 @@ public class StompAuthInterceptor implements ChannelInterceptor {
     private void deny(String reason, String dest) {
         log.warn("STOMP: subscription denied ({}) for: {}", reason, dest);
         throw new AccessDeniedException(reason);
+    }
+
+    private void requireTicketAccess(AuthPrincipal actor, UUID ticketId, String dest) {
+        if (actor.isSuperAdmin()) return;
+        try {
+            Object[] row = (Object[]) em.createNativeQuery(
+                    "SELECT customer_id, organization_id FROM app.ticket WHERE id = :tid")
+                .setParameter("tid", ticketId)
+                .getSingleResult();
+            UUID customerId = (UUID) row[0];
+            UUID ticketOrgId = (UUID) row[1];
+            // Allow if: caller is the ticket owner, or caller is staff in the ticket's org
+            if (actor.userId().equals(customerId)) return;
+            if (actor.isStaff() && actor.orgId() != null && actor.orgId().equals(ticketOrgId)) return;
+        } catch (NoResultException ignored) {}
+        deny("Not authorized to subscribe to this ticket's events", dest);
     }
 
     private void requireBranchInOrg(AuthPrincipal actor, UUID branchId, String dest) {

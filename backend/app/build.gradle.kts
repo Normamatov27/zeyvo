@@ -27,6 +27,7 @@ dependencies {
     implementation(libs.springdoc.openapi)
     implementation(libs.micrometer.prometheus)
     implementation(libs.bucket4j.core)
+    implementation(libs.bucket4j.redis)
     implementation(libs.shedlock.spring)
     implementation(libs.shedlock.jdbc)
     runtimeOnly(libs.jjwt.impl)

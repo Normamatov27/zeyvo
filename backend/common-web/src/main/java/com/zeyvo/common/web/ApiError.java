@@ -18,7 +18,7 @@ public record ApiError(
 ) {
     public static ApiError of(int status, String code, String detail, String traceId) {
         return new ApiError(
-                "https://zeyvo.app/errors/" + code.replace('.', '/'),
+                "https://zeyvo.tech/errors/" + code.replace('.', '/'),
                 toTitle(code),
                 status,
                 code,

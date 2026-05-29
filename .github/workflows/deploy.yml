@@ -1,14 +1,16 @@
 name: Deploy to production
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
     branches: [main]
-    tags: ["v*"]
 
 jobs:
   build-and-push:
     name: Build & push images
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     permissions:
       contents: read
       packages: write
@@ -69,6 +71,17 @@ jobs:
             sed -i "s|^WEB_IMAGE=.*|WEB_IMAGE=ghcr.io/${{ github.repository }}/web|" .env 2>/dev/null || \
               echo "WEB_IMAGE=ghcr.io/${{ github.repository }}/web" >> .env
             docker compose -f infra/docker/docker-compose.prod.yml pull backend web
+            # Store previous tag for rollback
+            PREV_TAG=$(grep "^IMAGE_TAG=" .env | cut -d= -f2 || echo "")
             docker compose -f infra/docker/docker-compose.prod.yml up -d backend web
-            until docker exec zeyvo-backend wget -qO- http://localhost:8080/api/actuator/health 2>/dev/null; do sleep 3; done
+            # Wait for backend health
+            ATTEMPTS=0
+            until docker exec zeyvo-backend wget -qO- http://localhost:8080/api/actuator/health 2>/dev/null | grep -q '"status":"UP"'; do
+              ATTEMPTS=$((ATTEMPTS+1))
+              if [ $ATTEMPTS -ge 20 ]; then echo "Health check timeout"; exit 1; fi
+              sleep 3
+            done
+            # Smoke tests
+            curl -sf https://zeyvo.tech/api/actuator/health > /dev/null || { echo "SMOKE FAIL: health"; exit 1; }
+            curl -sf https://zeyvo.tech/api/v1/branches > /dev/null || { echo "SMOKE FAIL: branches"; exit 1; }
             echo "Deploy complete: ${{ github.sha }}"

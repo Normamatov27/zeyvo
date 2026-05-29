@@ -37,20 +37,27 @@ public class RequestCorrelationFilter extends OncePerRequestFilter {
             MDC.put(TRACE_ID_KEY, traceId);
             res.setHeader("X-Trace-Id", traceId);
 
-            chain.doFilter(req, res);
+            // Enrich MDC before the chain so log lines during request processing carry tenant/user context.
+            // JwtAuthFilter runs at AUTHENTICATION order (before the filter chain body), so the principal
+            // is available here if the request carries a valid JWT.
+            Authentication preAuth = SecurityContextHolder.getContext().getAuthentication();
+            enrichMdc(preAuth);
 
-            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal())) {
-                if (auth.getDetails() instanceof java.util.Map<?, ?> claims) {
-                    Object orgId = claims.get("org_id");
-                    if (orgId != null) MDC.put(TENANT_ID_KEY, orgId.toString());
-                }
-                MDC.put(USER_ID_KEY, auth.getName());
-            }
+            chain.doFilter(req, res);
         } finally {
             MDC.remove(TRACE_ID_KEY);
             MDC.remove(TENANT_ID_KEY);
             MDC.remove(USER_ID_KEY);
+        }
+    }
+
+    private void enrichMdc(Authentication auth) {
+        if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal())) {
+            if (auth.getDetails() instanceof java.util.Map<?, ?> claims) {
+                Object orgId = claims.get("org_id");
+                if (orgId != null) MDC.put(TENANT_ID_KEY, orgId.toString());
+            }
+            MDC.put(USER_ID_KEY, auth.getName());
         }
     }
 

@@ -43,6 +43,8 @@ export async function apiFetch<T = unknown>(
   const headers = new Headers(init.headers);
   headers.set("Content-Type", "application/json");
   if (resolvedToken) headers.set("Authorization", `Bearer ${resolvedToken}`);
+  // Propagate W3C trace context so backend logs correlate to frontend requests.
+  headers.set("X-Request-Id", crypto.randomUUID());
 
   // 30s request timeout — prevents the UI from hanging on a network stall.
   const controller = new AbortController();

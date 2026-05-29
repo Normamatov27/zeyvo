@@ -1,30 +1,35 @@
 package com.zeyvo.common.web;
 
 import io.github.bucket4j.Bandwidth;
-import io.github.bucket4j.Bucket;
-import io.github.bucket4j.ConsumptionProbe;
-import io.github.bucket4j.Refill;
+import io.github.bucket4j.BucketConfiguration;
+import io.github.bucket4j.distributed.ExpirationAfterWriteStrategy;
+import io.github.bucket4j.distributed.proxy.ProxyManager;
+import io.github.bucket4j.redis.lettuce.cas.LettuceBasedProxyManager;
+import io.lettuce.core.RedisClient;
+import io.lettuce.core.api.StatefulRedisConnection;
+import io.lettuce.core.codec.ByteArrayCodec;
+import io.lettuce.core.codec.RedisCodec;
+import io.lettuce.core.codec.StringCodec;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.annotation.Order;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.time.Duration;
-import java.time.Instant;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 /**
- * In-memory rate limiting per (category, client-IP).
+ * Distributed rate limiting per (category, client-IP) backed by Redis.
+ * Works correctly across multiple app instances; state survives JVM restarts.
  * Enabled only when zeyvo.rate-limit.enabled=true (production).
- * Switch to bucket4j-redis backend when running multiple JVM instances.
  */
 @Component
 @ConditionalOnProperty(name = "zeyvo.rate-limit.enabled", havingValue = "true")
@@ -32,15 +37,16 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class RateLimitFilter extends OncePerRequestFilter {
 
-    private record BucketEntry(Bucket bucket, Instant lastUsed) {}
-    private final ConcurrentHashMap<String, BucketEntry> buckets = new ConcurrentHashMap<>();
+    private final ProxyManager<String> proxyManager;
 
-    /** Evict entries not accessed in the last 2 hours to prevent unbounded growth. */
-    @Scheduled(fixedDelay = 3_600_000)
-    void evictStaleBuckets() {
-        Instant cutoff = Instant.now().minus(Duration.ofHours(2));
-        buckets.entrySet().removeIf(e -> e.getValue().lastUsed().isBefore(cutoff));
-        log.debug("Rate-limit bucket eviction complete; remaining: {}", buckets.size());
+    public RateLimitFilter(@Qualifier("rateLimitRedisClient") RedisClient redisClient) {
+        StatefulRedisConnection<String, byte[]> connection =
+                redisClient.connect(RedisCodec.of(StringCodec.UTF8, ByteArrayCodec.INSTANCE));
+
+        this.proxyManager = LettuceBasedProxyManager.builderFor(connection)
+                .withExpirationStrategy(
+                        ExpirationAfterWriteStrategy.basedOnTimeForRefillingBucketUpToMax(Duration.ofHours(2)))
+                .build();
     }
 
     @Override
@@ -50,7 +56,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         String path   = req.getRequestURI();
         String method = req.getMethod();
 
-        // Health / actuator pass-through — never rate-limit monitoring probes
+        // Health / actuator — never rate-limit monitoring probes
         if (path.startsWith("/actuator") || "/api/v1/health".equals(path)) {
             chain.doFilter(req, res);
             return;
@@ -58,14 +64,19 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
         String ip       = resolveIp(req);
         String category = resolveCategory(method, path);
-        String key      = category + ":" + ip;
-        BucketEntry entry = buckets.compute(key, (k, existing) ->
-                existing != null
-                        ? new BucketEntry(existing.bucket(), Instant.now())
-                        : new BucketEntry(createBucket(category), Instant.now()));
-        Bucket bucket = entry.bucket();
+        String key      = "rl:" + category + ":" + ip;
 
-        ConsumptionProbe probe = bucket.tryConsumeAndReturnRemaining(1);
+        Supplier<BucketConfiguration> configSupplier = () ->
+                BucketConfiguration.builder().addLimit(configFor(category)).build();
+
+        io.github.bucket4j.ConsumptionProbe probe;
+        try {
+            probe = proxyManager.builder().build(key, configSupplier).tryConsumeAndReturnRemaining(1);
+        } catch (Exception redisEx) {
+            log.warn("[rate-limit] Redis unavailable — allowing request through (fail-open): {}", redisEx.getMessage());
+            chain.doFilter(req, res);
+            return;
+        }
         if (probe.isConsumed()) {
             res.setHeader("X-RateLimit-Remaining", String.valueOf(probe.getRemainingTokens()));
             chain.doFilter(req, res);
@@ -76,7 +87,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
             res.setHeader("Retry-After", String.valueOf(retryAfterSec));
             res.setContentType("application/json;charset=UTF-8");
             res.getWriter().write(
-                    "{\"type\":\"https://zeyvo.app/errors/rate-limit\"," +
+                    "{\"type\":\"https://zeyvo.tech/errors/rate-limit\"," +
                     "\"title\":\"Too Many Requests\",\"status\":429," +
                     "\"code\":\"rate_limit.exceeded\"," +
                     "\"detail\":\"Rate limit exceeded. Please wait " + retryAfterSec + "s before retrying.\"}"
@@ -85,7 +96,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     private String resolveIp(HttpServletRequest req) {
-        // Respect Cloudflare / nginx X-Forwarded-For
         String xff = req.getHeader("X-Forwarded-For");
         if (xff != null && !xff.isBlank()) return xff.split(",")[0].trim();
         return req.getRemoteAddr();
@@ -93,27 +103,21 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private String resolveCategory(String method, String path) {
         if ("POST".equalsIgnoreCase(method)) {
-            if (path.contains("/auth/otp/"))    return "otp";      // 5/hr — SMS spam prevention
-            if (path.matches(".*/v1/auth/.*"))  return "auth";     // 30/5min — brute-force prevention
-            if (path.matches(".*/v1/tickets$")) return "ticket";   // 10/5min — anti-queue-spam
-            if (path.contains("/webhook"))      return "webhook";  // 60/min — hardware adapters
+            if (path.contains("/auth/otp/"))    return "otp";
+            if (path.matches(".*/v1/auth/.*"))  return "auth";
+            if (path.matches(".*/v1/tickets$")) return "ticket";
+            if (path.contains("/webhook"))      return "webhook";
         }
-        return "default"; // 120/min — all other endpoints
+        return "default";
     }
 
-    private Bucket createBucket(String category) {
+    private Bandwidth configFor(String category) {
         return switch (category) {
-            case "otp"     -> bucket(20,  Duration.ofHours(1));
-            case "auth"    -> bucket(30,  Duration.ofMinutes(5));
-            case "ticket"  -> bucket(10,  Duration.ofMinutes(5));
-            case "webhook" -> bucket(60,  Duration.ofMinutes(1));
-            default        -> bucket(120, Duration.ofMinutes(1));
+            case "otp"     -> Bandwidth.builder().capacity(20).refillIntervally(20,  Duration.ofHours(1)).build();
+            case "auth"    -> Bandwidth.builder().capacity(30).refillIntervally(30,  Duration.ofMinutes(5)).build();
+            case "ticket"  -> Bandwidth.builder().capacity(10).refillIntervally(10,  Duration.ofMinutes(5)).build();
+            case "webhook" -> Bandwidth.builder().capacity(60).refillIntervally(60,  Duration.ofMinutes(1)).build();
+            default        -> Bandwidth.builder().capacity(120).refillIntervally(120, Duration.ofMinutes(1)).build();
         };
-    }
-
-    private static Bucket bucket(long capacity, Duration period) {
-        return Bucket.builder()
-                .addLimit(Bandwidth.classic(capacity, Refill.intervally(capacity, period)))
-                .build();
     }
 }

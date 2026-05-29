@@ -75,10 +75,10 @@ Required values to set (everything else has a working default):
 ```bash
 apt install -y certbot
 # Point your DNS A records first:
-#   zeyvo.app   → droplet IP
-#   api.zeyvo.app → droplet IP
+#   zeyvo.tech   → droplet IP
+#   www.zeyvo.tech → droplet IP
 
-certbot certonly --standalone -d zeyvo.app -d api.zeyvo.app
+certbot certonly --standalone -d zeyvo.tech -d www.zeyvo.tech
 
 # Auto-renew (cron already handles this via certbot timer, verify):
 systemctl status certbot.timer
@@ -103,10 +103,10 @@ Flyway runs automatically on backend startup and applies all migrations.
 
 **Smoke test:**
 ```bash
-curl https://api.zeyvo.app/api/actuator/health
+curl https://zeyvo.tech/api/actuator/health
 # → {"status":"UP"}
 
-curl https://api.zeyvo.app/api/v1/branches
+curl https://zeyvo.tech/api/v1/branches
 # → []  (empty until seed data added)
 ```
 
@@ -117,8 +117,8 @@ curl https://api.zeyvo.app/api/v1/branches
 Run once after first deploy:
 
 ```bash
-curl -X POST "https://api.zeyvo.app/api/v1/integrations/telegram/register-webhook?url=https://api.zeyvo.app"
-# → Webhook registered: https://api.zeyvo.app/api/v1/integrations/telegram/webhook
+curl -X POST "https://zeyvo.tech/api/v1/integrations/telegram/register-webhook?url=https://zeyvo.tech"
+# → Webhook registered: https://zeyvo.tech/api/v1/integrations/telegram/webhook
 ```
 
 ---
@@ -203,11 +203,11 @@ In your GitHub repo → Settings → Secrets → Actions:
 | `DROPLET_USER` | `root` |
 | `DROPLET_SSH_KEY` | private key contents (`cat ~/.ssh/id_rsa`) |
 
-In your GitHub repo → Settings → Variables → Actions (optional — defaults to `wss://api.zeyvo.app`):
+In your GitHub repo → Settings → Variables → Actions (optional — defaults to `wss://zeyvo.tech`):
 
 | Variable | Value | Notes |
 |---|---|---|
-| `NEXT_PUBLIC_WS_URL` | e.g. `wss://api.zeyvo.app` | Inlined into the web bundle at build time |
+| `NEXT_PUBLIC_WS_URL` | e.g. `wss://zeyvo.tech` | Inlined into the web bundle at build time |
 | `NEXT_PUBLIC_TG_BOT_USERNAME` | e.g. `zeyvo_bot` | Inlined into the web bundle at build time |
 
 > ⚠️ `NEXT_PUBLIC_*` values are baked into the Next.js bundle during `docker build`.
